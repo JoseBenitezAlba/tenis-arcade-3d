@@ -10,6 +10,8 @@ var banner_sub: Label
 var hint: Label
 var popup_pool := []
 var cam: Camera3D
+var replay_tag: Label
+var replay_t := 0.0
 
 func _ready() -> void:
     layer = 10
@@ -117,6 +119,23 @@ func update_score(M: Dictionary) -> void:
         var base: String = name_labels[i].get_meta("base")
         name_labels[i].text = ("● " if M.server == i else "  ") + base
 
+func show_replay() -> void:
+    if replay_tag == null:
+        replay_tag = Label.new()
+        replay_tag.text = "  REPETICION"
+        replay_tag.position = Vector2(14, 12)
+        replay_tag.add_theme_font_size_override("font_size", 24)
+        replay_tag.add_theme_color_override("font_color", Color(1, 1, 1))
+        replay_tag.add_theme_color_override("font_outline_color", Color(0.5, 0, 0, 0.9))
+        replay_tag.add_theme_constant_override("outline_size", 6)
+        add_child(replay_tag)
+    replay_tag.visible = true
+    replay_t = 0.0
+
+func hide_replay() -> void:
+    if replay_tag != null:
+        replay_tag.visible = false
+
 func show_banner(txt: String, sub: String, color: Color) -> void:
     banner.text = txt
     banner.add_theme_color_override("font_color", color)
@@ -143,6 +162,9 @@ func popup(txt: String, wp: Vector3, color: Color) -> void:
             return
 
 func _process(dt: float) -> void:
+    if replay_tag != null and replay_tag.visible:
+        replay_t += dt
+        replay_tag.modulate.a = 1.0 if fmod(replay_t, 0.9) < 0.6 else 0.35
     for p in popup_pool:
         if p.active:
             p.age += dt
