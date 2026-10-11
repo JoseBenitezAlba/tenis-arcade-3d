@@ -18,6 +18,37 @@ static func _box(sx: float, sy: float, sz: float, mat: Material) -> MeshInstance
     mi.mesh = bm
     return mi
 
+
+# Figura real (Quaternius CC0) con animación en bucle para oficiales.
+static func _fbx_figure(model: String, shirt: Color, pants: Color, skin: Color, anim: String, hair := Color("#3a2a18")) -> Node3D:
+    var inst: Node3D = (load(model) as PackedScene).instantiate()
+    inst.scale = Vector3.ONE * 0.806
+    var ap: AnimationPlayer = inst.find_child("AnimationPlayer", true, false)
+    if ResourceLoader.exists("res://models/tennis_anims.tres"):
+        ap.add_animation_library("tennis", load("res://models/tennis_anims.tres"))
+    var stack := [inst]
+    while stack.size() > 0:
+        var n = stack.pop_back()
+        for c in n.get_children(): stack.append(c)
+        if n is MeshInstance3D and n.mesh:
+            for i in n.mesh.get_surface_count():
+                var m = n.mesh.surface_get_material(i)
+                var nm: String = (m.resource_name if m else "").to_lower()
+                var col := Color.WHITE
+                if "skin" in nm or "face" in nm: col = skin
+                elif "shirt" in nm: col = shirt
+                elif "pants" in nm or "belt" in nm: col = pants
+                elif "hair" in nm: col = hair
+                else: continue
+                var mm := StandardMaterial3D.new()
+                mm.albedo_color = col
+                mm.roughness = 0.8
+                n.set_surface_override_material(i, mm)
+    ap.play(anim, 0.0)
+    # desincronizar fases entre copias
+    ap.seek(randf() * 2.0, true)
+    return inst
+
 static func _figure(shirt_c: Color, skin_c: Color, shorts_c: Color, pose: String) -> Node3D:
     var root := Node3D.new()
     var shirt := _mat(shirt_c)
@@ -272,8 +303,8 @@ static func build(surface: String, day: bool = false) -> Node3D:
     var step1 := _box(0.5, 0.04, 0.15, white)
     step1.position = Vector3(0.45, 1.0, 0)
     chair.add_child(step1)
-    var umpire := _figure(Color("#2a3a6a"), Color("#d9a37a"), Color("#f0f0f0"), "seated")
-    umpire.position = Vector3(0, 2.14, 0)
+    var umpire := _fbx_figure("res://models/OldClassy_Male.fbx", Color("#2a3a6a"), Color("#f0f0f0"), Color("#d9a37a"), "tennis/Sitting_Idle")
+    umpire.position = Vector3(0, 2.02, 0)
     chair.add_child(umpire)
     # jueces de linea sentados en las esquinas
     var judge_cols := [Color("#274070"), Color("#274070"), Color("#274070"), Color("#274070")]
@@ -289,12 +320,12 @@ static func build(surface: String, day: bool = false) -> Node3D:
         var jback := _box(0.5, 0.4, 0.06, green)
         jback.position = Vector3(0, 0.62, -0.22)
         jchair.add_child(jback)
-        var judge := _figure(judge_cols[ji], Color("#c98d62"), Color("#222a40"), "seated")
-        judge.position = Vector3(0, 0.45, 0.02)
+        var judge := _fbx_figure("res://models/Suit_Male.fbx", judge_cols[ji], Color("#222a40"), Color("#c98d62"), "tennis/Sitting_Idle")
+        judge.position = Vector3(0, 0.34, 0.02)
         jchair.add_child(judge)
     # recogepelotas arrodillados junto a los postes
     for s in [-1, 1]:
-        var bb := _figure(Color("#b36a00"), Color("#e6b48a"), Color("#222a40"), "kneel")
+        var bb := _fbx_figure("res://models/Casual2_Male.fbx" if s < 0 else "res://models/Casual3_Female.fbx", Color("#b36a00"), Color("#222a40"), Color("#e6b48a"), "tennis/Crouch_Idle")
         bb.position = Vector3(s * 5.7, 0, NZ - 0.8)
         bb.rotation.y = -s * PI / 2.0
         root.add_child(bb)
