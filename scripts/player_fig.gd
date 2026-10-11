@@ -35,7 +35,13 @@ static func _mat_kind(color: Color, kind: String) -> StandardMaterial3D:
     var m := StandardMaterial3D.new()
     m.albedo_color = color
     match kind:
-        "skin", "face":
+        "face":
+            m.roughness = 0.55
+            m.rim_enabled = true
+            m.rim = 0.18
+            m.rim_tint = 0.3
+            m.disable_receive_shadows = true
+        "skin":
             m.roughness = 0.55
             m.rim_enabled = true
             m.rim = 0.35
@@ -79,11 +85,11 @@ func _apply_look(pal: Dictionary) -> void:
                 var col := Color.WHITE
                 var kind := ""
                 if "skin" in nm: col = Color(pal.skin); kind = "skin"
-                elif "face" in nm: col = Color(pal.skin); kind = "skin"
+                elif "face" in nm: col = Color(pal.skin); kind = "face"
                 elif "shirt" in nm: col = Color(pal.shirt); kind = "shirt"
                 elif "pants" in nm: col = Color(pal.shorts); kind = "pants"
                 elif "belt" in nm: col = Color(pal.shorts); kind = "belt"
-                elif "hair" in nm: col = Color(pal.hair); kind = "hair"
+                elif "hair" in nm: col = Color(pal.hair); kind = "hair"; n.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
                 else: continue
                 n.set_surface_override_material(i, _mat_kind(col, kind))
 
@@ -145,14 +151,15 @@ func _build_eyes() -> void:
     for sx in [-1.0, 1.0]:
         var eye := MeshInstance3D.new()
         var sm := SphereMesh.new()
-        sm.radius = 0.045
-        sm.height = 0.09
+        sm.radius = 0.038
+        sm.height = 0.076
         sm.radial_segments = 12
         sm.rings = 8
         eye.mesh = sm
         eye.material_override = eye_mat
-        eye.scale = Vector3(1.0, 1.3, 0.5)
-        eye.position = Vector3(0.13 * sx, 0.32, 0.42)
+        eye.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+        eye.scale = Vector3(1.0, 1.2, 0.45)
+        eye.position = Vector3(0.125 * sx, 0.32, 0.41)
         anchor.add_child(eye)
 
 func _play(name: String, spd: float = 1.0) -> void:
