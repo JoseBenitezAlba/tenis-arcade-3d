@@ -8,7 +8,7 @@ path="res://.godot/imported/AnimationLibrary_Godot_Standard.gltf-6a8c34296e5fca4
 
 [deps]
 
-source_file="res://models/AnimationLibrary_Godot_Standard.gltf"
+source_file="res://models/32-AnimationLibrary_Godot_Standard.gltf"
 dest_files=["res://.godot/imported/AnimationLibrary_Godot_Standard.gltf-6a8c34296e5fca427538532a0b66ca0f.scn"]
 
 [params]
