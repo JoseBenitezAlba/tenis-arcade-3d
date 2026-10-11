@@ -59,6 +59,8 @@ func _ready() -> void:
         call_deferred("_replayshots_harness", args)
     elif args.has("--faceshots"):
         call_deferred("_faceshots_harness", args)
+    elif args.has("--matchprobe"):
+        call_deferred("_matchprobe_harness", args)
     elif args.has("--shots"):
         call_deferred("_shots_harness", args)
 
@@ -607,6 +609,44 @@ func _faceshots_harness(args: Array) -> void:
     await get_tree().process_frame
     await _grab(out + "/f2_cara_tu.png")
     print("FACESHOTS DONE")
+    get_tree().quit(0)
+
+func _matchprobe_harness(args: Array) -> void:
+    # Sonda rapida de escena de partido SIN simulacion: construye el MatchView,
+    # congela fisica de inmediato y captura vistas. ~segundos en llvmpipe.
+    var out := "/home/sandbox/godot/shots"
+    var i := args.find("--matchprobe")
+    if i + 1 < args.size():
+        out = args[i + 1]
+    DirAccess.make_dir_recursive_absolute(out)
+    await get_tree().process_frame
+    menus.visible = false
+    match_view = MatchView.new()
+    match_view.set_meta("surface", "grass")
+    match_view.set_meta("day", true)
+    match_view.set_meta("cpu_look", 0)
+    match_view.set_meta("my_name", "TÚ")
+    match_view.set_meta("cpu_label", "CPU")
+    match_view.setup({"demo": true, "surface": "grass", "AIP": DIFF_PARAMS[1], "sets_to_win": 1})
+    add_child(match_view)
+    match_view.set_physics_process(false)
+    for fi in 3:
+        await get_tree().process_frame
+    # vista broadcast por defecto (la camara que pone el juego)
+    await _grab(out + "/mp1_broadcast.png")
+    # vista lateral a nivel de pista (zona silla arbitro / banquillos)
+    match_view.cam.position = Vector3(10.5, 2.2, 0.0)
+    match_view.cam.look_at(Vector3(0, 1.0, 0))
+    await get_tree().process_frame
+    await get_tree().process_frame
+    await _grab(out + "/mp2_lateral.png")
+    # vista detras de la linea de fondo
+    match_view.cam.position = Vector3(0, 2.6, -13.5)
+    match_view.cam.look_at(Vector3(0, 1.0, 2.0))
+    await get_tree().process_frame
+    await get_tree().process_frame
+    await _grab(out + "/mp3_fondo.png")
+    print("MATCHPROBE DONE")
     get_tree().quit(0)
 
 func _replayshots_harness(args: Array) -> void:
