@@ -9,6 +9,9 @@ const CPU_LABELS := ["CPU · FÁCIL", "CPU · NORMAL", "CPU · DIFÍCIL"]
 
 var menus: GameMenus
 var career: Career
+var training_view: TrainingView
+var tourney := {}
+var in_tourney_match := false
 var match_view: MatchView
 var sfx: SoundKit
 var last_cfg := {"surface": "clay", "diff": 1, "sets": 1}
@@ -24,6 +27,14 @@ func _ready() -> void:
     if args.has("--careertest"):
         _careertest()
         return
+    if args.has("--trainshots"):
+        _trainshots(args)
+        return
+    if args.has("--menushots"):
+        _menushots(args)
+    if args.has("--tourneytest"):
+        _tourneytest()
+        return
     sfx = SoundKit.new()
     add_child(sfx)
     career = Career.load_saved()
@@ -31,6 +42,9 @@ func _ready() -> void:
     add_child(menus)
     menus.quick_match.connect(_on_quick_match)
     menus.play_career_match.connect(_on_career_match)
+    menus.play_training.connect(_on_training)
+    menus.play_tournament.connect(_on_tournament)
+    menus.tourney_play_match.connect(_on_tourney_match)
     menus.rematch.connect(_on_rematch)
     menus.back_to_menu.connect(_to_menu)
     menus.career_deleted.connect(func():
@@ -41,6 +55,10 @@ func _ready() -> void:
         call_deferred("_boardcheck_harness", args)
     elif args.has("--closeup"):
         call_deferred("_closeup_harness", args)
+    elif args.has("--replayshots"):
+        call_deferred("_replayshots_harness", args)
+    elif args.has("--faceshots"):
+        call_deferred("_faceshots_harness", args)
     elif args.has("--shots"):
         call_deferred("_shots_harness", args)
 
@@ -137,12 +155,166 @@ func _on_career_match() -> void:
         "day": def.get("d", true),
     })
 
+# ---------- TORNEO (cuadro de 8, no persistente) ----------
+func _on_tournament() -> void:
+    if tourney.is_empty() or tourney.get("done", false) or tourney.get("eliminated", false):
+        _tourney_new()
+    menus.visible = true
+    menus.show_tourney(tourney)
+
+func _tourney_new() -> void:
+    var pool := Career.POOL0.duplicate()
+    pool.shuffle()
+    var picked := pool.slice(0, 7)
+    var players := [{"n": "TÚ", "r": 0.8}]
+    for pl in picked:
+        players.append({"n": pl[0], "r": pl[1]})
+    var surfaces := ["clay", "grass", "hard"]
+    tourney = {
+        "alive": players,
+        "round": 0,
+        "results": [],
+        "surface": surfaces[randi() % 3],
+        "day": randf() < 0.6,
+        "done": false,
+        "eliminated": false,
+        "champion": "",
+        "bracket_text": [],
+    }
+    _tourney_bracket_text()
+
+func _tourney_bracket_text() -> void:
+    var lines := []
+    var alive: Array = tourney.alive
+    for i in range(0, alive.size(), 2):
+        var a: Dictionary = alive[i]
+        var b: Dictionary = alive[i + 1]
+        lines.append(a.n + "  vs  " + b.n)
+    tourney.bracket_text = lines
+
+func _on_tourney_match() -> void:
+    var alive: Array = tourney.alive
+    var me := -1
+    for i in alive.size():
+        if alive[i].n == "TÚ":
+            me = i
+    if me < 0:
+        return
+    var opp: Dictionary = alive[me + 1] if me % 2 == 0 else alive[me - 1]
+    tourney["opp"] = opp
+    in_career_match = false
+    in_tourney_match = true
+    var last: String = opp.n.split(" ")[-1]
+    _start_match({
+        "surface": tourney.surface,
+        "AIP": Career.params_for(opp.r),
+        "PS": {"speed": 7.0, "T": 1.0, "err": 1.0},
+        "demo": false,
+        "career": false,
+        "cpu_name": last,
+        "cpu_label": last,
+        "cpu_look": abs(opp.n.hash()) % 5,
+        "sets_to_win": 2 if tourney.round == 2 else 1,
+        "day": tourney.day,
+    })
+
+func _sim_cpu(a: Dictionary, b: Dictionary) -> Dictionary:
+    var pa: float = a.r / (a.r + b.r)
+    return a if randf() < pa else b
+
+func _tourney_resolve(win: bool, M: Dictionary) -> void:
+    var alive: Array = tourney.alive.duplicate()
+    var rname: String = ["Cuartos", "Semifinal", "Final"][tourney.round]
+    var winners := []
+    var msg := ""
+    var score := str(M.sets[0]) + "-" + str(M.sets[1])
+    for i in range(0, alive.size(), 2):
+        var a: Dictionary = alive[i]
+        var b: Dictionary = alive[i + 1]
+        if a.n == "TÚ" or b.n == "TÚ":
+            var opp: Dictionary = b if a.n == "TÚ" else a
+            var w: Dictionary = a if win else b
+            winners.append(w)
+            var res_line: String = rname + ": TÚ " + score + " " + opp.n.split(" ")[-1]
+            if not win:
+                res_line = rname + ": " + opp.n.split(" ")[-1] + " " + str(M.sets[1]) + "-" + str(M.sets[0]) + " TÚ"
+            tourney.results.append(res_line)
+        else:
+            var w2: Dictionary = _sim_cpu(a, b)
+            var l2: Dictionary = b if w2 == a else a
+            winners.append(w2)
+            tourney.results.append(rname + ": " + w2.n + " 1-0 " + l2.n)
+    if win:
+        if tourney.round == 2:
+            tourney.done = true
+            tourney.champion = "TÚ"
+            msg = "¡CAMPEÓN DEL TORNEO! Ganaste la final " + score + "."
+        else:
+            tourney.alive = winners
+            tourney.round += 1
+            _tourney_bracket_text()
+            msg = "Ganaste " + score + ". Siguiente: " + ("la FINAL" if tourney.round == 2 else "las semifinales") + "."
+    else:
+        # eliminado: simular el resto del torneo para coronar campeón
+        var rest := winners
+        var r: int = tourney.round + 1
+        while rest.size() > 1:
+            var nw := []
+            for i in range(0, rest.size(), 2):
+                nw.append(_sim_cpu(rest[i], rest[i + 1]))
+            rest = nw
+            r += 1
+        tourney.done = true
+        tourney.eliminated = true
+        tourney.champion = rest[0].n
+        msg = "Caíste " + score + " en " + rname.to_lower() + ". El torneo siguió sin ti y el campeón fue " + tourney.champion + "."
+    menus.show_tourney(tourney, msg)
+
+func _on_training() -> void:
+    if career == null:
+        return
+    menus.visible = false
+    training_view = TrainingView.new()
+    var surf := "grass"
+    if career.data.tour != null:
+        surf = Career.CAL[career.data.tour.idx].s
+    training_view.setup({"surface": surf, "look": 0})
+    add_child(training_view)
+    training_view.quit_to_menu.connect(_on_training_quit)
+
+func _on_training_quit() -> void:
+    var sc := 0
+    var tot := 0
+    if training_view:
+        sc = training_view.score
+        tot = training_view.total_cans
+        training_view.queue_free()
+        training_view = null
+    var msg := "Entrenamiento de saque: " + str(sc) + "/" + str(tot) + " latas derribadas."
+    menus.visible = true
+    if menus.training_from == "games":
+        menus.training_from = "career"
+        menus.show_games(msg)
+        return
+    if career != null and sc >= maxi(3, tot - 1):
+        career.data.free += 1
+        career.save()
+        msg += " ¡Ganas +1 punto de mejora!"
+    menus.show_hub(msg, true)
+
 func _on_rematch() -> void:
     _on_quick_match(last_cfg.surface, last_cfg.diff, last_cfg.sets, last_cfg.get("day", true))
 
 func _on_match_finished(win: bool) -> void:
     var M = match_view.sim.M
     var cpu_label: String = match_view.get_meta("cpu_label")
+    if in_tourney_match:
+        in_tourney_match = false
+        match_view.queue_free()
+        match_view = null
+        menus.visible = true
+        _tourney_resolve(win, M)
+        return
     var res := {}
     if in_career_match:
         res = career.on_career_end(win)
@@ -215,6 +387,109 @@ func _simtest(args: Array) -> void:
     print("FIN SIM: sets=", sim.M.sets, " games=", sim.M.games, " pts=", sim.M.pts, " over=", sim.match_over, " t=", snapped(t, 0.1))
     get_tree().quit(0)
 
+func _training_shots(out: String) -> void:
+    # minijuego de entrenamiento: punteria + saque en vuelo + latas caidas
+    if menus != null:
+        menus.visible = false
+    training_view = TrainingView.new()
+    training_view.setup({"surface": "grass", "look": 0})
+    add_child(training_view)
+    for fi in 20:
+        await get_tree().physics_frame
+    await _grab(out + "/01b_entrenamiento.png")
+    training_view.start_serve()
+    for fi in 45:
+        await get_tree().physics_frame
+    await _grab(out + "/01c_saque_vuelo.png")
+    for fi in 130:
+        await get_tree().physics_frame
+    await _grab(out + "/01d_latas.png")
+    training_view.queue_free()
+    training_view = null
+    await get_tree().process_frame
+
+func _trainshots(args: Array) -> void:
+    var out := "/home/sandbox/godot/shots"
+    var i := args.find("--trainshots")
+    if i + 1 < args.size():
+        out = args[i + 1]
+    DirAccess.make_dir_recursive_absolute(out)
+    for fi in 10:
+        await get_tree().process_frame
+    await _training_shots(out)
+    get_tree().quit(0)
+
+# ---------- TEST: capturas de menús ----------
+func _menushots(args: Array) -> void:
+    var out := "/home/sandbox/godot/shots"
+    var i := args.find("--menushots")
+    if i + 1 < args.size():
+        out = args[i + 1]
+    DirAccess.make_dir_recursive_absolute(out)
+    sfx = SoundKit.new()
+    add_child(sfx)
+    menus = GameMenus.new(sfx)
+    add_child(menus)
+    for fi in 10:
+        await get_tree().process_frame
+    menus.show_menu(null)
+    for fi in 6:
+        await get_tree().process_frame
+    await _grab(out + "/m1_home.png")
+    menus.show_exhibition()
+    for fi in 6:
+        await get_tree().process_frame
+    await _grab(out + "/m2_exhibition.png")
+    menus.show_games()
+    for fi in 6:
+        await get_tree().process_frame
+    await _grab(out + "/m3_games.png")
+    _on_tournament()
+    for fi in 6:
+        await get_tree().process_frame
+    await _grab(out + "/m4_tourney.png")
+    get_tree().quit(0)
+
+func _tourneytest() -> void:
+    sfx = SoundKit.new()
+    add_child(sfx)
+    menus = GameMenus.new(sfx)
+    add_child(menus)
+    await get_tree().process_frame
+    var fails := 0
+    # camino victoria completa
+    _tourney_new()
+    if tourney.alive.size() != 8:
+        print("FAIL alive inicial = ", tourney.alive.size()); fails += 1
+    if tourney.bracket_text.size() != 4:
+        print("FAIL bracket inicial = ", tourney.bracket_text.size()); fails += 1
+    for r in 3:
+        _tourney_resolve(true, {"sets": [2 if r == 2 else 1, 0]})
+    if not tourney.done or tourney.champion != "TÚ":
+        print("FAIL campeon: done=", tourney.done, " champ=", tourney.champion); fails += 1
+    print("WIN-PATH champ=", tourney.champion, " results=", tourney.results.size())
+    # camino derrota en cuartos
+    _tourney_new()
+    _tourney_resolve(false, {"sets": [0, 1]})
+    if not tourney.done or not tourney.eliminated or tourney.champion == "" or tourney.champion == "TÚ":
+        print("FAIL eliminacion: done=", tourney.done, " elim=", tourney.eliminated, " champ=", tourney.champion); fails += 1
+    print("LOSE-PATH champ=", tourney.champion, " eliminated=", tourney.eliminated)
+    # reduccion de cuadro ronda a ronda
+    _tourney_new()
+    _tourney_resolve(true, {"sets": [1, 0]})
+    if tourney.alive.size() != 4 or tourney.round != 1:
+        print("FAIL semis: alive=", tourney.alive.size(), " round=", tourney.round); fails += 1
+    if tourney.bracket_text.size() != 2:
+        print("FAIL bracket semis = ", tourney.bracket_text.size()); fails += 1
+    _tourney_resolve(true, {"sets": [1, 0]})
+    if tourney.alive.size() != 2 or tourney.round != 2:
+        print("FAIL final: alive=", tourney.alive.size(), " round=", tourney.round); fails += 1
+    if fails == 0:
+        print("TOURNEYTEST OK")
+    else:
+        print("TOURNEYTEST FAILS=", fails)
+    get_tree().quit(0 if fails == 0 else 1)
+
 # ---------- TEST: capturas con render ----------
 func _shots_harness(args: Array) -> void:
     var out := "/home/sandbox/godot/shots"
@@ -226,6 +501,8 @@ func _shots_harness(args: Array) -> void:
         await get_tree().process_frame
     print("menus visible=", menus.visible, " size=", menus.size, " root_box children=", menus.root_box.get_child_count(), " bg=", menus.get_child_count())
     await _grab(out + "/01_menu.png")
+
+    await _training_shots(out)
 
     # partido demo (IA vs IA) en arcilla
     menus.visible = false
@@ -245,6 +522,11 @@ func _shots_harness(args: Array) -> void:
     ok = await _wait_until(func(): return match_view.sim.rally_hits >= 6, 30.0)
     print("rally6 ok: ", ok, " hits=", match_view.sim.rally_hits)
     await _grab(out + "/04_rally_arcilla2.png")
+    var okp := await _wait_until(func(): return match_view.sim.state == "point", 60.0)
+    print("point ok: ", okp)
+    if okp:
+        await _wait_sim(0.6)
+        await _grab(out + "/04b_celebracion.png")
     match_view.queue_free()
     match_view = null
     await get_tree().process_frame
@@ -282,6 +564,85 @@ func _shots_harness(args: Array) -> void:
     await _grab(out + "/08_carrera_ranking.png")
     Career.delete_save()
     career = null
+
+
+
+func _faceshots_harness(args: Array) -> void:
+    var out := "/home/sandbox/godot/shots"
+    var i := args.find("--faceshots")
+    if i + 1 < args.size():
+        out = args[i + 1]
+    DirAccess.make_dir_recursive_absolute(out)
+    await get_tree().process_frame
+    menus.visible = false
+    match_view = MatchView.new()
+    match_view.set_meta("surface", "grass")
+    match_view.set_meta("day", true)
+    match_view.set_meta("cpu_look", 0)
+    match_view.set_meta("my_name", "TÚ")
+    match_view.set_meta("cpu_label", "CPU")
+    match_view.setup({"demo": true, "surface": "grass", "AIP": DIFF_PARAMS[1], "sets_to_win": 1})
+    add_child(match_view)
+    await _wait_sim(2.0)
+    match_view.set_physics_process(false)
+    var fp = match_view.sim.pl[1]
+    print("FACE far player pos=", fp.x, ",", fp.z)
+    var fig = match_view.rigs[1]
+    if fig == null:
+        for c in match_view.get_children():
+            print("MVCHILD ", c.name)
+    else:
+        var sk = fig.skel
+        var hb = sk.find_bone("Head")
+        print("HEAD bone global pose: ", sk.global_transform * sk.get_bone_global_pose(hb))
+        var sc = (sk.global_transform * sk.get_bone_global_pose(hb)).basis.get_scale()
+        print("HEAD bone world scale=", sc)
+    match_view.cam.position = Vector3(fp.x + 0.35, 1.42, fp.z - 2.4)
+    match_view.cam.look_at(Vector3(fp.x, 1.38, fp.z))
+    await get_tree().process_frame
+    await _grab(out + "/f1_cara_cpu.png")
+    var np = match_view.sim.pl[0]
+    match_view.cam.position = Vector3(np.x - 0.35, 1.42, np.z + 2.4)
+    match_view.cam.look_at(Vector3(np.x, 1.38, np.z))
+    await get_tree().process_frame
+    await _grab(out + "/f2_cara_tu.png")
+    print("FACESHOTS DONE")
+    get_tree().quit(0)
+
+func _replayshots_harness(args: Array) -> void:
+    var out := "/home/sandbox/godot/shots"
+    var i := args.find("--replayshots")
+    if i + 1 < args.size():
+        out = args[i + 1]
+    DirAccess.make_dir_recursive_absolute(out)
+    await get_tree().process_frame
+    menus.visible = false
+    match_view = MatchView.new()
+    match_view.set_meta("surface", "grass")
+    match_view.set_meta("day", true)
+    match_view.set_meta("cpu_look", 1)
+    match_view.set_meta("my_name", "TÚ")
+    match_view.set_meta("cpu_label", "CPU · NORMAL")
+    match_view.setup({"demo": true, "surface": "grass", "AIP": DIFF_PARAMS[1], "sets_to_win": 1})
+    add_child(match_view)
+    match_view.replay_test = true
+    var okr := await _wait_until(func(): return match_view.sim.rally_hits >= 5, 600.0)
+    print("REPLAY rally ok: ", okr, " hits=", match_view.sim.rally_hits)
+    if okr:
+        match_view.sim.award_point(0, "PUNTO", "test")
+    var ok := await _wait_until(func(): return match_view.replaying, 120.0)
+    print("REPLAY triggered: ", ok, " frames=", match_view.rec.size())
+    for fi in 4:
+        await get_tree().process_frame
+    await _grab(out + "/r1_replay.png")
+    await _wait_sim(1.5)
+    await _grab(out + "/r2_replay.png")
+    var ok2 := await _wait_until(func(): return not match_view.replaying, 120.0)
+    print("REPLAY ended: ", ok2)
+    await _wait_sim(1.0)
+    await _grab(out + "/r3_tras_replay.png")
+    print("REPLAYSHOTS DONE")
+    get_tree().quit(0)
 
 func _closeup_harness(args: Array) -> void:
     var out := "/home/sandbox/godot/shots"
