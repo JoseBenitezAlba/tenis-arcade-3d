@@ -34,8 +34,8 @@ func build() -> void:
 	# grada lejana (z+, mirando a -z); las filas suben hacia la camara para no enterrarse en la grada
 	stands.append([Vector3(-19.0, 3.05, 28.9), Vector3(1, 0, 0), Vector3(0, 0.78, -0.5), 39, 8, Basis(Vector3.UP, PI)])
 	# gradas laterales (mirando al centro); idem hacia la pista
-	stands.append([Vector3(12.2, 3.05, -2.0), Vector3(0, 0, 1), Vector3(-0.5, 0.78, 0), 29, 8, Basis(Vector3.UP, -PI * 0.5)])
-	stands.append([Vector3(-12.2, 3.05, -2.0), Vector3(0, 0, 1), Vector3(0.5, 0.78, 0), 29, 8, Basis(Vector3.UP, PI * 0.5)])
+	stands.append([Vector3(14.3, 3.05, -2.0), Vector3(0, 0, 1), Vector3(-0.5, 0.78, 0), 29, 7, Basis(Vector3.UP, -PI * 0.5)])
+	stands.append([Vector3(-14.3, 3.05, -2.0), Vector3(0, 0, 1), Vector3(0.5, 0.78, 0), 29, 7, Basis(Vector3.UP, PI * 0.5)])
 	for st in stands:
 		var org: Vector3 = st[0]
 		var dc: Vector3 = st[1]
@@ -52,11 +52,11 @@ func build() -> void:
 	n = base_pos.size()
 
 	var body_mesh := CapsuleMesh.new()
-	body_mesh.radius = 0.17
-	body_mesh.height = 0.78
+	body_mesh.radius = 0.16
+	body_mesh.height = 0.72
 	var head_mesh := SphereMesh.new()
-	head_mesh.radius = 0.13
-	head_mesh.height = 0.26
+	head_mesh.radius = 0.125
+	head_mesh.height = 0.25
 
 	var mmb := MultiMesh.new()
 	mmb.transform_format = MultiMesh.TRANSFORM_3D
@@ -72,14 +72,16 @@ func build() -> void:
 	rng2.seed = 7
 	for i in n:
 		var shirt := Color(SHIRTS[rng2.randi_range(0, SHIRTS.size() - 1)])
-		shirt = shirt.lerp(Color.WHITE, rng2.randf_range(0.0, 0.25))
+		shirt = shirt.lerp(Color(0.52, 0.52, 0.56), rng2.randf_range(0.15, 0.4))
 		mmb.set_instance_color(i, shirt)
 		mmh.set_instance_color(i, Color(SKINS[rng2.randi_range(0, SKINS.size() - 1)]))
 	mm_body = MultiMeshInstance3D.new()
+	mm_body.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	mm_body.multimesh = mmb
 	mm_body.material_override = _mat()
 	add_child(mm_body)
 	mm_head = MultiMeshInstance3D.new()
+	mm_head.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	mm_head.multimesh = mmh
 	mm_head.material_override = _mat()
 	add_child(mm_head)
@@ -112,7 +114,8 @@ func update(dt: float, rally_exc: float) -> void:
 			var amp: float = 0.03 + 0.11 * exc
 			var frq: float = 1.3 + 4.5 * exc
 			y = sin(time * frq * jitters[i] + ph) * amp
-		var t := Transform3D(face_rot[i], p + Vector3(0, y + 0.39, 0))
+		# figura sentada: cuerpo achatado, cabeza redonda justo encima
+		var t := Transform3D(face_rot[i].scaled(Vector3(1.12, 0.78, 1.12)), p + Vector3(0, y + 0.28, 0))
 		mm_body.multimesh.set_instance_transform(i, t)
-		t.origin.y += 0.52
+		t = Transform3D(face_rot[i], p + Vector3(0, y + 0.70, 0))
 		mm_head.multimesh.set_instance_transform(i, t)
