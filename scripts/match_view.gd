@@ -8,6 +8,7 @@ const L := 23.77
 const NZ := L / 2.0
 var sim: TennisSim
 var court: Node3D
+var crowd: CrowdFX
 var rigs := []
 var ball_mesh: MeshInstance3D
 var ball_shadow: MeshInstance3D
@@ -27,6 +28,13 @@ var paused_game := false
 var pause_layer: CanvasLayer
 var over_sent := false
 var shake := 0.0
+# repeticion de punto
+var rec := []
+var replaying := false
+var replay_pending := false
+var replay_i := 0.0
+var replay_test := false
+const REC_MAX := 2700
 
 func setup(cfg: Dictionary) -> void:
     demo = cfg.get("demo", false)
@@ -39,11 +47,14 @@ func _ready() -> void:
         sim = TennisSim.new(true)
     court = CourtBuilder.build(get_meta("surface", "clay"), get_meta("day", false))
     add_child(court)
+    crowd = CrowdFX.new()
+    add_child(crowd)
+    crowd.build()
 
     sfx = SoundKit.new()
     add_child(sfx)
 
-    rigs = [PlayerRig.new(0, true), PlayerRig.new(get_meta("cpu_look", 2), false)]
+    rigs = [PlayerFig.new(0, true), PlayerFig.new(get_meta("cpu_look", 2), false)]
     for r in rigs:
         add_child(r)
 
@@ -171,6 +182,10 @@ func spawn_dust(pos: Vector3, n: int, col: Color) -> void:
                 break
 
 func _unhandled_input(event: InputEvent) -> void:
+    if replaying:
+        if (event is InputEventKey and event.pressed and not event.echo) or (event is InputEventJoypadButton and event.pressed):
+            _end_replay()
+        return
     if event.is_action_pressed("pause") and not demo:
         if paused_game:
             paused_game = false
@@ -188,6 +203,9 @@ func _unhandled_input(event: InputEvent) -> void:
 func _physics_process(dt: float) -> void:
     if paused_game:
         return
+    if replaying:
+        _replay_tick(dt)
+        return
     if not demo:
         sim.inp.x = Input.get_axis("move_left", "move_right")
         sim.inp.y = Input.get_axis("move_down", "move_up")
@@ -200,6 +218,12 @@ func _physics_process(dt: float) -> void:
             sim.inp.lob = true
     sim.update(dt)
     drain_events()
+    if (not demo or replay_test) and sim.state not in ["point", "over"] and sim.ball.in_play:
+        rec.append({"b": Vector3(sim.ball.x, sim.ball.y, sim.ball.z), "p0": _snap(sim.pl[0]), "p1": _snap(sim.pl[1])})
+        if rec.size() > REC_MAX:
+            rec.pop_front()
+    var exc: float = clampf(sim.rally_hits / 10.0, 0.0, 1.0) if sim.state not in ["point", "over"] else 0.0
+    crowd.update(dt, exc)
 
     # visuales
     for i in 2:
@@ -247,12 +271,57 @@ func _physics_process(dt: float) -> void:
         banner_t -= dt
         if banner_t <= 0.0:
             hud.hide_banner()
+            if replay_pending:
+                replay_pending = false
+                _start_replay()
     if hint_t > 0.0 and not demo:
         hint_t -= dt
         if hint_t <= 0.0:
             hud.set_hint("")
     elif not demo and sim.state == "serve" and sim.M.server == 0 and sim.serve_stage != "hit":
         hud.set_hint("A / ESPACIO: lanzar la bola · otra vez para golpear" if sim.serve_stage == "ready" else "¡Golpea cuando la bola esté arriba!")
+
+func _snap(pl) -> Dictionary:
+    return {"x": pl.x, "z": pl.z, "near": pl.near, "speed": pl.speed, "run": pl.run, "kind": pl.kind, "swing": pl.swing, "want_t": pl.want_t}
+
+func _start_replay() -> void:
+    if rec.size() < 10:
+        rec.clear()
+        return
+    replaying = true
+    replay_i = 0.0
+    hud.show_replay()
+    for t in trail:
+        t.m.visible = false
+    cam.position = Vector3(10.5, 7.0, -6.5)
+    cam.look_at(Vector3(0.0, 0.6, 1.0))
+
+func _replay_tick(dt: float) -> void:
+    replay_i += dt * 54.0
+    var idx := int(replay_i)
+    if idx >= rec.size():
+        _end_replay()
+        return
+    var f: Dictionary = rec[idx]
+    rigs[0].update_from_sim(f.p0, dt)
+    rigs[1].update_from_sim(f.p1, dt)
+    ball_mesh.position = f.b
+    ball_shadow.position.x = f.b.x
+    ball_shadow.position.z = f.b.z
+    var sh_scale: float = clampf(1.0 + f.b.y * 0.12, 1.0, 2.2)
+    ball_shadow.scale = Vector3(sh_scale * 0.4, 1, sh_scale * 0.4)
+    ball_shadow_mat.albedo_color.a = clampf(0.5 - f.b.y * 0.05, 0.08, 0.5)
+    shadows[0].position.x = f.p0.x
+    shadows[0].position.z = f.p0.z
+    shadows[1].position.x = f.p1.x
+    shadows[1].position.z = f.p1.z
+    crowd.update(dt, 0.4)
+
+func _end_replay() -> void:
+    replaying = false
+    rec.clear()
+    hud.hide_replay()
+    cam.position = Vector3(0.0, 6.9, -11.8)
 
 func drain_events() -> void:
     for ev in sim.events:
@@ -284,10 +353,19 @@ func drain_events() -> void:
                 if not demo:
                     sfx.play("point_win" if ev.w == 0 else "point_lose")
             "point":
+                var is_err: bool = ev.txt in ["FUERA", "RED", "DOBLE FALTA"]
+                crowd.react(is_err)
+                rigs[ev.w].celebrate("tennis/Dance", 2.0)
+                rigs[1 - ev.w].celebrate("tennis/Hit_Head" if is_err else "tennis/Hit_Chest", 2.0)
                 hud.update_score(sim.M)
-                hud.show_banner(ev.txt, ev.sub, Color("#7dffa8") if ev.w == 0 else Color("#ff9c9c"))
-                banner_dur = 1.9
-                banner_t = 1.9
+                var bcol: Color = Color("#ffd23f") if ev.txt == "SET" else (Color("#7dffa8") if ev.w == 0 else Color("#ff9c9c"))
+                hud.show_banner(ev.txt, ev.sub, bcol)
+                banner_dur = 2.8 if ev.txt == "SET" else (2.4 if ev.txt == "JUEGO" else 1.9)
+                banner_t = banner_dur
+                if (not demo or replay_test) and sim.rally_hits >= 4 and rec.size() > 45:
+                    replay_pending = true
+                else:
+                    rec.clear()
             "fault":
                 sfx.play("fault")
                 hud.show_banner("FALTA", ev.why, Color("#ffd23f"))
