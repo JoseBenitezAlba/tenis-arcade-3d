@@ -46,6 +46,28 @@ static func court_texture(surface: String) -> ImageTexture:
     var z_of := func(py: float) -> float: return -4.0 + py / pxm_z
     var py_of := func(z: float) -> float: return (z + 4.0) * pxm_z
     # franjas alternas cada 1.4m
+extends RefCounted
+
+const THEMES := {
+    "clay": {"court": Color("#c4602f"), "court2": Color("#b95a2b"), "out": Color("#2c5e46"), "out2": Color("#1f4a37"), "line": Color("#f6f1e6")},
+    "hard": {"court": Color("#2f6fb5"), "court2": Color("#2a65a8"), "out": Color("#1a6b4d"), "out2": Color("#145539"), "line": Color("#f4f6fa")},
+    "grass": {"court": Color("#3f7a36"), "court2": Color("#397131"), "out": Color("#2f6330"), "out2": Color("#265122"), "line": Color("#f6f8f2")},
+}
+const L := 23.77
+const NZ := L / 2.0
+
+# Textura de la pista: x en [-7.2, 7.2], z en [-4, L+3.6]
+static func court_texture(surface: String) -> ImageTexture:
+    var T: Dictionary = THEMES[surface]
+    var w := 1024
+    var h := 2048
+    var img := Image.create(w, h, false, Image.FORMAT_RGBA8)
+    img.fill(T.court)
+    var pxm_x := w / 14.4
+    var pxm_z := h / 31.37
+    var z_of := func(py: float) -> float: return -4.0 + py / pxm_z
+    var py_of := func(z: float) -> float: return (z + 4.0) * pxm_z
+    # franjas alternas cada 1.4m
     var k := 0
     var z := -4.0
     while z < L + 3.6:
