@@ -3,6 +3,9 @@ extends Control
 
 signal quick_match(surface: String, diff: int, sets: int, day: bool)
 signal play_career_match
+signal play_training
+signal play_tournament
+signal tourney_play_match
 signal rematch
 signal back_to_menu
 signal career_deleted
@@ -16,6 +19,7 @@ var career: Career
 var tab := "cal"
 var career_msg := ""
 var career_msg_ok := true
+var training_from := "career"
 var root_box: VBoxContainer
 var sfx: SoundKit
 var focus_first: Control
@@ -146,39 +150,142 @@ func show_menu(p_career: Career) -> void:
     career = p_career
     _clear()
     root_box.add_child(_title("TENIS ARCADE 3D"))
-    root_box.add_child(_sub("ARCADE DE TENIS · TÚ CONTRA EL CIRCUITO"))
+    root_box.add_child(_sub("ELIGE MODO DE JUEGO"))
+    var wt := _btn("WORLD TOUR", true)
+    wt.custom_minimum_size = Vector2(340, 52)
+    wt.pressed.connect(func():
+        sfx.play("click")
+        if career != null:
+            show_hub("")
+        else:
+            show_create())
+    root_box.add_child(_row([wt]))
     if career != null:
-        var cb := _btn("CONTINUAR CARRERA", true)
-        cb.pressed.connect(func(): sfx.play("click"); show_hub(""))
-        root_box.add_child(_row([cb]))
         root_box.add_child(_sub(career.data.name + " · #" + str(career.my_rank()) + " · Temporada " + str(career.data.season), 14, Color("#ffe27a")))
-        var nb := _btn("NUEVA CARRERA")
-        nb.pressed.connect(func(): sfx.play("click"); show_create())
-        root_box.add_child(_row([nb]))
     else:
-        var cb := _btn("MODO CARRERA", true)
-        cb.pressed.connect(func(): sfx.play("click"); show_create())
-        root_box.add_child(_row([cb]))
-    root_box.add_child(_sub("PARTIDO RÁPIDO"))
+        root_box.add_child(_sub("Crea tu jugador y conquista el circuito", 14, Color("#ffe27a")))
+    var to := _btn("TORNEO")
+    to.custom_minimum_size = Vector2(340, 52)
+    to.pressed.connect(func(): sfx.play("click"); play_tournament.emit())
+    root_box.add_child(_row([to]))
+    root_box.add_child(_sub("Cuadro de 8 jugadores: cuartos, semifinal y final", 14))
+    var ex := _btn("EXHIBICIÓN")
+    ex.custom_minimum_size = Vector2(340, 52)
+    ex.pressed.connect(func(): sfx.play("click"); show_exhibition())
+    root_box.add_child(_row([ex]))
+    root_box.add_child(_sub("Partido suelto: pista, rival, formato y hora a tu gusto", 14))
+    var cg := _btn("MINIJUEGOS")
+    cg.custom_minimum_size = Vector2(340, 52)
+    cg.pressed.connect(func(): sfx.play("click"); show_games())
+    root_box.add_child(_row([cg]))
+    root_box.add_child(_sub("Juegos de habilidad en la pista", 14))
+    root_box.add_child(_sub("Mando: stick mover · A golpe · X globo · B dejada · START pausa\nTeclado: WASD/flechas · ESPACIO golpe · Z globo · SHIFT dejada · P pausa", 13, Color("#8ea2d8")))
+    wt.grab_focus()
+
+# ---------- EXHIBICIÓN ----------
+func show_exhibition() -> void:
+    _clear()
+    root_box.add_child(_title("EXHIBICIÓN", 44))
+    root_box.add_child(_sub("PARTIDO SUELTO"))
     root_box.add_child(_row([_sub("Pista", 14), _opt_group(["ARCILLA", "CÉSPED", "DURA"], ["clay", "grass", "hard"].find(surface), func(i):
         surface = ["clay", "grass", "hard"][i]
-        show_menu(career))]))
+        show_exhibition())]))
     root_box.add_child(_row([_sub("Rival", 14), _opt_group(DIFFS, diff, func(i):
         diff = i
-        show_menu(career))]))
+        show_exhibition())]))
     root_box.add_child(_row([_sub("Formato", 14), _opt_group(["1 SET", "MEJOR DE 3"], sets - 1, func(i):
         sets = i + 1
-        show_menu(career))]))
+        show_exhibition())]))
     root_box.add_child(_row([_sub("Hora", 14), _opt_group(["DÍA", "NOCHE"], 0 if day else 1, func(i):
         day = i == 0
-        show_menu(career))]))
-    var play := _btn("PARTIDO RÁPIDO", false, true)
+        show_exhibition())]))
+    var play := _btn("JUGAR", false, true)
+    play.custom_minimum_size = Vector2(340, 52)
     play.pressed.connect(func():
         sfx.play("click")
         quick_match.emit(surface, diff, sets, day))
     root_box.add_child(_row([play]))
-    root_box.add_child(_sub("Mando: stick mover · A golpe/liftado(↑)/dejada(↓) · X globo · B dejada · START pausa\nTeclado: WASD/flechas · ESPACIO golpe · Z globo · SHIFT dejada · P pausa", 13, Color("#8ea2d8")))
+    var back := _btn("VOLVER")
+    back.pressed.connect(func(): sfx.play("click"); show_menu(career))
+    root_box.add_child(_row([back]))
     play.grab_focus()
+
+# ---------- MINIJUEGOS ----------
+func show_games(msg := "") -> void:
+    _clear()
+    root_box.add_child(_title("MINIJUEGOS", 44))
+    root_box.add_child(_sub("JUEGOS DE HABILIDAD EN LA PISTA"))
+    if msg != "":
+        root_box.add_child(_sub(msg, 15, Color("#cfffc9")))
+    var t1 := _btn("DERRIBO DE LATAS · SAQUE", false, true)
+    t1.custom_minimum_size = Vector2(340, 52)
+    t1.pressed.connect(func():
+        sfx.play("click")
+        training_from = "games"
+        play_training.emit())
+    root_box.add_child(_row([t1]))
+    root_box.add_child(_sub("10 saques, 8 latas. Derriba todas las que puedas.", 14))
+    var soon := _btn("GLOBOS AL ARCO · PRÓXIMAMENTE")
+    soon.custom_minimum_size = Vector2(340, 52)
+    soon.disabled = true
+    root_box.add_child(_row([soon]))
+    var soon2 := _btn("VOLEAS AL BOTE · PRÓXIMAMENTE")
+    soon2.custom_minimum_size = Vector2(340, 52)
+    soon2.disabled = true
+    root_box.add_child(_row([soon2]))
+    var back := _btn("VOLVER")
+    back.pressed.connect(func(): sfx.play("click"); show_menu(career))
+    root_box.add_child(_row([back]))
+    t1.grab_focus()
+
+# ---------- TORNEO ----------
+func show_tourney(st: Dictionary, msg := "") -> void:
+    _clear()
+    root_box.add_child(_title("TORNEO", 44))
+    var rn: String = ["Cuartos de final", "Semifinal", "FINAL"][st.round]
+    var surf_name: String = {"clay": "Arcilla", "grass": "Césped", "hard": "Pista dura"}[st.surface]
+    root_box.add_child(_sub(rn.to_upper() + " · " + surf_name + " · " + ("Día" if st.day else "Noche"), 16, Color("#ffe27a")))
+    if msg != "":
+        var mp := _panel()
+        var ml := _sub(msg, 15, Color("#cfffc9"))
+        ml.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+        ml.custom_minimum_size = Vector2(860, 0)
+        mp.add_child(ml)
+        root_box.add_child(mp)
+    var card := _panel()
+    var vb := VBoxContainer.new()
+    vb.add_theme_constant_override("separation", 6)
+    card.add_child(vb)
+    if st.done:
+        vb.add_child(_title("🏆 " + st.champion, 30, Color("#ffd23f")))
+        if st.results.size() > 0:
+            vb.add_child(_sub("Resultados:", 13))
+        for r in st.results:
+            vb.add_child(_sub(r, 14))
+    else:
+        for m in st.bracket_text:
+            vb.add_child(_sub(m, 16, Color("#ffe27a") if m.find("TÚ") >= 0 else Color("#c9d6ff")))
+    root_box.add_child(card)
+    var btns := []
+    var focus_btn: Control = null
+    if not st.done and not st.eliminated:
+        var pb := _btn("JUGAR PARTIDO", false, true)
+        pb.custom_minimum_size = Vector2(260, 52)
+        pb.pressed.connect(func(): sfx.play("click"); tourney_play_match.emit())
+        btns.append(pb)
+        focus_btn = pb
+    else:
+        var nb := _btn("NUEVO TORNEO", true)
+        nb.custom_minimum_size = Vector2(260, 52)
+        nb.pressed.connect(func(): sfx.play("click"); play_tournament.emit())
+        btns.append(nb)
+        focus_btn = nb
+    var mb := _btn("MENÚ PRINCIPAL")
+    mb.pressed.connect(func(): sfx.play("click"); back_to_menu.emit())
+    btns.append(mb)
+    root_box.add_child(_row(btns))
+    if focus_btn:
+        focus_btn.grab_focus()
 
 # ---------- CARRERA: CREAR ----------
 func show_create() -> void:
@@ -266,6 +373,12 @@ func show_hub(msg: String, ok := true) -> void:
         var pb := _btn("JUGAR " + ("PARTIDO" if d.tour else "TORNEO"), false, true)
         pb.pressed.connect(func(): sfx.play("click"); play_career_match.emit())
         btns.append(pb)
+        var tb2 := _btn("ENTRENAMIENTO · SAQUE", true)
+        tb2.pressed.connect(func():
+            sfx.play("click")
+            training_from = "career"
+            play_training.emit())
+        btns.append(tb2)
         if d.free > 0:
             var up := _btn("★ MEJORAR (" + str(d.free) + ")", true)
             up.pressed.connect(func(): sfx.play("click"); tab = "stats"; show_hub(""))
