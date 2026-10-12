@@ -100,7 +100,7 @@ func _build_racket() -> void:
     var rk := Node3D.new()
     # espacio de hueso: 1 unidad mundo = 0.01; compensar escala del personaje
     rk.scale = Vector3.ONE * (0.01 / CHAR_SCALE)
-    rk.rotation = Vector3(0, PI * 0.5, 0)
+    rk.rotation = Vector3(PI * 0.5, PI * 0.5, 0)  # v0.12: la raqueta cuelga del puno, no atraviesa el antebrazo
     rk.position = Vector3.ZERO
     ba.add_child(rk)
     var handle := MeshInstance3D.new()
