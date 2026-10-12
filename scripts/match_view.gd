@@ -113,11 +113,11 @@ func _ready() -> void:
     bounce_ring_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
     bounce_ring = MeshInstance3D.new()
     var rq := QuadMesh.new()
-    rq.size = Vector2(1.5, 1.5)
+    rq.size = Vector2(2.2, 2.2)
     rq.material = bounce_ring_mat
     bounce_ring.mesh = rq
     bounce_ring.rotation_degrees.x = -90
-    bounce_ring.position.y = 0.055
+    bounce_ring.position.y = 0.075  # por encima de la losa (top 0.06) y de la sombra (0.07)
     bounce_ring.visible = false
     add_child(bounce_ring)
 
@@ -333,7 +333,7 @@ func _update_bounce_ring() -> void:
     var k: float = clampf(pb.t / 1.1, 0.0, 1.0)
     var sc: float = lerpf(0.35, 1.0, k)
     bounce_ring.scale = Vector3(sc, 1, sc)
-    bounce_ring_mat.albedo_color.a = lerpf(0.95, 0.4, k)
+    bounce_ring_mat.albedo_color.a = lerpf(0.95, 0.55, k)
 
 func _start_replay() -> void:
     if rec.size() < 10:
@@ -418,8 +418,9 @@ func drain_events() -> void:
                 rigs[1 - ev.w].celebrate("tennis/Hit_Head" if is_err else "tennis/Hit_Chest", 2.0)
                 hud.update_score(sim.M)
                 var bcol: Color = Color("#ffd23f") if ev.txt == "SET" else (Color("#7dffa8") if ev.w == 0 else Color("#ff9c9c"))
-                hud.show_banner(ev.txt, ev.sub, bcol)
-                banner_dur = 2.8 if ev.txt == "SET" else (2.4 if ev.txt == "JUEGO" else 1.9)
+                var big: bool = ev.txt in ["JUEGO", "SET", "PARTIDO"]
+                hud.show_banner(ev.txt, ev.sub, bcol, big)
+                banner_dur = 2.2 if ev.txt == "SET" else (1.8 if ev.txt == "JUEGO" else 1.2)
                 banner_t = banner_dur
                 if (not demo or replay_test) and sim.rally_hits >= 4 and rec.size() > 45:
                     replay_pending = true
@@ -428,8 +429,8 @@ func drain_events() -> void:
             "fault":
                 sfx.play("fault")
                 hud.show_banner("FALTA", ev.why, Color("#ffd23f"))
-                banner_t = 1.1
-                banner_dur = 1.1
+                banner_t = 0.9
+                banner_dur = 0.9
             "over":
                 over_sent = true
                 match_finished.emit(sim.M.sets[0] > sim.M.sets[1])
