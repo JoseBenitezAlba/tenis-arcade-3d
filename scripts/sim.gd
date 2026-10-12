@@ -486,12 +486,23 @@ func ai_control(e: Player, dt: float) -> void:
             if not (stretch and randf() < D.miss):
                 var kind := "drive"
                 var r: float = e.kind_roll
-                if opp.near and opp.z > 5.5 and r < 0.45:
-                    kind = "lob"
-                elif opp.near and opp.z < -0.5 and r > 0.88 and D.err < 0.8:
-                    kind = "drop"
-                elif r > 0.8 and r < 0.86:
-                    kind = "lob"
+                # v0.15: repertorio con criterio - la CPU elige el golpe segun
+                # donde esta el rival y lo estirada que llega ella
+                var opp_deep: bool = (opp.z < 0.3) if opp.near else (opp.z > L - 0.3)
+                var opp_net: bool = (opp.z > 5.5) if opp.near else (opp.z < L - 5.5)
+                var opp_wide: bool = absf(opp.x) > 2.8
+                var self_inside: bool = (e.z > -1.6) if e.near else (e.z < L + 1.6)
+                if opp_net:
+                    if r < 0.5:
+                        kind = "lob"  # rival sube a la red: globo por encima
+                elif opp_deep and self_inside and D.err < 0.8:
+                    var drop_p := 0.14 + (0.16 if opp_wide else 0.0)
+                    if r > 1.0 - drop_p:
+                        kind = "drop"  # rival atras (y mas si esta abierto): dejada
+                if kind == "drive" and stretch:
+                    var def_lob_p: float = 0.04 + (0.9 - D.err) * 0.05
+                    if r < def_lob_p:
+                        kind = "lob"  # llega estirada: globo defensivo para recuperar
                 do_hit(e, kind, true)
             else:
                 e.cool = 0.3
