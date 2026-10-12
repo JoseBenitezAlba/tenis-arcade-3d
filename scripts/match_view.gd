@@ -22,6 +22,8 @@ var ball_mesh: MeshInstance3D
 var ball_shadow: MeshInstance3D
 var shadows := []
 var ball_shadow_mat: StandardMaterial3D
+var bounce_ring: MeshInstance3D
+var bounce_ring_mat: StandardMaterial3D
 var trail := []
 var cam: Camera3D
 var hud: MatchHUD
@@ -101,6 +103,23 @@ func _ready() -> void:
         else:
             ball_shadow = q
             ball_shadow_mat = sh_mat
+
+    # anillo de bote (prediccion del primer bote)
+    bounce_ring_mat = StandardMaterial3D.new()
+    bounce_ring_mat.albedo_texture = TexGen.ring_texture()
+    bounce_ring_mat.albedo_color = Color(1.0, 0.95, 0.35, 0.85)
+    bounce_ring_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+    bounce_ring_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+    bounce_ring_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+    bounce_ring = MeshInstance3D.new()
+    var rq := QuadMesh.new()
+    rq.size = Vector2(1.5, 1.5)
+    rq.material = bounce_ring_mat
+    bounce_ring.mesh = rq
+    bounce_ring.rotation_degrees.x = -90
+    bounce_ring.position.y = 0.055
+    bounce_ring.visible = false
+    add_child(bounce_ring)
 
     # estela de la bola
     for i in 9:
@@ -253,6 +272,7 @@ func _physics_process(dt: float) -> void:
     var sh_scale: float = clampf(1.0 + sim.ball.y * 0.12, 1.0, 2.2)
     ball_shadow.scale = Vector3(sh_scale * 0.4, 1, sh_scale * 0.4)
     ball_shadow_mat.albedo_color.a = clampf(0.5 - sim.ball.y * 0.05, 0.08, 0.5)
+    _update_bounce_ring()
     for i in trail.size():
         var t = trail[i]
         if i < sim.ball.trail.size():
@@ -299,12 +319,29 @@ func _physics_process(dt: float) -> void:
 func _snap(pl) -> Dictionary:
     return {"x": pl.x, "z": pl.z, "near": pl.near, "speed": pl.speed, "run": pl.run, "kind": pl.kind, "swing": pl.swing, "want_t": pl.want_t}
 
+func _update_bounce_ring() -> void:
+    if sim.state != "play":
+        bounce_ring.visible = false
+        return
+    var pb: Dictionary = sim.predict_bounce()
+    if not pb.ok:
+        bounce_ring.visible = false
+        return
+    bounce_ring.visible = true
+    bounce_ring.position.x = pb.x
+    bounce_ring.position.z = pb.z
+    var k: float = clampf(pb.t / 1.1, 0.0, 1.0)
+    var sc: float = lerpf(0.35, 1.0, k)
+    bounce_ring.scale = Vector3(sc, 1, sc)
+    bounce_ring_mat.albedo_color.a = lerpf(0.95, 0.4, k)
+
 func _start_replay() -> void:
     if rec.size() < 10:
         rec.clear()
         return
     replaying = true
     replay_i = 0.0
+    bounce_ring.visible = false
     hud.show_replay()
     for t in trail:
         t.m.visible = false
