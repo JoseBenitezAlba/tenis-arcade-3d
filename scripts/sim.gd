@@ -4,7 +4,7 @@ extends RefCounted
 # Port del simulador de la versión web tenis-arcade (mecánicas validadas).
 const L := 23.77
 const NZ := L / 2.0
-const G := 19.0
+const G := 23.0
 const BR := 0.17
 const NET_H := 0.95
 
@@ -223,16 +223,16 @@ func do_hit(e: Player, kind: String, ai: bool) -> void:
             tx = randf_range(-1.0, 1.0)
         if kind == "lob":
             d = 0.9
-            T = 1.65
+            T = 1.5
         elif kind == "drop":
             d = 0.12
-            T = 1.15
+            T = 1.0
         elif kind == "smash":
             d = 0.55
-            T = 0.6
+            T = 0.52
         else:
             d = 0.55 + randf() * 0.4
-            T = 0.98 + (1.0 - d) * 0.2
+            T = 0.86 + (1.0 - d) * 0.18
         if absf(opp.x) > 3.0 and kind != "drop":
             tx = clampf(-signf(opp.x) * randf_range(2.6, 3.8), -3.9, 3.9)
             d = minf(d + 0.15, 1.0)
@@ -246,7 +246,7 @@ func do_hit(e: Player, kind: String, ai: bool) -> void:
                 tx = clampf(-signf(opp.vx) * randf_range(2.8, 3.8), -3.9, 3.9)
             else:
                 tx = clampf(signf(tx) * randf_range(2.8, 3.8), -3.9, 3.9)
-            T *= 0.7
+            T *= 0.62
             d = minf(d + 0.12, 1.0)
             tx += randn() * D.err * 0.5
         tx += randn() * D.err * (0.5 + stretch * 0.7)
@@ -256,16 +256,16 @@ func do_hit(e: Player, kind: String, ai: bool) -> void:
         var up: bool = inp.y > 0.4
         if kind == "lob":
             d = 0.88
-            T = 1.7
+            T = 1.55
         elif kind == "drop":
             d = 0.1
-            T = 1.15
+            T = 1.0
         elif kind == "smash":
             d = 0.5 + (0.3 if up else 0.0)
-            T = 0.58 * PS.T
+            T = 0.52 * PS.T
         else:
             d = 0.95 if up else 0.62
-            T = (0.92 if up else 1.02) * PS.T
+            T = (0.86 if up else 0.94) * PS.T
             # v0.16: golpear al bote (bola subiendo) quita tiempo al rival
             # pero pide mas precision que esperar a que la bola baje
             if ball.vy > 1.0:
@@ -325,7 +325,7 @@ func do_serve(e: Player, q: float) -> void:
         err *= 1.0 + 1.7 * clampf((absf(tx) - 1.5) / 2.3, 0.0, 1.0)
         if safe:
             err *= 0.75
-        serve_T = lerpf(1.12, 0.85, q) if flat else (lerpf(1.25, 1.0, q) if safe else lerpf(1.18, 0.88, q))
+        serve_T = lerpf(1.06, 0.80, q) if flat else (lerpf(1.25, 1.0, q) if safe else lerpf(1.12, 0.84, q))
     else:
         # v0.17: primer saque agresivo y al hueco; segundo saque seguro
         var rec = pl[1 - e.id]
@@ -335,17 +335,21 @@ func do_serve(e: Player, q: float) -> void:
             err = (AIP.err * 0.7 + 0.1) * 0.6
             serve_T = 1.05
         else:
+            # v0.21: primer saque de verdad - plano, rapido y con direccion
+            # (linea / T / al cuerpo), velocidad segun dificultad
             var rec_pos: float = clampf(rec.x * box_sign, 0.0, 4.0)
             var gamble := randf()
-            if gamble < 0.6:
-                tx = box_sign * (3.3 if rec_pos < 1.8 else 1.1)
-            elif gamble < 0.8:
-                tx = box_sign * clampf(rec_pos + randf_range(-0.4, 0.4), 0.7, 3.8)
+            if gamble < 0.45:
+                tx = box_sign * randf_range(3.2, 3.8)  # abierto a la linea
+            elif gamble < 0.70:
+                tx = box_sign * randf_range(0.8, 1.2)  # a la T
+            elif gamble < 0.90:
+                tx = box_sign * clampf(rec_pos + randf_range(-0.3, 0.3), 0.7, 3.8)  # al cuerpo
             else:
                 tx = box_sign * randf_range(1.0, 3.5)
-            tzr = randf_range(4.8, 5.9)
+            tzr = randf_range(5.4, 6.2)  # profundo, cerca de la linea de saque
             err = (AIP.err * 0.7 + 0.1) * 1.25
-            serve_T = 0.97
+            serve_T = 0.90 if AIP.speed < 5.0 else (0.82 if AIP.speed < 6.2 else 0.76)
     tx += randn() * err
     tzr += randn() * err * (0.9 if (e.id == 0 and not demo and inp.y > 0.4) else 0.5)
     launch(tx, NZ + dir * tzr, serve_T, max(ball.y, 2.0))
@@ -366,7 +370,7 @@ func toss_ball() -> void:
     ball.held = false
     ball.toss = true
     ball.toss_t = 0.0
-    ball.vy = 9.5
+    ball.vy = 10.5
     ball.vx = 0.0
     ball.vz = 0.0
     serve_stage = "toss"
