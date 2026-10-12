@@ -1,6 +1,8 @@
 class_name GameMenus
 extends Control
 
+const VERSION := "v0.19"
+
 signal quick_match(surface: String, diff: int, sets: int, day: bool)
 signal play_career_match
 signal play_training
@@ -9,6 +11,7 @@ signal tourney_play_match
 signal rematch
 signal back_to_menu
 signal career_deleted
+signal pad_invert(axis_x: bool, inverted: bool)
 
 const DIFFS := ["FÁCIL", "NORMAL", "DIFÍCIL"]
 var surface := "clay"
@@ -20,6 +23,8 @@ var tab := "cal"
 var career_msg := ""
 var career_msg_ok := true
 var training_from := "career"
+var pad_inv_x := false
+var pad_inv_y := false
 var root_box: VBoxContainer
 var sfx: SoundKit
 var focus_first: Control
@@ -43,6 +48,17 @@ func _ready() -> void:
     root_box.alignment = BoxContainer.ALIGNMENT_CENTER
     root_box.add_theme_constant_override("separation", 12)
     center.add_child(root_box)
+    var vl := Label.new()
+    vl.text = VERSION
+    vl.add_theme_font_size_override("font_size", 14)
+    vl.add_theme_color_override("font_color", Color(0.62, 0.7, 0.92, 0.5))
+    vl.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
+    vl.offset_left = 12
+    vl.offset_top = -26
+    vl.offset_right = 90
+    vl.offset_bottom = -6
+    vl.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+    add_child(vl)
 
 func _btn(txt: String, gold := false, green := false) -> Button:
     var b := Button.new()
@@ -179,6 +195,11 @@ func show_menu(p_career: Career) -> void:
     cg.pressed.connect(func(): sfx.play("click"); show_games())
     root_box.add_child(_row([cg]))
     root_box.add_child(_sub("Juegos de habilidad en la pista", 14))
+    root_box.add_child(_sub("AJUSTES DE MANDO", 15, Color("#ffe27a")))
+    root_box.add_child(_row([_sub("Eje Y", 14), _opt_group(["NORMAL", "INVERTIDO"], 1 if pad_inv_y else 0, func(i):
+        pad_invert.emit(false, i == 1))]))
+    root_box.add_child(_row([_sub("Eje X", 14), _opt_group(["NORMAL", "INVERTIDO"], 1 if pad_inv_x else 0, func(i):
+        pad_invert.emit(true, i == 1))]))
     root_box.add_child(_sub("Mando: stick mover · A golpe · X globo · B dejada · START pausa\nTeclado: WASD/flechas · ESPACIO golpe · Z globo · SHIFT dejada · P pausa", 13, Color("#8ea2d8")))
     wt.grab_focus()
 
