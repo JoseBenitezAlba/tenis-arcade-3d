@@ -233,6 +233,18 @@ func do_hit(e: Player, kind: String, ai: bool) -> void:
             tx = clampf(-signf(opp.x) * randf_range(2.6, 3.8), -3.9, 3.9)
             d = minf(d + 0.15, 1.0)
             T *= 0.95
+        # v0.14: buscar el winner - a la esquina y mas rapido cuando el rival
+        # esta lejos del punto de caida o lleva inercia al lado contrario
+        var reversing: bool = absf(opp.vx) > 2.5
+        var clear_chance: bool = absf(opp.x) > 2.4 or reversing
+        if kind != "drop" and kind != "lob" and clear_chance and randf() < 0.75:
+            if reversing:
+                tx = clampf(-signf(opp.vx) * randf_range(2.8, 3.8), -3.9, 3.9)
+            else:
+                tx = clampf(signf(tx) * randf_range(2.8, 3.8), -3.9, 3.9)
+            T *= 0.7
+            d = minf(d + 0.12, 1.0)
+            tx += randn() * D.err * 0.5
         tx += randn() * D.err * (0.5 + stretch * 0.7)
         d += randn() * 0.08 * D.err
     else:
