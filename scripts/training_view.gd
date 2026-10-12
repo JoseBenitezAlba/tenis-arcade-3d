@@ -262,7 +262,9 @@ func _physics_process(dt: float) -> void:
     if phase == 2:
         wait_t -= dt
         if wait_t <= 0.0:
-            if serves_left <= 0:
+            # v0.22: fin inmediato al tumbar TODAS las latas (pleno),
+            # aunque queden saques - antes el juego seguia sin objetivos
+            if serves_left <= 0 or score >= total_cans:
                 _finish()
             else:
                 phase = 0
