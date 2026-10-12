@@ -210,6 +210,7 @@ func do_hit(e: Player, kind: String, ai: bool) -> void:
     var tx := 0.0
     var d := 0.0
     var T := 1.0
+    var on_rise := false
     if ball.y > 2.15 and kind != "lob":
         kind = "smash"
     if ai:
@@ -262,10 +263,19 @@ func do_hit(e: Player, kind: String, ai: bool) -> void:
         else:
             d = 0.95 if up else 0.62
             T = (0.92 if up else 1.02) * PS.T
+            # v0.16: golpear al bote (bola subiendo) quita tiempo al rival
+            # pero pide mas precision que esperar a que la bola baje
+            if ball.vy > 1.0:
+                on_rise = true
+                T *= 0.88
+                d = minf(d + 0.06, 1.0)
         var hq: float = clampf(1.0 - absf(ball.y - 1.05) / 1.6, 0.35, 1.0)
         var qf: float = 2.0 - hq
         tx += randn() * (0.12 + stretch * 0.55) * PS.err * qf
         d += randn() * (0.03 + stretch * 0.07) * PS.err * qf
+        if on_rise:
+            tx += randn() * 0.18 * PS.err
+            d += randn() * 0.05 * PS.err
         d *= 0.85 + 0.15 * hq
     d = clampf(d, 0.02, 1.04)
     var tz := NZ + dir * (2.2 + d * (L / 2.0 - 2.2))
@@ -280,7 +290,7 @@ func do_hit(e: Player, kind: String, ai: bool) -> void:
     e.kind = kind
     e.cool = 0.4
     e.flash = 0.12
-    events.append({"t": "hit", "id": e.id, "kind": kind, "x": ball.x, "y": ball.y, "z": ball.z})
+    events.append({"t": "hit", "id": e.id, "kind": kind, "x": ball.x, "y": ball.y, "z": ball.z, "rise": on_rise})
 
 func do_serve(e: Player, q: float) -> void:
     var dir := 1.0 if e.near else -1.0
