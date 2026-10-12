@@ -211,6 +211,7 @@ func do_hit(e: Player, kind: String, ai: bool) -> void:
     var d := 0.0
     var T := 1.0
     var on_rise := false
+    var perfect := false
     if ball.y > 2.15 and kind != "lob":
         kind = "smash"
     if ai:
@@ -269,13 +270,23 @@ func do_hit(e: Player, kind: String, ai: bool) -> void:
                 on_rise = true
                 T *= 0.88
                 d = minf(d + 0.06, 1.0)
+        # v0.18: raquetazo perfecto - contacto en el punto dulce (bola delante
+        # del cuerpo y a la cintura): sale mas rapida, mas profunda y casi sin error
+        if kind == "drive" or kind == "smash":
+            var pdx := absf(ball.x - e.x)
+            var pdz := absf(ball.z - e.z)
+            perfect = pdx < 0.75 and pdz > 0.25 and pdz < 1.05 and ball.y > 0.85 and ball.y < 1.45
+        if perfect:
+            T *= 0.82
+            d = minf(d + 0.08, 1.0)
+        var es: float = 0.35 if perfect else 1.0
         var hq: float = clampf(1.0 - absf(ball.y - 1.05) / 1.6, 0.35, 1.0)
         var qf: float = 2.0 - hq
-        tx += randn() * (0.12 + stretch * 0.55) * PS.err * qf
-        d += randn() * (0.03 + stretch * 0.07) * PS.err * qf
+        tx += randn() * (0.12 + stretch * 0.55) * PS.err * qf * es
+        d += randn() * (0.03 + stretch * 0.07) * PS.err * qf * es
         if on_rise:
-            tx += randn() * 0.18 * PS.err
-            d += randn() * 0.05 * PS.err
+            tx += randn() * 0.18 * PS.err * es
+            d += randn() * 0.05 * PS.err * es
         d *= 0.85 + 0.15 * hq
     d = clampf(d, 0.02, 1.04)
     var tz := NZ + dir * (2.2 + d * (L / 2.0 - 2.2))
@@ -290,7 +301,7 @@ func do_hit(e: Player, kind: String, ai: bool) -> void:
     e.kind = kind
     e.cool = 0.4
     e.flash = 0.12
-    events.append({"t": "hit", "id": e.id, "kind": kind, "x": ball.x, "y": ball.y, "z": ball.z, "rise": on_rise})
+    events.append({"t": "hit", "id": e.id, "kind": kind, "x": ball.x, "y": ball.y, "z": ball.z, "rise": on_rise, "perfect": perfect})
 
 func do_serve(e: Player, q: float) -> void:
     var dir := 1.0 if e.near else -1.0
@@ -298,17 +309,42 @@ func do_serve(e: Player, q: float) -> void:
     var tx := 0.0
     var tzr := 0.0
     var err := 0.0
+    var serve_T := 1.0
     if e.id == 0 and not demo:
-        tx = box_sign * clamp(2.0 + inp.x * box_sign * 1.6, 0.7, 3.5)
-        tzr = 5.5 if inp.y > 0.4 else 4.6
+        tx = box_sign * clamp(2.0 + inp.x * box_sign * 1.6, 0.7, 3.8)
+        # v0.17: saque con intencion - arriba plano y rapido, abajo seguro,
+        # y arriesgar a linea suma error (riesgo/recompensa)
+        var flat: bool = inp.y > 0.4
+        var safe: bool = inp.y < -0.4
+        tzr = 6.0 if flat else (4.3 if safe else 4.9)
         err = ((1.0 - q) * 1.6 + 0.1) * PS.err
+        err *= 1.0 + 1.7 * clampf((absf(tx) - 1.5) / 2.3, 0.0, 1.0)
+        if safe:
+            err *= 0.75
+        serve_T = lerpf(1.12, 0.80, q) if flat else (lerpf(1.25, 1.0, q) if safe else lerpf(1.18, 0.88, q))
     else:
-        tx = box_sign * randf_range(1.0, 3.5)
-        tzr = randf_range(4.0, 5.4)
-        err = AIP.err * 0.7 + 0.1
+        # v0.17: primer saque agresivo y al hueco; segundo saque seguro
+        var rec = pl[1 - e.id]
+        if serve_fault > 0:
+            tx = box_sign * randf_range(1.2, 2.8)
+            tzr = randf_range(4.4, 5.0)
+            err = (AIP.err * 0.7 + 0.1) * 0.6
+            serve_T = 1.05
+        else:
+            var rec_pos: float = clampf(rec.x * box_sign, 0.0, 4.0)
+            var gamble := randf()
+            if gamble < 0.6:
+                tx = box_sign * (3.3 if rec_pos < 1.8 else 1.1)
+            elif gamble < 0.8:
+                tx = box_sign * clampf(rec_pos + randf_range(-0.4, 0.4), 0.7, 3.8)
+            else:
+                tx = box_sign * randf_range(1.0, 3.5)
+            tzr = randf_range(4.8, 5.9)
+            err = (AIP.err * 0.7 + 0.1) * 1.25
+            serve_T = 0.97
     tx += randn() * err
-    tzr += randn() * err * 0.5
-    launch(tx, NZ + dir * tzr, 1.0, max(ball.y, 2.0))
+    tzr += randn() * err * (0.9 if (e.id == 0 and not demo and inp.y > 0.4) else 0.5)
+    launch(tx, NZ + dir * tzr, serve_T, max(ball.y, 2.0))
     ball.last = e.id
     ball.bounces = 0
     ball.in_play = true
@@ -318,7 +354,7 @@ func do_serve(e: Player, q: float) -> void:
     ball.hit_id += 1
     e.swing = 0.4
     e.kind = "serve"
-    events.append({"t": "serve", "x": ball.x, "y": ball.y, "z": ball.z})
+    events.append({"t": "serve", "id": e.id, "q": q, "x": ball.x, "y": ball.y, "z": ball.z})
     serve_stage = "hit"
     rally_hits = 1
 
@@ -326,7 +362,7 @@ func toss_ball() -> void:
     ball.held = false
     ball.toss = true
     ball.toss_t = 0.0
-    ball.vy = 7.0
+    ball.vy = 9.5
     ball.vx = 0.0
     ball.vz = 0.0
     serve_stage = "toss"
@@ -349,7 +385,7 @@ func step_ball(dt: float) -> void:
         ball.y += ball.vy * dt
         ball.x = sv.x + 0.28
         ball.z = sv.z + 0.3 * sdir
-        if ball.toss_t > 0.75 or (ball.vy < 0 and ball.y < 1.2):
+        if ball.vy < 0.0 and ball.y < 1.2:
             ball.toss = false
             ball.in_play = false
             fault("Lanzamiento perdido")
@@ -461,7 +497,7 @@ func ai_control(e: Player, dt: float) -> void:
         e.tvx = 0.0
         e.tvz = 0.0
         return
-    var coming: bool = ball.in_play and ball.last != e.id and ball.vz * dir < 0 and state == "play"
+    var coming: bool = ball.in_play and ball.last != e.id and ball.vz * dir < 0 and (state == "play" or state == "serve")
     var tx := clampf(ball.x * 0.3, -2.0, 2.0)
     var tz := -1.0 if e.near else L + 1.0
     var mv: float = D.speed * 0.7
@@ -491,7 +527,7 @@ func ai_control(e: Player, dt: float) -> void:
     if coming and e.cool <= 0.0 and e.swing <= 0.0:
         var dx := absf(ball.x - e.x)
         var dz := absf(ball.z - e.z)
-        if dx < 1.45 and dz < 1.35 and ball.y < 2.9 and ball.y > 0.15:
+        if dx < 1.45 and dz < 1.35 and ball.y < 2.9 and ball.y > 0.15 and (state != "serve" or ball.bounces >= 1):
             var stretch := dx > 1.0 or dz > 1.0
             if not (stretch and randf() < D.miss):
                 var kind := "drive"
@@ -531,7 +567,7 @@ func human_control(e: Player, dt: float) -> void:
             if serve_stage == "ready":
                 toss_ball()
             elif serve_stage == "toss":
-                do_serve(e, 1.0 - clamp(absf(ball.toss_t - 0.37) / 0.3, 0.0, 1.0))
+                do_serve(e, 1.0 - clamp(absf(ball.toss_t - 0.50) / 0.35, 0.0, 1.0))
         return
     if want_hit or want_lob:
         if e.swing <= 0.0:
