@@ -189,13 +189,17 @@ func update_from_sim(e, dt: float) -> void:
     var swing_dur: float = 0.4 if e.kind == "serve" else 0.34
     var k: float = 1.0 - e.swing / swing_dur if e.swing > 0.0 else -1.0
 
-    if e.swing > 0.0 and e.kind == "serve":
+    # v0.21: cancel de follow-through - pasado el impacto + 0.15s, si el
+    # jugador se mueve las piernas mandan sobre la pose de raqueta (crossfade)
+    var elapsed: float = swing_dur - e.swing if e.swing > 0.0 else 99.0
+    var hold_swing: bool = e.swing > 0.0 and (elapsed < 0.15 or e.speed <= 0.4)
+    if hold_swing and e.kind == "serve":
         # saque: lanzamiento (enter) + golpeo (shoot)
         if k < 0.55:
             _play_seek("tennis/Spell_Simple_Enter", clampf(k / 0.55, 0.0, 1.0) * 0.45)
         else:
             _play_seek("tennis/Spell_Simple_Shoot", clampf((k - 0.55) / 0.45, 0.0, 1.0) * 0.45)
-    elif e.swing > 0.0:
+    elif hold_swing:
         match e.kind:
             "drop":
                 _play_seek("tennis/Punch_Cross", clampf(k, 0.0, 1.0) * 0.9)
