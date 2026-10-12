@@ -158,8 +158,7 @@ static func build(surface: String, day: bool = false) -> Node3D:
         root.add_child(post)
     var net_mat := StandardMaterial3D.new()
     net_mat.albedo_texture = TexGen.net_texture()
-    net_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
-    net_mat.alpha_scissor_threshold = 0.3
+    net_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
     net_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
     net_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
     var net := MeshInstance3D.new()
@@ -325,7 +324,7 @@ static func build(surface: String, day: bool = false) -> Node3D:
         jchair.add_child(judge)
     # recogepelotas arrodillados junto a los postes
     for s in [-1, 1]:
-        var bb := _fbx_figure("res://models/Casual2_Male.fbx" if s < 0 else "res://models/Casual3_Female.fbx", Color("#b36a00"), Color("#222a40"), Color("#e6b48a"), "tennis/Crouch_Idle")
+        var bb := _figure(Color("#b36a00"), Color("#e6b48a"), Color("#222a40"), "kneel")
         bb.position = Vector3(s * 5.7, 0, NZ - 0.8)
         bb.rotation.y = -s * PI / 2.0
         root.add_child(bb)
