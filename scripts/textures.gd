@@ -175,9 +175,11 @@ static func ring_texture() -> ImageTexture:
     for y in s:
         for x in s:
             var d := Vector2(x - c, y - c).length() / c
-            var a: float = clamp(1.0 - abs(d - 0.8) / 0.16, 0.0, 1.0)
+            var a: float = clamp(1.0 - abs(d - 0.78) / 0.22, 0.0, 1.0)
+            if d < 0.56:
+                a = max(a, 0.12)  # leve relleno interior para leerlo a distancia
             if a > 0.0:
-                img.set_pixel(x, y, Color(1, 1, 1, a * 0.9))
+                img.set_pixel(x, y, Color(1, 1, 1, a * 0.95))
     return ImageTexture.create_from_image(img)
 
 static func sky_panorama() -> ImageTexture:
