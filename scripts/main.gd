@@ -67,6 +67,10 @@ func _ready() -> void:
         call_deferred("_closeup_harness", args)
     elif args.has("--replayshots"):
         call_deferred("_replayshots_harness", args)
+    elif args.has("--looktest"):
+        call_deferred("_looktest_harness", args)
+    elif args.has("--careershot"):
+        call_deferred("_careershot_harness", args)
     elif args.has("--faceshots"):
         call_deferred("_faceshots_harness", args)
     elif args.has("--matchprobe"):
@@ -910,4 +914,49 @@ func _rallyshots_harness(args: Array) -> void:
         await _wait_sim(0.28)
         await _grab(out + "/r" + str(n) + ".png")
         print("shot r", n, " state=", match_view.sim.state, " hits=", match_view.sim.rally_hits, " bally=", snappedf(match_view.sim.ball.y, 0.01))
+    get_tree().quit(0)
+
+
+func _careershot_harness(args: Array) -> void:
+    var out := "/home/sandbox/godot/shots/career"
+    var i := args.find("--careershot")
+    if i + 1 < args.size():
+        out = args[i + 1]
+    DirAccess.make_dir_recursive_absolute(out)
+    career = Career.new()
+    career.new_career("Jugador")
+    menus.career = career
+    career.start_tournament()
+    _on_career_match()
+    await get_tree().process_frame
+    await get_tree().process_frame
+    var mv = match_view
+    for n in 4:
+        await _wait_sim(1.0)
+        await _grab(out + "/c" + str(n) + ".png")
+        var p0 = mv.sim.pl[0]
+        var p1 = mv.sim.pl[1]
+        print("shot c", n, " p0=(", p0.x, ",", p0.z, ") p1=(", p1.x, ",", p1.z, ") rig0pos=", mv.rigs[0].global_position, " rig1pos=", mv.rigs[1].global_position, " rig1vis=", mv.rigs[1].visible, " cpulook=", mv.get_meta("cpu_look", -1), " state=", mv.sim.state)
+    get_tree().quit(0)
+
+
+func _looktest_harness(_args: Array) -> void:
+    menus.visible = false
+    var root3d := Node3D.new()
+    add_child(root3d)
+    var cam := Camera3D.new()
+    root3d.add_child(cam)
+    cam.position = Vector3(0, 2.0, 7.0)
+    cam.look_at(Vector3(0, 1.0, 0))
+    var sun := DirectionalLight3D.new()
+    sun.rotation_degrees = Vector3(-50, 30, 0)
+    root3d.add_child(sun)
+    for i in 5:
+        var f = PlayerFig.new(i, false)
+        f.position = Vector3((i - 2) * 1.7, 0, 0)
+        root3d.add_child(f)
+    await get_tree().process_frame
+    await get_tree().process_frame
+    await get_tree().process_frame
+    await _grab("/home/sandbox/godot/shots/looktest.png")
     get_tree().quit(0)
