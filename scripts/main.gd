@@ -57,7 +57,9 @@ func _ready() -> void:
     menus.pad_inv_x = pad_inv_x
     menus.pad_inv_y = pad_inv_y
     menus.show_menu(career)
-    if args.has("--courtshot"):
+    if args.has("--rallyshots"):
+        call_deferred("_rallyshots_harness", args)
+    elif args.has("--courtshot"):
         call_deferred("_courtshot_harness", args)
     elif args.has("--boardcheck"):
         call_deferred("_boardcheck_harness", args)
@@ -882,4 +884,30 @@ func _courtshot_harness(args: Array) -> void:
         await _grab(out + "/court_34_" + surface + ".png")
         court.queue_free()
         await get_tree().process_frame
+    get_tree().quit(0)
+
+
+# ---------- TEST: rafaga de capturas durante un rally demo ----------
+func _rallyshots_harness(args: Array) -> void:
+    var out := "/home/sandbox/godot/shots/rally"
+    var i := args.find("--rallyshots")
+    if i + 1 < args.size():
+        out = args[i + 1]
+    DirAccess.make_dir_recursive_absolute(out)
+    menus.visible = false
+    match_view = MatchView.new()
+    match_view.set_meta("surface", "hard")
+    match_view.set_meta("day", true)
+    match_view.set_meta("cpu_look", 2)
+    match_view.set_meta("my_name", "TÚ")
+    match_view.set_meta("cpu_label", "CPU · NORMAL")
+    match_view.setup({"demo": true, "surface": "hard", "AIP": DIFF_PARAMS[1], "sets_to_win": 1})
+    add_child(match_view)
+    # esperar a que empiece un rally (tras el primer resto)
+    var ok := await _wait_until(func(): return match_view.sim.rally_hits >= 2, 40.0)
+    print("rally start ok: ", ok)
+    for n in 8:
+        await _wait_sim(0.28)
+        await _grab(out + "/r" + str(n) + ".png")
+        print("shot r", n, " state=", match_view.sim.state, " hits=", match_view.sim.rally_hits, " bally=", snappedf(match_view.sim.ball.y, 0.01))
     get_tree().quit(0)
