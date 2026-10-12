@@ -68,16 +68,16 @@ func _ready() -> void:
     # banner central
     banner = Label.new()
     banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-    banner.position = Vector2(0, 240)
+    banner.position = Vector2(0, 56)
     banner.size = Vector2(1280, 90)
-    banner.add_theme_font_size_override("font_size", 72)
+    banner.add_theme_font_size_override("font_size", 44)
     banner.add_theme_color_override("font_color", Color.WHITE)
     banner.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.7))
     banner.add_theme_constant_override("outline_size", 10)
     add_child(banner)
     banner_sub = Label.new()
     banner_sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-    banner_sub.position = Vector2(0, 330)
+    banner_sub.position = Vector2(0, 112)
     banner_sub.size = Vector2(1280, 40)
     banner_sub.add_theme_font_size_override("font_size", 24)
     banner_sub.add_theme_color_override("font_color", Color.WHITE)
@@ -136,9 +136,10 @@ func hide_replay() -> void:
     if replay_tag != null:
         replay_tag.visible = false
 
-func show_banner(txt: String, sub: String, color: Color) -> void:
+func show_banner(txt: String, sub: String, color: Color, big := false) -> void:
     banner.text = txt
     banner.add_theme_color_override("font_color", color)
+    banner.add_theme_font_size_override("font_size", 60 if big else 44)
     banner_sub.text = sub
     banner.modulate.a = 1.0
     banner_sub.modulate.a = 1.0
@@ -168,11 +169,11 @@ func _process(dt: float) -> void:
     for p in popup_pool:
         if p.active:
             p.age += dt
-            if p.age > 0.9:
+            if p.age > 0.6:
                 p.active = false
                 p.l.visible = false
             else:
-                p.l.modulate.a = 1.0 - p.age / 0.9
+                p.l.modulate.a = 1.0 - p.age / 0.6
                 if cam:
                     var sp := cam.unproject_position(p.wp + Vector3(0, 2.2 + p.age * 0.6, 0))
                     p.l.position = sp - Vector2(40, 0)
