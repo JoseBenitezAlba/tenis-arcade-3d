@@ -16,9 +16,12 @@ var match_view: MatchView
 var sfx: SoundKit
 var last_cfg := {"surface": "clay", "diff": 1, "sets": 1}
 var in_career_match := false
+var pad_inv_x := false
+var pad_inv_y := false
 
 func _ready() -> void:
     randomize()
+    _load_pad_settings()
     _register_inputs()
     var args := OS.get_cmdline_user_args()
     if args.has("--simtest"):
@@ -50,8 +53,13 @@ func _ready() -> void:
     menus.career_deleted.connect(func():
         career = null
         _to_menu())
+    menus.pad_invert.connect(_on_pad_invert)
+    menus.pad_inv_x = pad_inv_x
+    menus.pad_inv_y = pad_inv_y
     menus.show_menu(career)
-    if args.has("--boardcheck"):
+    if args.has("--courtshot"):
+        call_deferred("_courtshot_harness", args)
+    elif args.has("--boardcheck"):
         call_deferred("_boardcheck_harness", args)
     elif args.has("--closeup"):
         call_deferred("_closeup_harness", args)
@@ -97,8 +105,62 @@ func _register_inputs() -> void:
             elif ev.has("ja"):
                 var m := InputEventJoypadMotion.new()
                 m.axis = ev.ja
-                m.axis_value = ev.av
+                var av: float = ev.av
+                if m.axis == 0 and pad_inv_x:
+                    av = -av
+                elif m.axis == 1 and pad_inv_y:
+                    av = -av
+                m.axis_value = av
                 InputMap.action_add_event(action, m)
+
+func _load_pad_settings() -> void:
+    # Los mandos genericos reportan el eje Y al reves en la Gamepad API del
+    # navegador (en Windows la base de datos de SDL los corrige). Por eso en
+    # web arrancamos con el eje Y invertido; se puede cambiar en el menu.
+    pad_inv_y = OS.has_feature("web")
+    var cfg := ConfigFile.new()
+    if cfg.load("user://padcfg.cfg") == OK:
+        pad_inv_x = cfg.get_value("pad", "inv_x", false)
+        pad_inv_y = cfg.get_value("pad", "inv_y", pad_inv_y)
+
+func set_pad_invert(axis_x: bool, inverted: bool) -> void:
+    if axis_x:
+        pad_inv_x = inverted
+    else:
+        pad_inv_y = inverted
+    var cfg := ConfigFile.new()
+    cfg.set_value("pad", "inv_x", pad_inv_x)
+    cfg.set_value("pad", "inv_y", pad_inv_y)
+    cfg.save("user://padcfg.cfg")
+    for action in ["move_left", "move_right", "move_up", "move_down"]:
+        for e in InputMap.action_get_events(action):
+            if e is InputEventJoypadMotion:
+                InputMap.action_erase_event(action, e)
+    _add_joy_axes()
+
+func _add_joy_axes() -> void:
+    var axes := {
+        "move_left": [0, -1.0],
+        "move_right": [0, 1.0],
+        "move_up": [1, -1.0],
+        "move_down": [1, 1.0],
+    }
+    for action in axes:
+        var m := InputEventJoypadMotion.new()
+        m.axis = axes[action][0]
+        var av: float = axes[action][1]
+        if m.axis == 0 and pad_inv_x:
+            av = -av
+        elif m.axis == 1 and pad_inv_y:
+            av = -av
+        m.axis_value = av
+        InputMap.action_add_event(action, m)
+
+func _on_pad_invert(axis_x: bool, inverted: bool) -> void:
+    set_pad_invert(axis_x, inverted)
+    menus.pad_inv_x = pad_inv_x
+    menus.pad_inv_y = pad_inv_y
+    menus.show_menu(career)
 
 func _start_match(cfg: Dictionary) -> void:
     if match_view:
@@ -331,6 +393,8 @@ func _to_menu() -> void:
         match_view = null
     in_career_match = false
     menus.visible = true
+    menus.pad_inv_x = pad_inv_x
+    menus.pad_inv_y = pad_inv_y
     menus.show_menu(career)
 
 func _careertest() -> void:
@@ -784,4 +848,38 @@ func _boardcheck_harness(args: Array) -> void:
     await get_tree().process_frame
     await _grab(out)
     print("BOARDCHECK DONE")
+    get_tree().quit(0)
+
+
+# ---------- TEST: capturas de pista (vista TV + detalle de red) ----------
+func _courtshot_harness(args: Array) -> void:
+    var out := "/home/sandbox/godot/shots/court"
+    var i := args.find("--courtshot")
+    if i + 1 < args.size():
+        out = args[i + 1]
+    DirAccess.make_dir_recursive_absolute(out)
+    menus.visible = false
+    var cam := Camera3D.new()
+    add_child(cam)
+    cam.fov = 50.0
+    for surface in ["hard", "clay"]:
+        var court := CourtBuilder.build(surface, true)
+        add_child(court)
+        for fi in 12:
+            await get_tree().process_frame
+        # vista TV: tras la linea de fondo, elevada, toda la pista
+        cam.position = Vector3(0, 8.5, -7.2)
+        cam.look_at(Vector3(0, 0.0, 14.5))
+        cam.current = true
+        await _grab(out + "/court_tv_" + surface + ".png")
+        # detalle de red desde el lateral
+        cam.position = Vector3(10.5, 2.6, CourtBuilder.NZ - 0.4)
+        cam.look_at(Vector3(0, 0.7, CourtBuilder.NZ))
+        await _grab(out + "/court_net_" + surface + ".png")
+        # vista alta 3/4 para proporciones
+        cam.position = Vector3(13.0, 13.0, -9.0)
+        cam.look_at(Vector3(0, 0.0, CourtBuilder.NZ + 3.0))
+        await _grab(out + "/court_34_" + surface + ".png")
+        court.queue_free()
+        await get_tree().process_frame
     get_tree().quit(0)
