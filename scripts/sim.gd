@@ -229,6 +229,10 @@ func do_hit(e: Player, kind: String, ai: bool) -> void:
         else:
             d = 0.55 + randf() * 0.4
             T = 0.98 + (1.0 - d) * 0.2
+        if absf(opp.x) > 3.0 and kind != "drop":
+            tx = clampf(-signf(opp.x) * randf_range(2.6, 3.8), -3.9, 3.9)
+            d = minf(d + 0.15, 1.0)
+            T *= 0.95
         tx += randn() * D.err * (0.5 + stretch * 0.7)
         d += randn() * 0.08 * D.err
     else:
@@ -246,8 +250,11 @@ func do_hit(e: Player, kind: String, ai: bool) -> void:
         else:
             d = 0.95 if up else 0.62
             T = (0.92 if up else 1.02) * PS.T
-        tx += randn() * (0.12 + stretch * 0.55) * PS.err
-        d += randn() * (0.03 + stretch * 0.07) * PS.err
+        var hq: float = clampf(1.0 - absf(ball.y - 1.05) / 1.6, 0.35, 1.0)
+        var qf: float = 2.0 - hq
+        tx += randn() * (0.12 + stretch * 0.55) * PS.err * qf
+        d += randn() * (0.03 + stretch * 0.07) * PS.err * qf
+        d *= 0.85 + 0.15 * hq
     d = clampf(d, 0.02, 1.04)
     var tz := NZ + dir * (2.2 + d * (L / 2.0 - 2.2))
     launch(tx, tz, T, max(ball.y, 0.5))
