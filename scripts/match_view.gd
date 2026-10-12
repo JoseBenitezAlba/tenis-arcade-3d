@@ -49,7 +49,10 @@ const REC_MAX := 2700
 func setup(cfg: Dictionary) -> void:
     demo = cfg.get("demo", false)
     is_career = cfg.get("career", false)
-    sim = TennisSim.new(demo, cfg.AIP, cfg.get("PS", {}), cfg.get("cpu_name", "CPU"), cfg.get("sets_to_win", 1))
+    var ps = cfg.get("PS", {})
+    if typeof(ps) != TYPE_DICTIONARY:
+        ps = {}
+    sim = TennisSim.new(demo, cfg.AIP, ps, cfg.get("cpu_name", "CPU"), cfg.get("sets_to_win", 1))
     process_mode = Node.PROCESS_MODE_PAUSABLE
 
 func _ready() -> void:
@@ -64,7 +67,10 @@ func _ready() -> void:
     sfx = SoundKit.new()
     add_child(sfx)
 
-    rigs = [PlayerFig.new(0, true), PlayerFig.new(get_meta("cpu_look", 2), false)]
+    # v0.22: defensivo - el meta debe ser int; un String rompia el rig del CPU
+    var cpu_look_meta = get_meta("cpu_look", 2)
+    var cpu_look_i: int = cpu_look_meta if typeof(cpu_look_meta) == TYPE_INT else 2
+    rigs = [PlayerFig.new(0, true), PlayerFig.new(cpu_look_i, false)]
     for r in rigs:
         add_child(r)
 
