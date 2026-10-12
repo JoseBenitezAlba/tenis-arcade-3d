@@ -466,7 +466,9 @@ func judge_landing() -> void:
         ball.in_play = false
         fault("Fuera del cuadro" if on_opp else "Red")
         return
-    var inside: bool = absf(x) <= 4.11 + eps and z >= -eps and z <= L + eps
+    # v0.22: juez con ancho de DOBLES (5.485) - la pista dibuja los pasillos
+    # y el usuario los ve dentro; el saque sigue midiendo el cuadro de individuales
+    var inside: bool = absf(x) <= 5.485 + eps and z >= -eps and z <= L + eps
     if on_opp and inside:
         return
     ball.in_play = false
