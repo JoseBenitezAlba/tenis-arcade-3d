@@ -20,7 +20,7 @@ static func _box(sx: float, sy: float, sz: float, mat: Material) -> MeshInstance
 
 
 # Figura real (Quaternius CC0) con animación en bucle para oficiales.
-static func _fbx_figure(model: String, shirt: Color, pants: Color, skin: Color, anim: String, hair := Color("#3a2a18")) -> Node3D:
+static func _fbx_figure(model: String, shirt: Color, pants: Color, skin: Color, anim: String, hair := Color("#3a2a18"), head_scale := 1.0) -> Node3D:
     var inst: Node3D = (load(model) as PackedScene).instantiate()
     inst.scale = Vector3.ONE * 0.806
     var ap: AnimationPlayer = inst.find_child("AnimationPlayer", true, false)
@@ -47,6 +47,12 @@ static func _fbx_figure(model: String, shirt: Color, pants: Color, skin: Color, 
     ap.play(anim, 0.0)
     # desincronizar fases entre copias
     ap.seek(randf() * 2.0, true)
+    if head_scale != 1.0:
+        var sk := inst.find_child("Skeleton3D", true, false) as Skeleton3D
+        if sk:
+            var hb := sk.find_bone("Head")
+            if hb >= 0:
+                sk.set_bone_pose_scale(hb, Vector3.ONE * head_scale)
     return inst
 
 static func _figure(shirt_c: Color, skin_c: Color, shorts_c: Color, pose: String) -> Node3D:
@@ -302,12 +308,12 @@ static func build(surface: String, day: bool = false) -> Node3D:
     var step1 := _box(0.5, 0.04, 0.15, white)
     step1.position = Vector3(0.45, 1.0, 0)
     chair.add_child(step1)
-    var umpire := _fbx_figure("res://models/OldClassy_Male.fbx", Color("#2a3a6a"), Color("#f0f0f0"), Color("#d9a37a"), "tennis/Sitting_Idle")
+    var umpire := _fbx_figure("res://models/OldClassy_Male.fbx", Color("#2a3a6a"), Color("#f0f0f0"), Color("#d9a37a"), "tennis/Sitting_Idle", Color("#8a8078"), 0.72)
     umpire.position = Vector3(0, 2.02, 0)
     chair.add_child(umpire)
     # jueces de linea sentados en las esquinas
     var judge_cols := [Color("#274070"), Color("#274070"), Color("#274070"), Color("#274070")]
-    var jpos := [Vector3(-5.6, 0, -2.9), Vector3(5.6, 0, -2.9), Vector3(-5.6, 0, L + 2.9), Vector3(5.6, 0, L + 2.9)]
+    var jpos := [Vector3(-8.0, 0, -2.9), Vector3(8.0, 0, -2.9), Vector3(-5.6, 0, L + 2.9), Vector3(5.6, 0, L + 2.9)]
     for ji in 4:
         var jchair := Node3D.new()
         jchair.position = jpos[ji]
@@ -319,7 +325,7 @@ static func build(surface: String, day: bool = false) -> Node3D:
         var jback := _box(0.5, 0.4, 0.06, green)
         jback.position = Vector3(0, 0.62, -0.22)
         jchair.add_child(jback)
-        var judge := _fbx_figure("res://models/Suit_Male.fbx", judge_cols[ji], Color("#222a40"), Color("#c98d62"), "tennis/Sitting_Idle")
+        var judge := _fbx_figure("res://models/Suit_Male.fbx", judge_cols[ji], Color("#222a40"), Color("#c98d62"), "tennis/Sitting_Idle", Color("#3a3230"), 0.72)
         judge.position = Vector3(0, 0.34, 0.02)
         jchair.add_child(judge)
     # recogepelotas arrodillados junto a los postes
