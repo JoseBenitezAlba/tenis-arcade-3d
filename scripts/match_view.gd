@@ -327,7 +327,7 @@ func drain_events() -> void:
     for ev in sim.events:
         match ev.t:
             "hit":
-                sfx.play("hit_big" if ev.kind == "smash" else "hit", 1.0)
+                sfx.play("hit_big" if (ev.kind == "smash" or ev.get("rise", false)) else "hit", 1.0)
                 if ev.kind == "smash":
                     shake = 0.25
                 spawn_dust(Vector3(ev.x, ev.y, ev.z), 3, Color(1, 0.96, 0.7, 0.4))
