@@ -240,16 +240,15 @@ static func build(surface: String, day: bool = false) -> Node3D:
     var sky := Sky.new()
     var skym := ProceduralSkyMaterial.new()
     if day:
-        skym.sky_top_color = Color("#3a7bd5")
-        skym.sky_horizon_color = Color("#bcd8f0")
-        skym.ground_bottom_color = Color("#2a4a22")
-        skym.ground_horizon_color = Color("#7aa06a")
+        var pano := PanoramaSkyMaterial.new()
+        pano.panorama = TexGen.sky_panorama()
+        sky.sky_material = pano
     else:
         skym.sky_top_color = Color("#05070f")
         skym.sky_horizon_color = Color("#1b2347")
         skym.ground_bottom_color = Color("#05070f")
         skym.ground_horizon_color = Color("#10162e")
-    sky.sky_material = skym
+        sky.sky_material = skym
     e.sky = sky
     e.background_mode = Environment.BG_SKY
     e.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
