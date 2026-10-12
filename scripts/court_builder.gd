@@ -150,30 +150,58 @@ static func build(surface: String, day: bool = false) -> Node3D:
     court.position = Vector3(0, 0.03, (L + 3.6 - 4.0) / 2.0)
     root.add_child(court)
 
-    # red
+    # red reglamentaria: postes a 0.914m de la linea de dobles (+-6.40m),
+    # 1.07m en los postes, 0.914m en el centro (caida parabolica), correa central
     var post_mat := _mat(Color("#202634"))
-    for xp in [-6.0, 6.0]:
+    for xp in [-6.4, 6.4]:
         var post := MeshInstance3D.new()
         var cyl := CylinderMesh.new()
-        cyl.top_radius = 0.05
-        cyl.bottom_radius = 0.05
-        cyl.height = 1.12
+        cyl.top_radius = 0.075
+        cyl.bottom_radius = 0.075
+        cyl.height = 1.07
         cyl.material = post_mat
         post.mesh = cyl
-        post.position = Vector3(xp, 0.56, NZ)
+        post.position = Vector3(xp, 0.535, NZ)
         root.add_child(post)
+        var cap := MeshInstance3D.new()
+        var capm := CylinderMesh.new()
+        capm.top_radius = 0.085
+        capm.bottom_radius = 0.085
+        capm.height = 0.03
+        capm.material = _mat(Color("#e8e8e8"))
+        cap.mesh = capm
+        cap.position = Vector3(xp, 1.085, NZ)
+        root.add_child(cap)
     var net_mat := StandardMaterial3D.new()
     net_mat.albedo_texture = TexGen.net_texture()
     net_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
     net_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
     net_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+    var st := SurfaceTool.new()
+    st.begin(Mesh.PRIMITIVE_TRIANGLES)
+    var segs := 48
+    for i in segs:
+        var x0 := -6.4 + 12.8 * float(i) / segs
+        var x1 := -6.4 + 12.8 * float(i + 1) / segs
+        # caida: 1.067 en postes, 0.914 en el centro
+        var yt0 := 0.914 + 0.153 * pow(x0 / 6.4, 2.0)
+        var yt1 := 0.914 + 0.153 * pow(x1 / 6.4, 2.0)
+        var u0 := float(i) / segs
+        var u1 := float(i + 1) / segs
+        st.set_uv(Vector2(u0, 1.0)); st.add_vertex(Vector3(x0, 0.0, NZ))
+        st.set_uv(Vector2(u1, 1.0)); st.add_vertex(Vector3(x1, 0.0, NZ))
+        st.set_uv(Vector2(u0, 0.0)); st.add_vertex(Vector3(x0, yt0, NZ))
+        st.set_uv(Vector2(u0, 0.0)); st.add_vertex(Vector3(x0, yt0, NZ))
+        st.set_uv(Vector2(u1, 1.0)); st.add_vertex(Vector3(x1, 0.0, NZ))
+        st.set_uv(Vector2(u1, 0.0)); st.add_vertex(Vector3(x1, yt1, NZ))
+    st.set_material(net_mat)
     var net := MeshInstance3D.new()
-    var npm := PlaneMesh.new()
-    npm.size = Vector2(12.0, 0.95)
-    npm.material = net_mat
-    net.mesh = npm
-    net.position = Vector3(0, 0.475, NZ)
+    net.mesh = st.commit()
     root.add_child(net)
+    # correa central blanca (5cm) hasta el suelo
+    var strap := _box(0.05, 0.92, 0.02, _mat(Color("#f2f2f2")))
+    strap.position = Vector3(0, 0.46, NZ)
+    root.add_child(strap)
 
     # muros publicitarios
     var ad_names := ["TENIS ARCADE", "PRO TOUR", "SAQUE", "ACE", "SMASH", "MATCH POINT", "GOLDEN POINT", "TOP SPIN"]
