@@ -149,6 +149,19 @@ static func shadow_texture() -> ImageTexture:
                 img.set_pixel(x, y, Color(0, 0, 0, a * a * 0.5))
     return ImageTexture.create_from_image(img)
 
+static func ring_texture() -> ImageTexture:
+    var s := 128
+    var img := Image.create(s, s, false, Image.FORMAT_RGBA8)
+    img.fill(Color(0, 0, 0, 0))
+    var c := s / 2.0
+    for y in s:
+        for x in s:
+            var d := Vector2(x - c, y - c).length() / c
+            var a: float = clamp(1.0 - abs(d - 0.8) / 0.16, 0.0, 1.0)
+            if a > 0.0:
+                img.set_pixel(x, y, Color(1, 1, 1, a * 0.9))
+    return ImageTexture.create_from_image(img)
+
 static func sky_panorama() -> ImageTexture:
     # cielo diurno con nubes suaves pintadas (panorama equirectangular 2:1)
     var w := 2048
