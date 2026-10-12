@@ -443,7 +443,7 @@ func judge_landing() -> void:
     var dir := 1.0 if hitter.near else -1.0
     var x := ball.x
     var z := ball.z
-    var eps := 0.04
+    var eps := 0.11  # radio visual de la bola: si la bola toca la linea es buena
     var on_opp: bool = z > NZ if dir > 0 else z < NZ
     if state == "serve":
         var box_sign := -signf(hitter.x)
@@ -492,6 +492,33 @@ func predict(e: Player) -> Vector3:
         if (bn >= 1 and by < 1.5 and bvy < 0 and (bz < 4.5 if e.near else bz > L - 4.5)) or past:
             break
     return Vector3(bx, by, bz)
+
+# Punto y tiempo del primer bote previsto (para el anillo de bote)
+func predict_bounce() -> Dictionary:
+    var r := {"ok": false, "x": 0.0, "z": 0.0, "t": 0.0}
+    if not ball.in_play:
+        return r
+    var bx := ball.x
+    var by := ball.y
+    var bz := ball.z
+    var bvx := ball.vx
+    var bvy := ball.vy
+    var bvz := ball.vz
+    var dt := 0.02
+    var t := 0.0
+    for i in 220:
+        bvy -= G * dt
+        bx += bvx * dt
+        by += bvy * dt
+        bz += bvz * dt
+        t += dt
+        if by <= BR and bvy < 0:
+            r.ok = true
+            r.x = bx
+            r.z = bz
+            r.t = t
+            return r
+    return r
 
 func ai_control(e: Player, dt: float) -> void:
     var D = AIP
