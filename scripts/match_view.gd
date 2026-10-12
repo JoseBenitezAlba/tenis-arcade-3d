@@ -1,6 +1,14 @@
 class_name MatchView
 extends Node3D
 
+# Nodo siempre activo para poder salir de la pausa: match_view es PAUSABLE y,
+# con el arbol en pausa, deja de recibir input (bug: pausa sin salida).
+class PauseGuard extends Node:
+    var mv: Node
+
+    func _unhandled_input(event: InputEvent) -> void:
+        mv._on_pause_input(event)
+
 signal match_finished(win: bool)
 signal quit_to_menu
 
@@ -166,6 +174,10 @@ func _ready() -> void:
     pl2.size = Vector2(1280, 40)
     pl2.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     pause_layer.add_child(pl2)
+    var guard := PauseGuard.new()
+    guard.mv = self
+    guard.process_mode = Node.PROCESS_MODE_ALWAYS
+    add_child(guard)
 
 func spawn_dust(pos: Vector3, n: int, col: Color) -> void:
     var c := 0
@@ -186,6 +198,9 @@ func _unhandled_input(event: InputEvent) -> void:
         if (event is InputEventKey and event.pressed and not event.echo) or (event is InputEventJoypadButton and event.pressed):
             _end_replay()
         return
+
+
+func _on_pause_input(event: InputEvent) -> void:
     if event.is_action_pressed("pause") and not demo:
         if paused_game:
             paused_game = false
@@ -327,11 +342,15 @@ func drain_events() -> void:
     for ev in sim.events:
         match ev.t:
             "hit":
-                sfx.play("hit_big" if (ev.kind == "smash" or ev.get("rise", false)) else "hit", 1.0)
+                var perfect: bool = ev.get("perfect", false) and ev.id == 0 and not demo
+                sfx.play("hit_big" if (perfect or ev.kind == "smash" or ev.get("rise", false)) else "hit", 1.0)
                 if ev.kind == "smash":
                     shake = 0.25
                 spawn_dust(Vector3(ev.x, ev.y, ev.z), 3, Color(1, 0.96, 0.7, 0.4))
-                if ev.id == 0 and not demo:
+                if perfect:
+                    shake = 0.3
+                    hud.popup("¡PERFECTO!", Vector3(ev.x, ev.y, ev.z), Color("#ffe27a"))
+                elif ev.id == 0 and not demo:
                     match ev.kind:
                         "smash":
                             hud.popup("¡SMASH!", Vector3(ev.x, ev.y, ev.z), Color("#ffd23f"))
@@ -340,7 +359,10 @@ func drain_events() -> void:
                         "drop":
                             hud.popup("DEJADA", Vector3(ev.x, ev.y, ev.z), Color("#c8ffb0"))
             "serve":
-                sfx.play("hit", 1.2)
+                sfx.play("hit_big" if (ev.get("q", 0.0) >= 0.85) else "hit", 1.2)
+                if ev.get("q", 0.0) >= 0.85 and ev.get("id", 1) == 0 and not demo:
+                    shake = 0.3
+                    hud.popup("¡SAQUE PERFECTO!", Vector3(ev.x, ev.y, ev.z), Color("#ffe27a"))
             "toss":
                 sfx.play("serve")
             "bounce":
