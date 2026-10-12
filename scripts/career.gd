@@ -141,7 +141,12 @@ static func params_for(r: float) -> Dictionary:
     return {"speed": 4.3 + 2.6 * r, "react": 0.46 - 0.34 * r, "err": 0.95 - 0.7 * r, "miss": 0.32 - 0.27 * r}
 
 func player_from_stats() -> Dictionary:
-    return {"speed": 5.8 + 0.28 * data.stats.sp, "T": 1.08 - 0.02 * data.stats.pw, "err": 1.5 - 0.1 * data.stats.pr}
+    # v0.22: defensivo - saves antiguas pueden no tener "stats"
+    var st: Dictionary = data.get("stats", {}) if data else {}
+    var sp: float = float(st.get("sp", 3))
+    var pw: float = float(st.get("pw", 3))
+    var pr: float = float(st.get("pr", 3))
+    return {"speed": 5.8 + 0.28 * sp, "T": 1.08 - 0.02 * pw, "err": 1.5 - 0.1 * pr}
 
 func finish_tournament(wins: int) -> String:
     var def: Dictionary = CAL[data.tour.idx]
