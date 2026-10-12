@@ -67,6 +67,7 @@ var serve_stage := "ready"
 var cpu_serve_at := 0.0
 var time := 0.0
 var rally_hits := 0
+var serve_unreturned := false
 var match_over := false
 var over_sent := false
 var inp := {"x": 0.0, "y": 0.0, "hit": false, "lob": false}
@@ -124,6 +125,7 @@ func prep_serve() -> void:
     rec.pred_for = -1
     reset_serve_ball()
     rally_hits = 0
+    serve_unreturned = false
 
 func reset_serve_ball() -> void:
     var srv = pl[M.server]
@@ -297,6 +299,7 @@ func do_hit(e: Player, kind: String, ai: bool) -> void:
     ball.in_play = true
     ball.hit_id += 1
     rally_hits += 1
+    serve_unreturned = false
     e.swing = 0.34
     e.kind = kind
     e.cool = 0.4
@@ -304,6 +307,7 @@ func do_hit(e: Player, kind: String, ai: bool) -> void:
     events.append({"t": "hit", "id": e.id, "kind": kind, "x": ball.x, "y": ball.y, "z": ball.z, "rise": on_rise, "perfect": perfect})
 
 func do_serve(e: Player, q: float) -> void:
+    serve_unreturned = true
     var dir := 1.0 if e.near else -1.0
     var box_sign := -signf(e.x)
     var tx := 0.0
@@ -321,7 +325,7 @@ func do_serve(e: Player, q: float) -> void:
         err *= 1.0 + 1.7 * clampf((absf(tx) - 1.5) / 2.3, 0.0, 1.0)
         if safe:
             err *= 0.75
-        serve_T = lerpf(1.12, 0.80, q) if flat else (lerpf(1.25, 1.0, q) if safe else lerpf(1.18, 0.88, q))
+        serve_T = lerpf(1.12, 0.85, q) if flat else (lerpf(1.25, 1.0, q) if safe else lerpf(1.18, 0.88, q))
     else:
         # v0.17: primer saque agresivo y al hueco; segundo saque seguro
         var rec = pl[1 - e.id]
@@ -500,11 +504,18 @@ func ai_control(e: Player, dt: float) -> void:
     var coming: bool = ball.in_play and ball.last != e.id and ball.vz * dir < 0 and (state == "play" or state == "serve")
     var tx := clampf(ball.x * 0.3, -2.0, 2.0)
     var tz := -1.0 if e.near else L + 1.0
+    if state == "serve" and M.server != e.id:
+        # v0.18: posicion de resto - aguantar el lado del cuadro de saque
+        # en vez de derivar hacia la bola durante el lanzamiento rival
+        var srv = pl[M.server]
+        tx = -signf(srv.x) * 2.2
+        tz = -0.6 if e.near else L + 0.6
     var mv: float = D.speed * 0.7
     if coming:
         if e.pred_for != ball.hit_id:
             e.pred_for = ball.hit_id
-            e.react = D.react + randf_range(0.0, 0.08)
+            var srv_ret: bool = serve_unreturned and M.server != e.id
+            e.react = (0.06 + randf_range(0.0, 0.04)) if srv_ret else (D.react + randf_range(0.0, 0.08))
             var p := predict(e)
             e.tx = p.x + randn() * D.err * 0.6
             e.tz = p.z + (-0.2 if e.near else 0.2) + randn() * D.err * 0.3
@@ -513,7 +524,7 @@ func ai_control(e: Player, dt: float) -> void:
         if e.react <= 0.0:
             tx = e.tx
             tz = e.tz
-            mv = D.speed
+            mv = D.speed * (1.25 if (serve_unreturned and M.server != e.id) else 1.0)
     var ex := tx - e.x
     var ez := tz - e.z
     var d := Vector2(ex, ez).length()
@@ -527,7 +538,10 @@ func ai_control(e: Player, dt: float) -> void:
     if coming and e.cool <= 0.0 and e.swing <= 0.0:
         var dx := absf(ball.x - e.x)
         var dz := absf(ball.z - e.z)
-        if dx < 1.45 and dz < 1.35 and ball.y < 2.9 and ball.y > 0.15 and (state != "serve" or ball.bounces >= 1):
+        var srv_ret2: bool = serve_unreturned and M.server != e.id
+        var gx := 1.8 if srv_ret2 else 1.45
+        var gz := 1.85 if srv_ret2 else 1.35
+        if dx < gx and dz < gz and ball.y < 2.9 and ball.y > 0.15 and (state != "serve" or ball.bounces >= 1):
             var stretch := dx > 1.0 or dz > 1.0
             if not (stretch and randf() < D.miss):
                 var kind := "drive"
