@@ -117,6 +117,30 @@ static func net_texture() -> ImageTexture:
     img.fill_rect(Rect2i(0, 9, w, 2), Color(0.75, 0.75, 0.78, 1.0))
     return ImageTexture.create_from_image(img)
 
+static func string_texture() -> ImageTexture:
+    # cordaje de raqueta: rejilla blanca crema sobre transparente (v0.27)
+    # aro 0.25m x 0.31m -> 256x320, cuerda ~1.3mm ~= 2px, separacion ~10mm
+    var w := 256
+    var h := 320
+    var img := Image.create(w, h, false, Image.FORMAT_RGBA8)
+    img.fill(Color(0, 0, 0, 0))
+    var main_c := Color(0.96, 0.95, 0.90, 0.95)   # verticales algo mas marcadas
+    var cross_c := Color(0.88, 0.87, 0.82, 0.85)
+    # clip eliptico: el cordaje no sale del aro (rx/ry del aro interior)
+    var cx := w / 2.0
+    var cy := h / 2.0
+    var rx := w * 0.465
+    var ry := h * 0.475
+    for x in range(6, w - 4, 13):
+        var dxn := (x + 1.0 - cx) / rx
+        var hy := ry * sqrt(maxf(0.0, 1.0 - dxn * dxn))
+        img.fill_rect(Rect2i(x, int(cy - hy), 2, int(hy * 2.0)), main_c)
+    for y in range(6, h - 4, 13):
+        var dyn := (y + 1.0 - cy) / ry
+        var hx := rx * sqrt(maxf(0.0, 1.0 - dyn * dyn))
+        img.fill_rect(Rect2i(int(cx - hx), y, int(hx * 2.0), 2), cross_c)
+    return ImageTexture.create_from_image(img)
+
 static func crowd_texture() -> ImageTexture:
     var w := 512
     var h := 256
