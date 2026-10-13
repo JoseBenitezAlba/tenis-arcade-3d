@@ -61,6 +61,8 @@ func _ready() -> void:
         call_deferred("_rallyshots_harness", args)
     elif args.has("--courtshot"):
         call_deferred("_courtshot_harness", args)
+    elif args.has("--watchtest"):
+        call_deferred("_watchtest_harness", args)
     elif args.has("--boardcheck"):
         call_deferred("_boardcheck_harness", args)
     elif args.has("--closeup"):
@@ -868,7 +870,7 @@ func _courtshot_harness(args: Array) -> void:
     var cam := Camera3D.new()
     add_child(cam)
     cam.fov = 50.0
-    for surface in ["hard", "clay"]:
+    for surface in ["hard", "clay", "grass"]:
         var court := CourtBuilder.build(surface, true)
         add_child(court)
         for fi in 12:
@@ -886,8 +888,113 @@ func _courtshot_harness(args: Array) -> void:
         cam.position = Vector3(13.0, 13.0, -9.0)
         cam.look_at(Vector3(0, 0.0, CourtBuilder.NZ + 3.0))
         await _grab(out + "/court_34_" + surface + ".png")
+        # cenital ortografica: mapeo exacto de la textura en la pista
+        cam.projection = Camera3D.PROJECTION_ORTHOGONAL
+        cam.size = 16.0
+        cam.position = Vector3(0, 25.0, CourtBuilder.NZ)
+        cam.rotation = Vector3(-PI / 2.0, 0, 0)
+        await _grab(out + "/court_top_" + surface + ".png")
+        cam.projection = Camera3D.PROJECTION_PERSPECTIVE
+        # diagnostico UV: textura de calibrado por colores
+        var dimg := Image.create(64, 128, false, Image.FORMAT_RGBA8)
+        dimg.fill(Color(0.15, 0.15, 0.15))
+        for gy in 128:
+            for gx in 64:
+                var cc := Color(0.15, 0.15, 0.15)
+                if gy < 12: cc = Color(1, 0, 0)         # v~0: rojo
+                elif gy >= 116: cc = Color(0, 1, 0)     # v~1: verde
+                if gx < 8: cc = Color(0, 0, 1)          # u~0: azul
+                elif gx >= 56: cc = Color(1, 1, 0)      # u~1: amarillo
+                if gy >= 58 and gy < 70 and gx >= 26 and gx < 38: cc = Color(1, 1, 1)  # cruz central
+                dimg.set_pixel(gx, gy, cc)
+        var dtex := ImageTexture.create_from_image(dimg)
+        var court_mi: MeshInstance3D = null
+        for ch in court.get_children():
+            if ch is MeshInstance3D and ch.mesh is BoxMesh and ch.mesh.size.x > 10.0:
+                court_mi = ch
+        if court_mi:
+            var dm := StandardMaterial3D.new()
+            dm.albedo_texture = dtex
+            dm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+            var old_mat = court_mi.mesh.material
+            court_mi.mesh.material = dm
+            court_mi.visible = false
+            cam.projection = Camera3D.PROJECTION_ORTHOGONAL
+            cam.size = 16.0
+            cam.position = Vector3(0, 25.0, CourtBuilder.NZ)
+            cam.rotation = Vector3(-PI / 2.0, 0, 0)
+            await get_tree().process_frame
+            await get_tree().process_frame
+            # restaurar: la pista visible NO es la caja (ver diagnostico)
+            court_mi.visible = true
+            court_mi.mesh.material = old_mat
+            # volcado de TODAS las mallas visibles de la escena
+            print("SCENE MESHES (", surface, "):")
+            var stk2 := [get_tree().root]
+            while stk2.size() > 0:
+                var nd = stk2.pop_back()
+                for cc in nd.get_children():
+                    stk2.append(cc)
+                if nd is MeshInstance3D and nd.visible and nd.mesh:
+                    var aabb: AABB = nd.get_aabb()
+                    var gpos := (nd as MeshInstance3D).global_position
+                    if aabb.size.x > 5.0 or aabb.size.z > 5.0:
+                        print("  M ", nd.name, " @", gpos, " aabb=", aabb, " mesh=", nd.mesh.get_class(), " mat=", (nd.mesh.material if nd.mesh is PrimitiveMesh else "array"))
+            await _grab(out + "/court_uvdiag_" + surface + ".png")
+            cam.projection = Camera3D.PROJECTION_PERSPECTIVE
         court.queue_free()
         await get_tree().process_frame
+    get_tree().quit(0)
+
+
+# ---------- TEST: cabezas (arbitro/jueces) siguiendo la bola ----------
+func _watchtest_harness(args: Array) -> void:
+    var out := "/home/sandbox/godot/shots/watch"
+    var i := args.find("--watchtest")
+    if i + 1 < args.size():
+        out = args[i + 1]
+    DirAccess.make_dir_recursive_absolute(out)
+    menus.visible = false
+    var cam := Camera3D.new()
+    add_child(cam)
+    cam.fov = 40.0
+    var court := CourtBuilder.build("hard", true)
+    add_child(court)
+    var ball := MeshInstance3D.new()
+    var sm := SphereMesh.new()
+    sm.radius = 0.12
+    sm.height = 0.24
+    var bmat := StandardMaterial3D.new()
+    bmat.albedo_color = Color("#c8e030")
+    bmat.emission = Color("#c8e030")
+    bmat.emission_energy_multiplier = 0.8
+    sm.material = bmat
+    ball.mesh = sm
+    add_child(ball)
+    var bw = court.get_node_or_null("BallWatcher")
+    print("WATCHTEST BallWatcher: ", bw, " watchers: ", (bw.watchers.size() if bw else -1))
+    if bw:
+        bw.ball = ball
+    # 1: arbitro de frente, bola a su derecha-baja (esquina cercana de pista)
+    ball.global_position = Vector3(5.0, 1.2, 3.0)
+    cam.position = Vector3(-4.0, 2.8, CourtBuilder.NZ)
+    cam.look_at(Vector3(-7.2, 2.55, CourtBuilder.NZ))
+    cam.current = true
+    for f in 14:
+        await get_tree().process_frame
+    await _grab(out + "/watch_umpire_right.png")
+    # 2: misma camara, bola al otro lado y lejos
+    ball.global_position = Vector3(-5.0, 3.0, 22.0)
+    for f in 6:
+        await get_tree().process_frame
+    await _grab(out + "/watch_umpire_left.png")
+    # 3: juez cercano-izquierdo de frente, bola cruzada
+    ball.global_position = Vector3(5.0, 1.0, 18.0)
+    cam.position = Vector3(-5.6, 1.25, -0.4)
+    cam.look_at(Vector3(-8.2, 0.72, -3.1))
+    for f in 6:
+        await get_tree().process_frame
+    await _grab(out + "/watch_judge.png")
     get_tree().quit(0)
 
 
