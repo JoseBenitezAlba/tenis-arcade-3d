@@ -87,6 +87,9 @@ func _ready() -> void:
     bs.material = bm
     ball_mesh.mesh = bs
     add_child(ball_mesh)
+    var _bw := court.get_node_or_null("BallWatcher")
+    if _bw:
+        _bw.ball = ball_mesh
 
     # sombras blob
     var sh_tex := TexGen.shadow_texture()
@@ -183,11 +186,11 @@ func _ready() -> void:
     add_child(pause_layer)
     var pl := Label.new()
     pl.text = "PAUSA"
-    pl.add_theme_font_size_override("font_size", 72)
+    pl.add_theme_font_size_override("font_size", 44)
     pl.add_theme_color_override("font_color", Color.WHITE)
     pl.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
     pl.add_theme_constant_override("outline_size", 10)
-    pl.position = Vector2(0, 300)
+    pl.position = Vector2(0, 272)  # v0.25: centrado (antes y=56, chocaba con el banner)
     pl.size = Vector2(1280, 100)
     pl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     pause_layer.add_child(pl)
@@ -195,7 +198,7 @@ func _ready() -> void:
     pl2.text = "P / START continuar · ESC menú"
     pl2.add_theme_font_size_override("font_size", 22)
     pl2.add_theme_color_override("font_color", Color("#9fb3e8"))
-    pl2.position = Vector2(0, 400)
+    pl2.position = Vector2(0, 328)
     pl2.size = Vector2(1280, 40)
     pl2.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     pause_layer.add_child(pl2)
@@ -235,6 +238,8 @@ func _on_pause_input(event: InputEvent) -> void:
             paused_game = true
             get_tree().paused = true
             pause_layer.visible = true
+            hud.hide_banner()  # v0.25: limpiar banners activos al abrir pausa (solapamiento)
+            banner_t = 0.0
     elif event.is_action_pressed("quit") and paused_game:
         get_tree().paused = false
         paused_game = false
@@ -277,7 +282,7 @@ func _physics_process(dt: float) -> void:
     ball_shadow.position.z = sim.ball.z
     var sh_scale: float = clampf(1.0 + sim.ball.y * 0.12, 1.0, 2.2)
     ball_shadow.scale = Vector3(sh_scale * 0.4, 1, sh_scale * 0.4)
-    ball_shadow_mat.albedo_color.a = clampf(0.5 - sim.ball.y * 0.05, 0.08, 0.5)
+    ball_shadow_mat.albedo_color.a = clampf(0.7 - sim.ball.y * 0.06, 0.12, 0.7)
     _update_bounce_ring()
     for i in trail.size():
         var t = trail[i]
