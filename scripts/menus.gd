@@ -1,7 +1,7 @@
 class_name GameMenus
 extends Control
 
-const VERSION := "v0.22"
+const VERSION := "v0.25"
 
 signal quick_match(surface: String, diff: int, sets: int, day: bool)
 signal play_career_match
@@ -177,7 +177,7 @@ func show_menu(p_career: Career) -> void:
             show_create())
     root_box.add_child(_row([wt]))
     if career != null:
-        root_box.add_child(_sub(career.data.name + " · #" + str(career.my_rank()) + " · Temporada " + str(career.data.season), 14, Color("#ffe27a")))
+        root_box.add_child(_sub(career.data.name + " · #" + str(career.my_rank()) + " · Temporada " + str(int(career.data.season)), 14, Color("#ffe27a")))
     else:
         root_box.add_child(_sub("Crea tu jugador y conquista el circuito", 14, Color("#ffe27a")))
     var to := _btn("TORNEO")
@@ -350,7 +350,7 @@ func show_hub(msg: String, ok := true) -> void:
     var hb := HBoxContainer.new()
     hb.add_theme_constant_override("separation", 30)
     head.add_child(hb)
-    var info := _sub(d.name + " · Temporada " + str(d.season) + " · " + str(d.won) + "V-" + str(d.lost) + "D · " + str(d.titles) + " títulos", 18, Color.WHITE)
+    var info := _sub(d.name + " · Temporada " + str(int(d.season)) + " · " + str(d.won) + "V-" + str(d.lost) + "D · " + str(d.titles) + " títulos", 18, Color.WHITE)
     hb.add_child(info)
     var rk := _sub("#" + str(career.my_rank()) + " · " + str(d.pts) + " pts", 20, Color("#ffd23f"))
     hb.add_child(rk)
@@ -401,7 +401,7 @@ func show_hub(msg: String, ok := true) -> void:
             play_training.emit())
         btns.append(tb2)
         if d.free > 0:
-            var up := _btn("★ MEJORAR (" + str(d.free) + ")", true)
+            var up := _btn("★ MEJORAR (" + str(int(d.free)) + ")", true)
             up.pressed.connect(func(): sfx.play("click"); tab = "stats"; show_hub(""))
             btns.append(up)
         vb.add_child(_row(btns))
