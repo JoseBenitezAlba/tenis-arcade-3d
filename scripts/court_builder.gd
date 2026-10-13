@@ -340,7 +340,7 @@ static func build(surface: String, day: bool = false) -> Node3D:
     umpire.rotation.y = PI / 2.0  # modelo mira +Z: girar para que mire a la pista (+X)
     chair.add_child(umpire)
     var _watchers := []
-    _watchers.append({"fig": umpire, "yaw": PI / 2.0})
+    _watchers.append({"fig": umpire, "yaw": PI / 2.0, "body": 0.45})
     # jueces de linea sentados en las esquinas
     var judge_cols := [Color("#274070"), Color("#274070"), Color("#274070"), Color("#274070")]
     var jpos := [Vector3(-8.0, 0, -2.9), Vector3(8.0, 0, -2.9), Vector3(-5.6, 0, L + 2.9), Vector3(5.6, 0, L + 2.9)]
@@ -358,7 +358,7 @@ static func build(surface: String, day: bool = false) -> Node3D:
         var judge := _fbx_figure("res://models/Suit_Male.fbx", judge_cols[ji], Color("#222a40"), Color("#c98d62"), "tennis/Sitting_Idle", Color("#3a3230"), 0.72)
         judge.position = Vector3(0, 0.34, 0.02)
         jchair.add_child(judge)
-        _watchers.append({"fig": judge, "yaw": jchair.rotation.y})
+        _watchers.append({"fig": judge, "yaw": jchair.rotation.y, "body": 0.35})
     # banquillos laterales
     for s in [-1, 1]:
         var bench := Node3D.new()
@@ -378,10 +378,11 @@ static func build(surface: String, day: bool = false) -> Node3D:
         var bag := _box(0.55, 0.3, 0.25, _mat(Color("#8a2a2a") if s < 0 else Color("#2a4a8a")))
         bag.position = Vector3(0.6, 0.62, 0)
         bench.add_child(bag)
+    # (recogepelotas EN PAUSA: el usuario los quito explicitamente el 12/10 - esperando su confirmacion)
     # cabezas que siguen la bola (ultimo hijo: procesa tras los AnimationPlayer)
     var bw: Node3D = load("res://scripts/ball_watcher.gd").new()
     bw.name = "BallWatcher"
     for wr in _watchers:
-        bw.add_watcher(wr.fig, wr.yaw)
+        bw.add_watcher(wr.fig, wr.yaw, wr.get("body", 0.0))
     root.add_child(bw)
     return root
