@@ -52,6 +52,7 @@ class Ball extends RefCounted:
     var hit_id := 0
     var trail: Array = []
     var hot := 0.0  # v0.26: calor del tiro (estela blanca) - decae en update
+    var spin := 0.0  # v0.30: efecto del tiro (+liftado / -cortado) - se aplica en el bote
 
 var demo := true
 var AIP := {"speed": 5.6, "react": 0.27, "err": 0.5, "miss": 0.15}
@@ -292,6 +293,8 @@ func do_hit(e: Player, kind: String, ai: bool) -> void:
             d += randn() * 0.05 * PS.err * es
         d *= 0.85 + 0.15 * hq
     d = clampf(d, 0.02, 1.04)
+    # v0.30: caracter del tiro - la dejada es cortada y muere, el resto sale liftado
+    ball.spin = {"drop": -1.0, "lob": 0.25, "smash": 0.5}.get(kind, 0.85)
     var tz := NZ + dir * (2.2 + d * (L / 2.0 - 2.2))
     launch(tx, tz, T, max(ball.y, 0.5))
     ball.last = e.id
@@ -324,7 +327,7 @@ func do_serve(e: Player, q: float) -> void:
         var flat: bool = inp.y > 0.4
         var safe: bool = inp.y < -0.4
         tzr = 6.0 if flat else (4.3 if safe else 4.9)
-        err = ((1.0 - q) * 1.6 + 0.1) * PS.err
+        err = ((1.0 - q) * 0.9 + 0.08) * PS.err
         err *= 1.0 + 1.7 * clampf((absf(tx) - 1.5) / 2.3, 0.0, 1.0)
         if safe:
             err *= 0.75
@@ -356,6 +359,7 @@ func do_serve(e: Player, q: float) -> void:
     tx += randn() * err
     tzr += randn() * err * (0.9 if (e.id == 0 and not demo and inp.y > 0.4) else 0.5)
     launch(tx, NZ + dir * tzr, serve_T, max(ball.y, 2.0))
+    ball.spin = 0.6
     var sspd := Vector3(ball.vx, ball.vy, ball.vz).length()
     ball.hot = clampf((sspd - 30.0) / 20.0, 0.0, 1.0)
     ball.last = e.id
@@ -380,6 +384,66 @@ func toss_ball() -> void:
     ball.vz = 0.0
     serve_stage = "toss"
     events.append({"t": "toss"})
+
+# v0.30: factores de bote segun el efecto. Liftado: pica bajo y SALE (apenas
+# pierde velocidad horizontal). Cortado: se queda muerto y bajo. Neutro: como antes.
+static func _bounce_factors(s: float) -> Array:
+    var vy_f := 0.74
+    var damp := 0.79
+    if s > 0.2:
+        vy_f = 0.72 - 0.08 * s
+        damp = 0.79 + 0.14 * s
+    elif s < -0.2:
+        vy_f = 0.72 + 0.10 * s
+        damp = 0.79 + 0.17 * s
+    return [vy_f, damp]
+
+# v0.30: estima donde cruzara la bola el plano de contacto (~0.55m por delante
+# del jugador) dentro de 1s. Devuelve [x, z, t] o t=-1 si no llega a tiempo.
+func _intercept(e: Player) -> Array:
+    var bx := ball.x
+    var by := ball.y
+    var bz := ball.z
+    var bvx := ball.vx
+    var bvy := ball.vy
+    var bvz := ball.vz
+    var bf := _bounce_factors(ball.spin)
+    var zc: float = e.z + 0.55
+    var dt := 0.02
+    var t := 0.0
+    while t < 1.0:
+        bvy -= G * dt
+        bx += bvx * dt
+        by += bvy * dt
+        bz += bvz * dt
+        t += dt
+        if by <= BR and bvy < 0.0:
+            by = BR
+            bvy = -bvy * bf[0]
+            bvx *= bf[1]
+            bvz *= bf[1]
+        if bz <= zc:
+            return [bx, bz, t]
+        if by > 3.4:
+            break
+    return [0.0, 0.0, -1.0]
+
+# v0.30: magnetismo estilo Virtua Tennis - mientras dura el swing, el jugador
+# se ajusta solo al punto de contacto. Tope de 2.9m: nada de teletransportes.
+func _assist(e: Player) -> void:
+    var est := _intercept(e)
+    if est[2] < 0.0:
+        return
+    var tx: float = est[0] - 0.28 * e.side
+    var tz: float = est[1] - 0.55
+    var ddx: float = tx - e.x
+    var ddz: float = tz - e.z
+    var dist := Vector2(ddx, ddz).length()
+    if dist > 2.9 or dist < 0.12:
+        return
+    var sp := minf(PS.speed * 1.35, dist / 0.22)
+    e.tvx = ddx / dist * sp
+    e.tvz = ddz / dist * sp
 
 func step_ball(dt: float) -> void:
     var sv = pl[M.server]
@@ -449,9 +513,10 @@ func step_ball(dt: float) -> void:
     if ball.y <= BR and ball.vy < 0:
         ball.y = BR
         var sp := absf(ball.vy)
-        ball.vy = -ball.vy * 0.74
-        ball.vx *= 0.8
-        ball.vz *= 0.78
+        var bf := _bounce_factors(ball.spin)
+        ball.vy = -ball.vy * bf[0]
+        ball.vx *= bf[1]
+        ball.vz *= bf[1]
         if absf(ball.vy) < 1.2:
             ball.vy = 0.0
         # v0.25: bote audible/polvo solo con bola viva (la bola muerta rodaba sonando cada frame)
@@ -519,9 +584,10 @@ func predict(e: Player) -> Vector3:
         bz += bvz * dt
         if by <= BR and bvy < 0:
             by = BR
-            bvy *= -0.74
-            bvx *= 0.8
-            bvz *= 0.78
+            var bf := _bounce_factors(ball.spin)
+            bvy *= -bf[0]
+            bvx *= bf[1]
+            bvz *= bf[1]
             bn += 1
         var past: bool = bz < -1.6 if e.near else bz > L + 1.6
         if (bn >= 1 and by < 1.5 and bvy < 0 and (bz < 4.5 if e.near else bz > L - 4.5)) or past:
@@ -643,7 +709,7 @@ func human_control(e: Player, dt: float) -> void:
             if serve_stage == "ready":
                 toss_ball()
             elif serve_stage == "toss":
-                do_serve(e, 1.0 - clamp(absf(ball.toss_t - 0.50) / 0.35, 0.0, 1.0))
+                do_serve(e, 1.0 - clamp(absf(ball.toss_t - 0.50) / 0.45, 0.0, 1.0))
         return
     # v0.25: no iniciar el swing sobre bola muerta (parecia que aun podias pegarle)
     if want_hit or want_lob:
@@ -655,9 +721,10 @@ func human_control(e: Player, dt: float) -> void:
     if e.want_t > 0.0:
         e.want_t -= dt
         if ball.in_play and ball.last != e.id and ball.vz < 0 and e.cool <= 0.0 and state == "play":
+            _assist(e)
             var dx := absf(ball.x - e.x)
             var dz := absf(ball.z - e.z)
-            if dx < 1.75 and dz < 1.5 and ball.y < 3.1:
+            if dx < 2.05 and dz < 1.75 and ball.y < 3.1:
                 do_hit(e, e.want, false)
                 e.want_t = 0.0
 
@@ -665,9 +732,20 @@ func update_player(e: Player, dt: float) -> void:
     e.cool = max(0.0, e.cool - dt)
     e.swing = max(0.0, e.swing - dt)
     e.flash = max(0.0, e.flash - dt)
-    var k: float = minf(1.0, dt * 11.0)
-    e.vx += (e.tvx - e.vx) * k
-    e.vz += (e.tvz - e.vz) * k
+    # v0.30: inercia con derrape - al cortar una carrera o cambiar de sentido
+    # el cuerpo tarda un pelin mas (derrape corto estilo Virtua Tennis)
+    var kvx := 11.0
+    var kvz := 11.0
+    if e.tvx == 0.0:
+        kvx = 7.5
+    elif signf(e.tvx) != signf(e.vx) and absf(e.vx) > 2.2:
+        kvx = 5.5
+    if e.tvz == 0.0:
+        kvz = 7.5
+    elif signf(e.tvz) != signf(e.vz) and absf(e.vz) > 2.2:
+        kvz = 5.5
+    e.vx += (e.tvx - e.vx) * minf(1.0, dt * kvx)
+    e.vz += (e.tvz - e.vz) * minf(1.0, dt * kvz)
     e.x += e.vx * dt
     e.z += e.vz * dt
     if state == "serve" and M.server == e.id:
