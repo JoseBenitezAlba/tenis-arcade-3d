@@ -5,15 +5,18 @@ extends RefCounted
 const SAVE_PATH := "user://career.save"
 const RNAMES := ["Octavos", "Cuartos", "Semifinal", "Final"]
 const POOL0 := [
-    ["Carlos Alcaraz", 0.98, 2600], ["Jannik Sinner", 0.98, 2800], ["Novak Djokovic", 0.94, 2200],
-    ["Alexander Zverev", 0.9, 2000], ["Daniil Medvedev", 0.86, 1700], ["Jack Draper", 0.84, 1500],
-    ["Taylor Fritz", 0.84, 1500], ["Holger Rune", 0.8, 1300], ["Casper Ruud", 0.8, 1300],
-    ["Andrey Rublev", 0.8, 1250], ["Alex de Minaur", 0.78, 1150], ["Lorenzo Musetti", 0.76, 1050],
-    ["Stefanos Tsitsipas", 0.75, 1000], ["Ben Shelton", 0.74, 950], ["Tommy Paul", 0.72, 850],
-    ["Grigor Dimitrov", 0.72, 800], ["Hubert Hurkacz", 0.7, 750], ["Frances Tiafoe", 0.7, 700],
-    ["Alexei Popyrin", 0.66, 600], ["Francisco Cerúndolo", 0.64, 550], ["Sebastian Korda", 0.62, 500],
-    ["Ugo Humbert", 0.6, 450], ["Jakub Mensik", 0.6, 400], ["Joao Fonseca", 0.6, 350],
+    ["Carlos Alcaca", 0.98, 2600], ["Janiel Sinnar", 0.98, 2800], ["Novak Djokovitz", 0.94, 2200],
+    ["Alex Zvereff", 0.9, 2000], ["Daniil Medelle", 0.86, 1700], ["Jack Drapper", 0.84, 1500],
+    ["Taylor Fritzz", 0.84, 1500], ["Holger Runne", 0.8, 1300], ["Kasper Ruud", 0.8, 1300],
+    ["Andrei Rubleff", 0.8, 1250], ["Alex de Minaurr", 0.78, 1150], ["Lorenzo Musseti", 0.76, 1050],
+    ["Stefanos Tsitsipass", 0.75, 1000], ["Ben Chelton", 0.74, 950], ["Tommy Paull", 0.72, 850],
+    ["Grigor Dimitroff", 0.72, 800], ["Hubert Hurkatz", 0.7, 750], ["Frances Tiafo", 0.7, 700],
+    ["Alexei Popyrine", 0.66, 600], ["Francisco Serundolo", 0.64, 550], ["Sebastian Kordda", 0.62, 500],
+    ["Ugo Humber", 0.6, 450], ["Jakub Mensikk", 0.6, 400], ["Joao Fonsecca", 0.6, 350],
 ]
+# v0.31: nombres reales -> inventados; mapa para migrar saves antiguas
+const RENAME := {"Carlos Alcaraz": "Carlos Alcaca", "Jannik Sinner": "Janiel Sinnar", "Novak Djokovic": "Novak Djokovitz", "Alexander Zverev": "Alex Zvereff", "Daniil Medvedev": "Daniil Medelle", "Jack Draper": "Jack Drapper", "Taylor Fritz": "Taylor Fritzz", "Holger Rune": "Holger Runne", "Casper Ruud": "Kasper Ruud", "Andrey Rublev": "Andrei Rubleff", "Alex de Minaurr": "Alex de Minaurr", "Lorenzo Musetti": "Lorenzo Musseti", "Stefanos Tsitsipas": "Stefanos Tsitsipass", "Ben Shelton": "Ben Chelton", "Tommy Paul": "Tommy Paull", "Grigor Dimitrov": "Grigor Dimitroff", "Hubert Hurkacz": "Hubert Hurkatz", "Frances Tiafoe": "Frances Tiafo", "Alexei Popyrin": "Alexei Popyrine", "Francisco Cerúndolo": "Francisco Serundolo", "Sebastian Korda": "Sebastian Kordda", "Ugo Humbert": "Ugo Humber", "Jakub Mensik": "Jakub Mensikk", "Joao Fonseca": "Joao Fonsecca"}
+
 const TIERS := {
     "C": {"n": "Challenger", "pts": 80, "rounds": 3, "lo": 10, "hi": 23},
     "250": {"n": "ATP 250", "pts": 250, "rounds": 3, "lo": 6, "hi": 23},
@@ -56,7 +59,23 @@ static func load_saved() -> Career:
     if typeof(parsed) != TYPE_DICTIONARY or parsed.get("v", 0) != 1:
         return null
     c.data = parsed
+    c._migrate_names()
     return c
+
+func _migrate_names() -> void:
+    # v0.31: cambia nombres reales guardados por los inventados
+    if data.has("pool"):
+        for pl in data.pool:
+            if RENAME.has(pl.get("n", "")):
+                pl.n = RENAME[pl.n]
+    if data.has("tour") and typeof(data.tour) == TYPE_DICTIONARY:
+        var t: Dictionary = data.tour
+        for k in ["opps", "field"]:
+            if t.has(k) and typeof(t[k]) == TYPE_ARRAY:
+                for i in t[k].size():
+                    if RENAME.has(t[k][i]):
+                        t[k][i] = RENAME[t[k][i]]
+        save()
 
 static func delete_save() -> void:
     if FileAccess.file_exists(SAVE_PATH):
