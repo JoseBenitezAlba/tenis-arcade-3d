@@ -103,40 +103,73 @@ func _build_racket() -> void:
     rk.rotation = Vector3(PI * 0.5, PI * 0.5, 0)  # v0.12: la raqueta cuelga del puno, no atraviesa el antebrazo
     rk.position = Vector3.ZERO
     ba.add_child(rk)
+    # v0.27: raqueta remodelada - grip octogonal, cuello en V abierto, cordaje real
     var handle := MeshInstance3D.new()
     var hc := CylinderMesh.new()
-    hc.top_radius = 0.016
-    hc.bottom_radius = 0.019
-    hc.height = 0.22
-    hc.material = _mat(Color("#3a2c1c"))
+    hc.top_radius = 0.015
+    hc.bottom_radius = 0.017
+    hc.height = 0.20
+    hc.radial_segments = 8  # octogonal como un grip real
+    hc.material = _mat(Color("#26221e"))  # overgrip oscuro
     handle.mesh = hc
-    handle.position = Vector3(0, -0.09, 0)
+    handle.position = Vector3(0, -0.085, 0)
     rk.add_child(handle)
-    var throat := MeshInstance3D.new()
-    var tc := CylinderMesh.new()
-    tc.top_radius = 0.012
-    tc.bottom_radius = 0.016
-    tc.height = 0.12
-    tc.material = _mat(Color("#222222"))
-    throat.mesh = tc
-    throat.position = Vector3(0, -0.24, 0)
-    rk.add_child(throat)
+    var butt := MeshInstance3D.new()
+    var bc := CylinderMesh.new()
+    bc.top_radius = 0.021
+    bc.bottom_radius = 0.022
+    bc.height = 0.025
+    bc.radial_segments = 8
+    bc.material = _mat(Color("#141210"))
+    butt.mesh = bc
+    butt.position = Vector3(0, 0.02, 0)
+    rk.add_child(butt)
+    # cuello en V: dos varillas del final del grip a los lados del aro
+    var graphite := _mat(Color("#191b20"))
+    for sx in [-1.0, 1.0]:
+        var a := Vector3(0, -0.185, 0)
+        var b := Vector3(sx * 0.062, -0.375, 0)
+        var seg := b - a
+        var arm := MeshInstance3D.new()
+        var ac := CylinderMesh.new()
+        ac.top_radius = 0.008
+        ac.bottom_radius = 0.011
+        ac.height = seg.length()
+        ac.material = graphite
+        arm.mesh = ac
+        arm.position = (a + b) * 0.5
+        arm.basis = _basis_along_y(seg.normalized())
+        rk.add_child(arm)
     var frame := MeshInstance3D.new()
     var tm := TorusMesh.new()
     tm.inner_radius = 0.125
     tm.outer_radius = 0.15
-    tm.material = _mat(Color("#1a1a22"))
+    tm.material = graphite
     frame.mesh = tm
-    frame.scale = Vector3(1.0, 1.25, 1.0)
+    frame.scale = Vector3(1.0, 1.22, 1.0)
     frame.position = Vector3(0, -0.44, 0)
     rk.add_child(frame)
     var strings := MeshInstance3D.new()
     var qm := QuadMesh.new()
-    qm.size = Vector2(0.23, 0.30)
-    qm.material = _mat(Color(0.9, 0.9, 0.9, 0.35))
+    qm.size = Vector2(0.235, 0.29)
+    var sm := StandardMaterial3D.new()
+    sm.albedo_texture = TexGen.string_texture()
+    sm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+    sm.cull_mode = BaseMaterial3D.CULL_DISABLED
+    qm.material = sm
     strings.mesh = qm
     strings.position = Vector3(0, -0.44, 0)
     rk.add_child(strings)
+
+static func _basis_along_y(dir: Vector3) -> Basis:
+    # orienta el eje Y local a lo largo de dir (para cilindros inclinados)
+    var up := dir.normalized()
+    var side := up.cross(Vector3.FORWARD)
+    if side.length() < 0.01:
+        side = up.cross(Vector3.RIGHT)
+    side = side.normalized()
+    var fwd := side.cross(up).normalized()
+    return Basis(side, up, fwd)
 
 func _build_eyes() -> void:
     var ba := BoneAttachment3D.new()
