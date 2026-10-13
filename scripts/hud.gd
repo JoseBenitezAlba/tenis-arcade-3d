@@ -12,6 +12,13 @@ var popup_pool := []
 var cam: Camera3D
 var replay_tag: Label
 var replay_t := 0.0
+# v0.27: medidor de saque estilo VT + marcador de velocidad
+var serve_meter: Control
+var serve_needle: ColorRect
+var serve_fill: ColorRect
+var serve_lock_t := 0.0
+var speed_label: Label
+var speed_t := 0.0
 
 func _ready() -> void:
     layer = 10
@@ -105,6 +112,60 @@ func _ready() -> void:
         add_child(p)
         popup_pool.append({"l": p, "age": 0.0, "active": false, "wp": Vector3.ZERO})
 
+    # medidor de saque (derecha, vertical): zona roja abajo, amarilla, verde perfecta, roja arriba
+    serve_meter = Control.new()
+    serve_meter.position = Vector2(1196, 200)
+    serve_meter.visible = false
+    add_child(serve_meter)
+    var mbg := ColorRect.new()
+    mbg.color = Color(0.02, 0.04, 0.10, 0.85)
+    mbg.size = Vector2(26, 246)
+    mbg.position = Vector2(-3, -3)
+    serve_meter.add_child(mbg)
+    # p = toss_t/0.85; perfecto q>=0.85 en p=[0.526,0.650]; q>0 en p=[0.176,1.0]
+    var zones = [
+        [0.000, 0.176, Color("#c33c3c")],
+        [0.176, 0.380, Color("#e0a53c")],
+        [0.380, 0.526, Color("#d8d24a")],
+        [0.526, 0.650, Color("#49d96b")],
+        [0.650, 1.000, Color("#c33c3c")],
+    ]
+    for z in zones:
+        var r := ColorRect.new()
+        r.color = z[2]
+        r.color.a = 0.88
+        r.size = Vector2(20, 240.0 * (z[1] - z[0]))
+        r.position = Vector2(0, 240.0 * (1.0 - z[1]))  # v0.27: crece hacia arriba estilo VT
+        serve_meter.add_child(r)
+    serve_fill = ColorRect.new()
+    serve_fill.color = Color(1, 1, 1, 0.35)
+    serve_fill.size = Vector2(20, 0)
+    serve_fill.position = Vector2(0, 0)
+    serve_meter.add_child(serve_fill)
+    serve_needle = ColorRect.new()
+    serve_needle.color = Color.WHITE
+    serve_needle.size = Vector2(26, 4)
+    serve_needle.position = Vector2(-3, -2)
+    serve_meter.add_child(serve_needle)
+    var mlab := Label.new()
+    mlab.text = "SAQUE"
+    mlab.position = Vector2(-14, -26)
+    mlab.add_theme_font_size_override("font_size", 14)
+    mlab.add_theme_color_override("font_color", Color.WHITE)
+    mlab.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
+    mlab.add_theme_constant_override("outline_size", 4)
+    serve_meter.add_child(mlab)
+
+    # velocidad del saque, junto al marcador
+    speed_label = Label.new()
+    speed_label.position = Vector2(14, 566)
+    speed_label.add_theme_font_size_override("font_size", 20)
+    speed_label.add_theme_color_override("font_color", Color("#9fd8ff"))
+    speed_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.75))
+    speed_label.add_theme_constant_override("outline_size", 6)
+    speed_label.visible = false
+    add_child(speed_label)
+
 func set_names(n0: String, n1: String) -> void:
     name_labels[0].set_meta("base", n0.to_upper().substr(0, 14))
     name_labels[1].set_meta("base", n1.to_upper().substr(0, 16))
@@ -162,10 +223,43 @@ func popup(txt: String, wp: Vector3, color: Color) -> void:
             p.l.visible = true
             return
 
+func serve_meter_update(p: float) -> void:
+    if serve_meter == null:
+        return
+    serve_meter.visible = true
+    p = clampf(p, 0.0, 1.0)
+    serve_fill.size.y = 240.0 * p
+    serve_fill.position.y = 240.0 * (1.0 - p)
+    serve_needle.position.y = 240.0 * (1.0 - p) - 2.0
+    var q: float = 1.0 - absf(p * 0.85 - 0.50) / 0.35
+    serve_needle.color = Color("#49d96b") if q >= 0.85 else (Color("#ffd23f") if q > 0.0 else Color("#ff6b6b"))
+
+func serve_meter_hide() -> void:
+    if serve_meter != null:
+        serve_meter.visible = false
+
+func show_serve_speed(kmh: int) -> void:
+    speed_label.text = "SAQUE  %d km/h" % kmh
+    speed_label.visible = true
+    speed_label.modulate.a = 1.0
+    speed_t = 2.2
+
 func _process(dt: float) -> void:
+    if speed_t > 0.0:
+        speed_t -= dt
+        if speed_t <= 0.0:
+            speed_label.visible = false
+        elif speed_t < 0.6:
+            speed_label.modulate.a = speed_t / 0.6
     if replay_tag != null and replay_tag.visible:
         replay_t += dt
         replay_tag.modulate.a = 1.0 if fmod(replay_t, 0.9) < 0.6 else 0.35
+    if speed_t > 0.0:
+        speed_t -= dt
+        if speed_t <= 0.0:
+            speed_label.visible = false
+        elif speed_t < 0.6:
+            speed_label.modulate.a = speed_t / 0.6
     for p in popup_pool:
         if p.active:
             p.age += dt
