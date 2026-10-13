@@ -38,6 +38,7 @@ var paused_game := false
 var pause_layer: CanvasLayer
 var over_sent := false
 var shake := 0.0
+var hitstop_t := 0.0  # v0.26: micro-pausa de impacto en golpes duros
 # repeticion de punto
 var rec := []
 var replaying := false
@@ -261,7 +262,10 @@ func _physics_process(dt: float) -> void:
             sim.inp.hit = true
         elif Input.is_action_just_pressed("lob"):
             sim.inp.lob = true
-    sim.update(dt)
+    if hitstop_t > 0.0:
+        hitstop_t -= dt  # v0.26: congela el sim un instante (el mundo sigue respirando)
+    else:
+        sim.update(dt)
     drain_events()
     if (not demo or replay_test) and sim.state not in ["point", "over"] and sim.ball.in_play:
         rec.append({"b": Vector3(sim.ball.x, sim.ball.y, sim.ball.z), "p0": _snap(sim.pl[0]), "p1": _snap(sim.pl[1])})
@@ -284,12 +288,19 @@ func _physics_process(dt: float) -> void:
     ball_shadow.scale = Vector3(sh_scale * 0.4, 1, sh_scale * 0.4)
     ball_shadow_mat.albedo_color.a = clampf(0.7 - sim.ball.y * 0.06, 0.12, 0.7)
     _update_bounce_ring()
+    var heat: float = sim.ball.hot  # v0.26: estela blanca en tiros duros
     for i in trail.size():
         var t = trail[i]
         if i < sim.ball.trail.size():
             t.m.visible = true
             t.m.position = sim.ball.trail[i]
-            t.mat.albedo_color.a = 0.05 + 0.16 * float(i) / trail.size()
+            var f: float = float(i) / trail.size()
+            t.mat.albedo_color = Color(0.88, 1.0, 0.35).lerp(Color(1, 1, 1), heat)
+            t.mat.albedo_color.a = 0.05 + (0.16 + 0.45 * heat) * f
+            t.mat.emission = t.mat.albedo_color
+            t.mat.emission_energy_multiplier = 0.4 + 1.6 * heat
+            var tsc: float = 1.0 + 0.8 * heat * f
+            t.m.scale = Vector3(tsc, tsc, tsc)
         else:
             t.m.visible = false
     for d in dust_pool:
@@ -390,6 +401,8 @@ func drain_events() -> void:
     for ev in sim.events:
         match ev.t:
             "hit":
+                if ev.get("spd", 0.0) >= 44.0:
+                    hitstop_t = 0.03  # v0.26: impacto seco en tiros duros
                 var perfect: bool = ev.get("perfect", false) and ev.id == 0 and not demo
                 sfx.play("hit_big" if (perfect or ev.kind == "smash" or ev.get("rise", false)) else "hit", 1.0)
                 if ev.kind == "smash":
@@ -407,6 +420,8 @@ func drain_events() -> void:
                         "drop":
                             hud.popup("DEJADA", Vector3(ev.x, ev.y, ev.z), Color("#c8ffb0"))
             "serve":
+                if ev.get("q", 0.0) >= 0.85:
+                    hitstop_t = 0.03  # v0.26
                 sfx.play("hit_big" if (ev.get("q", 0.0) >= 0.85) else "hit", 1.2)
                 if ev.get("q", 0.0) >= 0.85 and ev.get("id", 1) == 0 and not demo:
                     shake = 0.3
