@@ -30,6 +30,7 @@ var hud: MatchHUD
 var sfx: SoundKit
 var dust_pool := []
 var banner_t := 0.0
+const SERVE_KMH_K := 8.4  # v0.27: medido - CPU 1er saque ~195-205 km/h, plano q1 ~197, seguro ~158
 var banner_dur := 0.0
 var hint_t := 9.0
 var demo := false
@@ -338,6 +339,12 @@ func _physics_process(dt: float) -> void:
     elif not demo and sim.state == "serve" and sim.M.server == 0 and sim.serve_stage != "hit":
         hud.set_hint("A / ESPACIO: lanzar la bola · otra vez para golpear" if sim.serve_stage == "ready" else "¡Golpea cuando la bola esté arriba!")
 
+    # v0.27: medidor de saque - visible mientras el jugador prepara/lanza, se oculta al golpear
+    if not demo and sim.state == "serve" and sim.M.server == 0 and sim.serve_stage in ["ready", "toss"]:
+        hud.serve_meter_update(sim.ball.toss_t / 0.85 if sim.serve_stage == "toss" else 0.0)
+    elif not demo:
+        hud.serve_meter_hide()
+
 func _snap(pl) -> Dictionary:
     return {"x": pl.x, "z": pl.z, "near": pl.near, "speed": pl.speed, "run": pl.run, "kind": pl.kind, "swing": pl.swing, "want_t": pl.want_t}
 
@@ -420,6 +427,10 @@ func drain_events() -> void:
                         "drop":
                             hud.popup("DEJADA", Vector3(ev.x, ev.y, ev.z), Color("#c8ffb0"))
             "serve":
+                hud.serve_meter_hide()
+                var skmh: int = int(round(ev.get("spd", 0.0) * SERVE_KMH_K))
+                if skmh > 0 and not demo:
+                    hud.show_serve_speed(skmh)
                 if ev.get("q", 0.0) >= 0.85:
                     hitstop_t = 0.03  # v0.26
                 sfx.play("hit_big" if (ev.get("q", 0.0) >= 0.85) else "hit", 1.2)
