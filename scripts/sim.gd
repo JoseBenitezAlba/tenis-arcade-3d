@@ -432,15 +432,16 @@ func step_ball(dt: float) -> void:
         ball.vz *= 0.78
         if absf(ball.vy) < 1.2:
             ball.vy = 0.0
-        events.append({"t": "bounce", "v": clamp(sp / 10.0, 0.2, 1.0), "x": ball.x, "z": ball.z})
+        # v0.25: bote audible/polvo solo con bola viva (la bola muerta rodaba sonando cada frame)
         if ball.in_play:
+            events.append({"t": "bounce", "v": clamp(sp / 10.0, 0.2, 1.0), "x": ball.x, "z": ball.z})
             ball.bounces += 1
             if ball.bounces == 1:
                 judge_landing()
             elif ball.bounces >= 2:
                 ball.in_play = false
                 if state == "play":
-                    award_point(ball.last, "PUNTO", "")
+                    award_point(ball.last, "PUNTO", "Dos botes")
 
 func judge_landing() -> void:
     var hitter = pl[ball.last]
@@ -466,9 +467,9 @@ func judge_landing() -> void:
         ball.in_play = false
         fault("Fuera del cuadro" if on_opp else "Red")
         return
-    # v0.22: juez con ancho de DOBLES (5.485) - la pista dibuja los pasillos
-    # y el usuario los ve dentro; el saque sigue midiendo el cuadro de individuales
-    var inside: bool = absf(x) <= 5.485 + eps and z >= -eps and z <= L + eps
+    # v0.24: el partido es INDIVIDUALES - el pasillo de dobles es FUERA en rally.
+    # La pista dibuja ambas lineas (real), pero el juez mide singles (4.115).
+    var inside: bool = absf(x) <= 4.115 + eps and z >= -eps and z <= L + eps
     if on_opp and inside:
         return
     ball.in_play = false
@@ -616,8 +617,9 @@ func human_control(e: Player, dt: float) -> void:
             elif serve_stage == "toss":
                 do_serve(e, 1.0 - clamp(absf(ball.toss_t - 0.50) / 0.35, 0.0, 1.0))
         return
+    # v0.25: no iniciar el swing sobre bola muerta (parecia que aun podias pegarle)
     if want_hit or want_lob:
-        if e.swing <= 0.0:
+        if e.swing <= 0.0 and state == "play" and ball.in_play:
             e.swing = 0.3
             e.kind = "lob" if want_lob else ("drop" if inp.y < -0.4 else "drive")
             e.want = e.kind
