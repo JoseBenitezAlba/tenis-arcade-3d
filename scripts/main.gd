@@ -63,6 +63,9 @@ func _ready() -> void:
     if args.has("--serveshot"):
         call_deferred("_serveshot_harness", args)
         return
+    if args.has("--bounceshot"):
+        call_deferred("_bounceshot_harness", args)
+        return
     if args.has("--racketshot"):
         call_deferred("_racketshot_harness", args)
     elif args.has("--trailshot"):
@@ -1194,6 +1197,45 @@ func _serveshot_harness(args: Array) -> void:
     await get_tree().process_frame
     await _grab(out + "/speed.png")
     print("SERVESHOT done, spd event=", mv.hud.speed_label.text)
+    get_tree().quit(0)
+
+func _bounceshot_harness(args: Array) -> void:
+    # v0.28: dejada que muere rodando -> el punto se corta con "Dos botes" (captura del banner)
+    var out := "/home/sandbox/godot/shots/bounce"
+    var i := args.find("--bounceshot")
+    if i + 1 < args.size():
+        out = args[i + 1]
+    DirAccess.make_dir_recursive_absolute(out)
+    career = Career.new()
+    career.new_career("Jugador")
+    menus.career = career
+    career.start_tournament()
+    _on_career_match()
+    await get_tree().process_frame
+    await get_tree().process_frame
+    var mv = match_view
+    # fuerza una dejada de la CPU que cae suave cerca de la red y muere rodando
+    var sim = mv.sim
+    sim.state = "play"
+    sim.ball.in_play = true
+    sim.ball.held = false
+    sim.ball.toss = false
+    sim.ball.bounces = 0
+    sim.ball.last = 1
+    sim.ball.x = 0.3
+    sim.ball.y = 1.2
+    sim.ball.z = 15.0
+    sim.ball.vx = 0.0
+    sim.ball.vy = 0.0
+    sim.ball.vz = 0.0
+    sim.launch(0.4, 11.885 - 1.6, 1.0, 1.2)  # dejada valida como las del propio juego
+    sim.events.clear()
+    var ok := await _wait_until(func(): return mv.banner_t > 0.0, 6.0)
+    print("BOUNCESHOT banner=", ok)
+    await get_tree().process_frame
+    await get_tree().process_frame
+    await _grab(out + "/dosbotes.png")
+    print("BOUNCESHOT done")
     get_tree().quit(0)
 
 func _looktest_harness(_args: Array) -> void:
