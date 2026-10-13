@@ -40,6 +40,7 @@ var pause_layer: CanvasLayer
 var over_sent := false
 var shake := 0.0
 var hitstop_t := 0.0  # v0.26: micro-pausa de impacto en golpes duros
+var _hint_hidden := false
 # repeticion de punto
 var rec := []
 var replaying := false
@@ -236,12 +237,20 @@ func _on_pause_input(event: InputEvent) -> void:
             paused_game = false
             get_tree().paused = false
             pause_layer.visible = false
+            if _hint_hidden:
+                hud.hint.visible = true
+                _hint_hidden = false
         else:
             paused_game = true
             get_tree().paused = true
             pause_layer.visible = true
             hud.hide_banner()  # v0.25: limpiar banners activos al abrir pausa (solapamiento)
             banner_t = 0.0
+            # v0.29: ocultar el resto de anuncios (popups, pista, medidor) bajo la pausa
+            hud.hide_popups()
+            hud.hint.visible = false
+            hud.serve_meter_hide()
+            _hint_hidden = true
     elif event.is_action_pressed("quit") and paused_game:
         get_tree().paused = false
         paused_game = false
@@ -415,17 +424,19 @@ func drain_events() -> void:
                 if ev.kind == "smash":
                     shake = 0.25
                 spawn_dust(Vector3(ev.x, ev.y, ev.z), 3, Color(1, 0.96, 0.7, 0.4))
+                # v0.29: popups sobre la cabeza del muñeco, no flotando en la red
+                var pwp := Vector3(sim.pl[ev.id].x, 0.0, sim.pl[ev.id].z)
                 if perfect:
                     shake = 0.3
-                    hud.popup("¡PERFECTO!", Vector3(ev.x, ev.y, ev.z), Color("#ffe27a"))
+                    hud.popup("¡PERFECTO!", pwp, Color("#ffe27a"))
                 elif ev.id == 0 and not demo:
                     match ev.kind:
                         "smash":
-                            hud.popup("¡SMASH!", Vector3(ev.x, ev.y, ev.z), Color("#ffd23f"))
+                            hud.popup("¡SMASH!", pwp, Color("#ffd23f"))
                         "lob":
-                            hud.popup("GLOBO", Vector3(ev.x, ev.y, ev.z), Color("#7ac7ff"))
+                            hud.popup("GLOBO", pwp, Color("#7ac7ff"))
                         "drop":
-                            hud.popup("DEJADA", Vector3(ev.x, ev.y, ev.z), Color("#c8ffb0"))
+                            hud.popup("DEJADA", pwp, Color("#c8ffb0"))
             "serve":
                 hud.serve_meter_hide()
                 var skmh: int = int(round(ev.get("spd", 0.0) * SERVE_KMH_K))
@@ -436,7 +447,7 @@ func drain_events() -> void:
                 sfx.play("hit_big" if (ev.get("q", 0.0) >= 0.85) else "hit", 1.2)
                 if ev.get("q", 0.0) >= 0.85 and ev.get("id", 1) == 0 and not demo:
                     shake = 0.3
-                    hud.popup("¡SAQUE PERFECTO!", Vector3(ev.x, ev.y, ev.z), Color("#ffe27a"))
+                    hud.popup("¡SAQUE PERFECTO!", Vector3(sim.pl[ev.get("id", 0)].x, 0.0, sim.pl[ev.get("id", 0)].z), Color("#ffe27a"))
             "toss":
                 sfx.play("serve")
             "bounce":
