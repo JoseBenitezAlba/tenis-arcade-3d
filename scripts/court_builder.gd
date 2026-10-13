@@ -143,11 +143,11 @@ static func build(surface: String, day: bool = false) -> Node3D:
     court_mat.albedo_texture = TexGen.court_texture(surface)
     court_mat.roughness = 0.9
     var court := MeshInstance3D.new()
-    var cb := BoxMesh.new()
-    cb.size = Vector3(14.4, 0.06, court_len)
+    var cb := PlaneMesh.new()
+    cb.size = Vector2(14.4, court_len)
     cb.material = court_mat
     court.mesh = cb
-    court.position = Vector3(0, 0.03, (L + 3.6 - 4.0) / 2.0)
+    court.position = Vector3(0, 0.06, (L + 3.6 - 4.0) / 2.0)
     root.add_child(court)
 
     # red reglamentaria: postes a 0.914m de la linea de dobles (+-6.40m),
@@ -308,7 +308,7 @@ static func build(surface: String, day: bool = false) -> Node3D:
     # silla del arbitro (al lado del poste de la red)
     var chair := Node3D.new()
     chair.position = Vector3(-7.0, 0, NZ)
-    chair.rotation.y = -PI / 2.0
+    chair.rotation.y = 0.0
     root.add_child(chair)
     for lx in [-0.35, 0.35]:
         for lz in [-0.3, 0.3]:
@@ -337,7 +337,10 @@ static func build(surface: String, day: bool = false) -> Node3D:
     chair.add_child(step1)
     var umpire := _fbx_figure("res://models/OldClassy_Male.fbx", Color("#2a3a6a"), Color("#f0f0f0"), Color("#d9a37a"), "tennis/Sitting_Idle", Color("#8a8078"), 0.72)
     umpire.position = Vector3(0, 2.02, 0)
+    umpire.rotation.y = PI / 2.0  # modelo mira +Z: girar para que mire a la pista (+X)
     chair.add_child(umpire)
+    var _watchers := []
+    _watchers.append({"fig": umpire, "yaw": PI / 2.0})
     # jueces de linea sentados en las esquinas
     var judge_cols := [Color("#274070"), Color("#274070"), Color("#274070"), Color("#274070")]
     var jpos := [Vector3(-8.0, 0, -2.9), Vector3(8.0, 0, -2.9), Vector3(-5.6, 0, L + 2.9), Vector3(5.6, 0, L + 2.9)]
@@ -355,12 +358,7 @@ static func build(surface: String, day: bool = false) -> Node3D:
         var judge := _fbx_figure("res://models/Suit_Male.fbx", judge_cols[ji], Color("#222a40"), Color("#c98d62"), "tennis/Sitting_Idle", Color("#3a3230"), 0.72)
         judge.position = Vector3(0, 0.34, 0.02)
         jchair.add_child(judge)
-    # recogepelotas arrodillados junto a los postes
-    for s in [-1, 1]:
-        var bb := _figure(Color("#b36a00"), Color("#e6b48a"), Color("#222a40"), "kneel")
-        bb.position = Vector3(s * 5.7, 0, NZ - 0.8)
-        bb.rotation.y = -s * PI / 2.0
-        root.add_child(bb)
+        _watchers.append({"fig": judge, "yaw": jchair.rotation.y})
     # banquillos laterales
     for s in [-1, 1]:
         var bench := Node3D.new()
@@ -380,4 +378,10 @@ static func build(surface: String, day: bool = false) -> Node3D:
         var bag := _box(0.55, 0.3, 0.25, _mat(Color("#8a2a2a") if s < 0 else Color("#2a4a8a")))
         bag.position = Vector3(0.6, 0.62, 0)
         bench.add_child(bag)
+    # cabezas que siguen la bola (ultimo hijo: procesa tras los AnimationPlayer)
+    var bw: Node3D = load("res://scripts/ball_watcher.gd").new()
+    bw.name = "BallWatcher"
+    for wr in _watchers:
+        bw.add_watcher(wr.fig, wr.yaw)
+    root.add_child(bw)
     return root
