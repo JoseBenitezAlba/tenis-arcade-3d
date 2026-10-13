@@ -74,6 +74,8 @@ func _ready() -> void:
         call_deferred("_judgetest_harness", args)
     elif args.has("--v29shots"):
         call_deferred("_v29shots_harness", args)
+    elif args.has("--v30shots"):
+        call_deferred("_v30shots_harness", args)
     elif args.has("--trailshot"):
         call_deferred("_trailshot_harness", args)
     elif args.has("--rallyshots"):
@@ -1408,3 +1410,107 @@ func _looktest_harness(_args: Array) -> void:
     await get_tree().process_frame
     await _grab("/home/sandbox/godot/shots/looktest.png")
     get_tree().quit(0)
+
+func _v30shots_harness(args: Array) -> void:
+    var out := "/home/sandbox/godot/shots/v30"
+    var i := args.find("--v30shots")
+    if i + 1 < args.size():
+        out = args[i + 1]
+    DirAccess.make_dir_recursive_absolute(out)
+    menus.visible = false
+    print("v30 harness start")
+    # A) magnetismo: jugador desplazado 2m, pulsa golpear y la asistencia le coloca
+    match_view = MatchView.new()
+    match_view.set_meta("surface", "hard")
+    match_view.set_meta("day", true)
+    match_view.set_meta("cpu_look", 2)
+    match_view.set_meta("my_name", "TU")
+    match_view.set_meta("cpu_label", "CPU · NORMAL")
+    match_view.setup({"demo": false, "surface": "hard", "AIP": DIFF_PARAMS[1], "sets_to_win": 1})
+    add_child(match_view)
+    await _wait_sim(3.0)
+    var sim = match_view.sim
+    sim.state = "play"
+    sim.M.server = 1
+    sim.pl[0].x = -2.0
+    sim.pl[0].z = -1.0
+    sim.pl[0].vx = 0.0
+    sim.pl[0].vz = 0.0
+    sim.pl[1].x = 0.0
+    sim.pl[1].z = 24.5
+    sim.ball.held = false
+    sim.ball.serving = false
+    sim.ball.in_play = true
+    sim.ball.last = 1
+    sim.ball.x = 0.9
+    sim.ball.y = 1.6
+    sim.ball.z = 3.2
+    sim.ball.vx = 0.0
+    sim.ball.vy = 0.8
+    sim.ball.vz = -13.0
+    sim.inp.hit = true
+    var ok := await _wait_until(func(): return sim.ball.last == 0, 1.5)
+    print("v30 A magnetismo hit=", ok, " px=", sim.pl[0].x)
+    await get_tree().process_frame
+    await _grab(out + "/magnetismo.png")
+    # B) derrape: carrera a tope a la derecha y corte a la izquierda
+    sim.state = "play"
+    sim.ball.in_play = false
+    sim.ball.held = true
+    sim.pl[0].x = 0.0
+    sim.pl[0].z = 3.0
+    Input.action_press("move_right")
+    await _wait_sim(0.8)
+    Input.action_release("move_right")
+    Input.action_press("move_left")
+    await _wait_sim(0.13)
+    print("v30 B derrape px=", sim.pl[0].x, " vx=", sim.pl[0].vx)
+    await _grab(out + "/derrape.png")
+    Input.action_release("move_left")
+    match_view.queue_free()
+    match_view = null
+    await get_tree().process_frame
+    # C) punto en demo: ganador SIN baile (idle), perdedor con gesto
+    match_view = MatchView.new()
+    match_view.set_meta("surface", "grass")
+    match_view.set_meta("day", true)
+    match_view.set_meta("cpu_look", 2)
+    match_view.set_meta("my_name", "TU")
+    match_view.set_meta("cpu_label", "CPU · NORMAL")
+    match_view.setup({"demo": true, "surface": "grass", "AIP": DIFF_PARAMS[1], "sets_to_win": 1})
+    add_child(match_view)
+    await _wait_sim(2.0)
+    var okp := await _wait_until(func(): return match_view.sim.state == "point", 60.0)
+    print("v30 C point ok=", okp)
+    if okp:
+        await _wait_sim(0.7)
+        await _grab(out + "/punto_sin_baile.png")
+    match_view.queue_free()
+    match_view = null
+    await get_tree().process_frame
+    # D) medidor de saque: la barra es la CALIDAD real (llena = optimo, aguja verde)
+    match_view = MatchView.new()
+    match_view.set_meta("surface", "hard")
+    match_view.set_meta("day", true)
+    match_view.set_meta("cpu_look", 2)
+    match_view.set_meta("my_name", "TU")
+    match_view.set_meta("cpu_label", "CPU · NORMAL")
+    match_view.setup({"demo": false, "surface": "hard", "AIP": DIFF_PARAMS[1], "sets_to_win": 1})
+    add_child(match_view)
+    await _wait_sim(2.5)
+    var sim2 = match_view.sim
+    sim2.state = "serve"
+    sim2.M.server = 0
+    sim2.serve_stage = "ready"
+    sim2.pl[0].x = 1.4
+    sim2.pl[0].z = -1.2
+    sim2.ball.held = false
+    sim2.toss_ball()
+    var okq := await _wait_until(func(): return sim2.ball.toss_t >= 0.50, 2.0)
+    print("v30 D meter q peak ok=", okq, " toss_t=", sim2.ball.toss_t)
+    await _grab(out + "/saque_medidor.png")
+    match_view.queue_free()
+    match_view = null
+    await get_tree().process_frame
+    print("v30 harness done")
+    get_tree().quit()
