@@ -51,6 +51,7 @@ class Ball extends RefCounted:
     var serving := true
     var hit_id := 0
     var trail: Array = []
+    var hot := 0.0  # v0.26: calor del tiro (estela blanca) - decae en update
 
 var demo := true
 var AIP := {"speed": 5.6, "react": 0.27, "err": 0.5, "miss": 0.15}
@@ -304,7 +305,9 @@ func do_hit(e: Player, kind: String, ai: bool) -> void:
     e.kind = kind
     e.cool = 0.4
     e.flash = 0.12
-    events.append({"t": "hit", "id": e.id, "kind": kind, "x": ball.x, "y": ball.y, "z": ball.z, "rise": on_rise, "perfect": perfect})
+    var spd := Vector3(ball.vx, ball.vy, ball.vz).length()
+    ball.hot = clampf((spd - 30.0) / 20.0, 0.0, 1.0)
+    events.append({"t": "hit", "id": e.id, "kind": kind, "x": ball.x, "y": ball.y, "z": ball.z, "rise": on_rise, "perfect": perfect, "spd": spd})
 
 func do_serve(e: Player, q: float) -> void:
     serve_unreturned = true
@@ -353,6 +356,8 @@ func do_serve(e: Player, q: float) -> void:
     tx += randn() * err
     tzr += randn() * err * (0.9 if (e.id == 0 and not demo and inp.y > 0.4) else 0.5)
     launch(tx, NZ + dir * tzr, serve_T, max(ball.y, 2.0))
+    var sspd := Vector3(ball.vx, ball.vy, ball.vz).length()
+    ball.hot = clampf((sspd - 30.0) / 20.0, 0.0, 1.0)
     ball.last = e.id
     ball.bounces = 0
     ball.in_play = true
@@ -657,6 +662,7 @@ func update_player(e: Player, dt: float) -> void:
 func update(dt: float) -> void:
     time += dt
     state_t += dt
+    ball.hot = maxf(0.0, ball.hot - dt * 2.5)
     if demo:
         ai_control(pl[0], dt)
     else:
