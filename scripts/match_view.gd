@@ -347,10 +347,17 @@ func _physics_process(dt: float) -> void:
             hud.set_hint("")
     elif not demo and sim.state == "serve" and sim.M.server == 0 and sim.serve_stage != "hit":
         hud.set_hint("A / ESPACIO: lanzar la bola · otra vez para golpear" if sim.serve_stage == "ready" else "¡Golpea cuando la bola esté arriba!")
+    elif not demo and hint_t <= 0.0:
+        # v0.30: la pista del saque se quedaba pegada toda la jugada (video usuario)
+        if hud.hint.text == "¡Golpea cuando la bola esté arriba!" or hud.hint.text.begins_with("A / ESPACIO"):
+            hud.set_hint("")
 
     # v0.27: medidor de saque - visible mientras el jugador prepara/lanza, se oculta al golpear
     if not demo and sim.state == "serve" and sim.M.server == 0 and sim.serve_stage in ["ready", "toss"]:
-        hud.serve_meter_update(sim.ball.toss_t / 0.85 if sim.serve_stage == "toss" else 0.0)
+        # v0.30: el medidor muestra la CALIDAD real del lanzamiento (feedback usuario:
+        # "saco a mitad de barra y canta perfecto") - barra llena = punto optimo
+        var sq: float = 1.0 - clampf(absf(sim.ball.toss_t - 0.50) / 0.45, 0.0, 1.0)
+        hud.serve_meter_update(sq if sim.serve_stage == "toss" else 0.0)
     elif not demo:
         hud.serve_meter_hide()
 
@@ -442,10 +449,10 @@ func drain_events() -> void:
                 var skmh: int = int(round(ev.get("spd", 0.0) * SERVE_KMH_K))
                 if skmh > 0 and not demo:
                     hud.show_serve_speed(skmh)
-                if ev.get("q", 0.0) >= 0.85:
+                if ev.get("q", 0.0) >= 0.88:
                     hitstop_t = 0.03  # v0.26
-                sfx.play("hit_big" if (ev.get("q", 0.0) >= 0.85) else "hit", 1.2)
-                if ev.get("q", 0.0) >= 0.85 and ev.get("id", 1) == 0 and not demo:
+                sfx.play("hit_big" if (ev.get("q", 0.0) >= 0.88) else "hit", 1.2)
+                if ev.get("q", 0.0) >= 0.88 and ev.get("id", 1) == 0 and not demo:
                     shake = 0.3
                     hud.popup("¡SAQUE PERFECTO!", Vector3(sim.pl[ev.get("id", 0)].x, 0.0, sim.pl[ev.get("id", 0)].z), Color("#ffe27a"))
             "toss":
@@ -462,7 +469,8 @@ func drain_events() -> void:
             "point":
                 var is_err: bool = ev.txt in ["FUERA", "RED", "DOBLE FALTA"]
                 crowd.react(is_err)
-                rigs[ev.w].celebrate("tennis/Dance", 2.0)
+                # v0.30: baile post-punto eliminado (orden del usuario) - solo queda
+                # el gesto del que pierde el punto
                 rigs[1 - ev.w].celebrate("tennis/Hit_Head" if is_err else "tennis/Hit_Chest", 2.0)
                 hud.update_score(sim.M)
                 var bcol: Color = Color("#ffd23f") if ev.txt == "SET" else (Color("#7dffa8") if ev.w == 0 else Color("#ff9c9c"))
