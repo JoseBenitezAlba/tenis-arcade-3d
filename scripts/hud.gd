@@ -205,6 +205,11 @@ func show_banner(txt: String, sub: String, color: Color, big := false) -> void:
     banner.modulate.a = 1.0
     banner_sub.modulate.a = 1.0
 
+func hide_popups() -> void:
+    for p in popup_pool:
+        p.active = false
+        p.l.visible = false
+
 func hide_banner() -> void:
     banner.modulate.a = 0.0
     banner_sub.modulate.a = 0.0
