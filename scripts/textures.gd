@@ -70,17 +70,17 @@ static func court_texture(surface: String) -> ImageTexture:
             var px := int(cx1 + dx * t)
             var py := int(cy1 + dy * t)
             img.fill_rect(Rect2i(px - hw, py - hw, hw * 2, hw * 2), line_c)
-    line.call(-5.485, 0, 5.485, 0, 0.10)
-    line.call(-5.485, L, 5.485, L, 0.10)
-    line.call(-4.115, 0, -4.115, L, 0.05)
-    line.call(4.115, 0, 4.115, L, 0.05)
-    line.call(-5.485, 0, -5.485, L, 0.05)
-    line.call(5.485, 0, 5.485, L, 0.05)
-    line.call(-4.115, NZ - 6.4, 4.115, NZ - 6.4, 0.05)
-    line.call(-4.115, NZ + 6.4, 4.115, NZ + 6.4, 0.05)
-    line.call(0, NZ - 6.4, 0, NZ + 6.4, 0.05)
-    line.call(0, 0, 0, 0.1, 0.05)
-    line.call(0, L, 0, L - 0.1, 0.05)
+    line.call(-5.485, 0, 5.485, 0, 0.14)
+    line.call(-5.485, L, 5.485, L, 0.14)
+    line.call(-4.115, 0, -4.115, L, 0.09)
+    line.call(4.115, 0, 4.115, L, 0.09)
+    line.call(-5.485, 0, -5.485, L, 0.09)
+    line.call(5.485, 0, 5.485, L, 0.09)
+    line.call(-4.115, NZ - 6.4, 4.115, NZ - 6.4, 0.09)
+    line.call(-4.115, NZ + 6.4, 4.115, NZ + 6.4, 0.09)
+    line.call(0, NZ - 6.4, 0, NZ + 6.4, 0.09)
+    line.call(0, 0, 0, 0.1, 0.09)
+    line.call(0, L, 0, L - 0.1, 0.09)
     return ImageTexture.create_from_image(img)
 
 static func ground_texture(surface: String) -> ImageTexture:
@@ -164,7 +164,7 @@ static func shadow_texture() -> ImageTexture:
             var d := Vector2(x - c, y - c).length() / c
             if d < 1.0:
                 var a: float = clamp(1.0 - d, 0.0, 1.0)
-                img.set_pixel(x, y, Color(0, 0, 0, a * a * 0.5))
+                img.set_pixel(x, y, Color(0, 0, 0, a * a * 0.85))
     return ImageTexture.create_from_image(img)
 
 static func ring_texture() -> ImageTexture:
