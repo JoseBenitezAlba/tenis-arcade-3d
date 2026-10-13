@@ -399,9 +399,12 @@ func step_ball(dt: float) -> void:
         ball.x = sv.x + 0.28
         ball.z = sv.z + 0.3 * sdir
         if ball.vy < 0.0 and ball.y < 1.2:
+            # v0.29: lanzamiento fallido SIN golpe no es falta - se recoge y se
+            # repite el lanzamiento (regla real: solo cuenta si mueves la raqueta)
             ball.toss = false
-            ball.in_play = false
-            fault("Lanzamiento perdido")
+            ball.held = true
+            serve_stage = "ready"
+            events.append({"t": "retoss"})
         return
     if not ball.in_play and state != "point":
         return
@@ -425,6 +428,20 @@ func step_ball(dt: float) -> void:
         else:
             award_point(1 - ball.last, "RED", "")
         return
+    # v0.29: bola al cuerpo - si la bola viva te toca, punto para el rival
+    # (antes atravesaba cabeza y torso como un fantasma)
+    if ball.in_play and (state == "play" or state == "serve"):
+        for i in 2:
+            var bp = pl[i]
+            var bdx: float = ball.x - bp.x
+            var bdz: float = ball.z - bp.z
+            if bdx * bdx + bdz * bdz < 0.20 and ball.y > 0.12 and ball.y < 1.62:
+                var toward: float = (bp.x - ball.x) * ball.vx + (bp.z - ball.z) * ball.vz
+                if toward > 0.0:
+                    ball.in_play = false
+                    events.append({"t": "body", "who": i, "x": ball.x, "y": ball.y, "z": ball.z})
+                    award_point(1 - i, "PUNTO", "Bola al cuerpo")
+                    return
     if ball.in_play and ball.bounces >= 1 and (ball.z < -2.8 or ball.z > L + 2.8) and state == "play":
         ball.in_play = false
         award_point(ball.last, "PUNTO", "")
