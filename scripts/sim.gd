@@ -447,6 +447,12 @@ func step_ball(dt: float) -> void:
                 ball.in_play = false
                 if state == "play":
                     award_point(ball.last, "PUNTO", "Dos botes")
+            # v0.28: bola que se queda rodando con el punto vivo = bola muerta.
+            # Antes seguia "golpeable" un frame mas y la CPU/jugador la recogia del suelo
+            # (la dejada que muere rodando nunca cerraba el punto).
+            if ball.in_play and ball.vy == 0.0 and ball.bounces >= 1 and state == "play":
+                ball.in_play = false
+                award_point(ball.last, "PUNTO", "Dos botes")
 
 func judge_landing() -> void:
     var hitter = pl[ball.last]
