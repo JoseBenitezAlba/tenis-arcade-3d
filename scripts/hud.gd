@@ -122,13 +122,12 @@ func _ready() -> void:
     mbg.size = Vector2(26, 246)
     mbg.position = Vector2(-3, -3)
     serve_meter.add_child(mbg)
-    # p = toss_t/0.85; perfecto q>=0.85 en p=[0.526,0.650]; q>0 en p=[0.176,1.0]
+    # v0.30: la barra muestra la CALIDAD q del lanzamiento - verde arriba del todo
     var zones = [
-        [0.000, 0.176, Color("#c33c3c")],
-        [0.176, 0.380, Color("#e0a53c")],
-        [0.380, 0.526, Color("#d8d24a")],
-        [0.526, 0.650, Color("#49d96b")],
-        [0.650, 1.000, Color("#c33c3c")],
+        [0.000, 0.45, Color("#c33c3c")],
+        [0.45, 0.70, Color("#e0a53c")],
+        [0.70, 0.88, Color("#d8d24a")],
+        [0.88, 1.000, Color("#49d96b")],
     ]
     for z in zones:
         var r := ColorRect.new()
@@ -236,8 +235,8 @@ func serve_meter_update(p: float) -> void:
     serve_fill.size.y = 240.0 * p
     serve_fill.position.y = 240.0 * (1.0 - p)
     serve_needle.position.y = 240.0 * (1.0 - p) - 2.0
-    var q: float = 1.0 - absf(p * 0.85 - 0.50) / 0.35
-    serve_needle.color = Color("#49d96b") if q >= 0.85 else (Color("#ffd23f") if q > 0.0 else Color("#ff6b6b"))
+    # v0.30: p es la calidad q directamente (verde solo en la zona optima real)
+    serve_needle.color = Color("#49d96b") if p >= 0.88 else (Color("#ffd23f") if p > 0.45 else Color("#ff6b6b"))
 
 func serve_meter_hide() -> void:
     if serve_meter != null:
