@@ -223,13 +223,26 @@ func update_from_sim(e, dt: float) -> void:
     var k: float = 1.0 - e.swing / swing_dur if e.swing > 0.0 else -1.0
     var serving: bool = e.kind == "serve" and e.swing > 0.0
 
-    # piernas
-    hip_l.rotation.x = sin(ph) * 0.8 * sp
-    hip_r.rotation.x = sin(ph + PI) * 0.8 * sp
-    knee_l.rotation.x = maxf(0.0, sin(ph - 1.1)) * 1.15 * sp
-    knee_r.rotation.x = maxf(0.0, sin(ph + PI - 1.1)) * 1.15 * sp
-    var bob: float = absf(sin(ph)) * 0.05 * sp
+    # piernas: carrera normal o paso lateral (shuffle) segun la direccion dominante
+    var lateral := sp > 0.15 and absf(e.vx) > absf(e.vz) * 1.4
+    if lateral:
+        # defensa lateral: piernas en tijera de lado, cadera baja, sin braceo de carrera
+        hip_l.rotation.x = 0.16 * sp
+        hip_r.rotation.x = -0.16 * sp
+        hip_l.rotation.z = sin(ph) * 0.38 * sp
+        hip_r.rotation.z = sin(ph) * 0.38 * sp
+        knee_l.rotation.x = (0.45 + maxf(0.0, sin(ph)) * 0.35) * sp
+        knee_r.rotation.x = (0.45 + maxf(0.0, sin(ph + PI)) * 0.35) * sp
+    else:
+        hip_l.rotation.x = sin(ph) * 0.8 * sp
+        hip_r.rotation.x = sin(ph + PI) * 0.8 * sp
+        hip_l.rotation.z = 0.0
+        hip_r.rotation.z = 0.0
+        knee_l.rotation.x = maxf(0.0, sin(ph - 1.1)) * 1.15 * sp
+        knee_r.rotation.x = maxf(0.0, sin(ph + PI - 1.1)) * 1.15 * sp
+    var bob: float = absf(sin(ph)) * (0.035 if lateral else 0.05) * sp
     body.position.y = bob
+    var arm_sp: float = sp * (0.35 if lateral else 1.0)
 
     var lk: float = minf(1.0, dt * 10.0)
     if serving and k >= 0.0:
@@ -265,10 +278,10 @@ func update_from_sim(e, dt: float) -> void:
         elb_l.rotation.x = lerpf(elb_l.rotation.x, 0.5, lk)
     else:
         # idle / carrera
-        sho_r.rotation.x = lerpf(sho_r.rotation.x, 0.1 + sin(ph + PI) * 0.5 * sp, lk)
-        elb_r.rotation.x = lerpf(elb_r.rotation.x, 0.5 + 0.3 * sp, lk)
-        sho_l.rotation.x = lerpf(sho_l.rotation.x, sin(ph) * 0.55 * sp, lk)
-        elb_l.rotation.x = lerpf(elb_l.rotation.x, 0.45 + 0.3 * sp, lk)
+        sho_r.rotation.x = lerpf(sho_r.rotation.x, 0.1 + sin(ph + PI) * 0.5 * arm_sp, lk)
+        elb_r.rotation.x = lerpf(elb_r.rotation.x, 0.5 + 0.3 * arm_sp, lk)
+        sho_l.rotation.x = lerpf(sho_l.rotation.x, sin(ph) * 0.55 * arm_sp, lk)
+        elb_l.rotation.x = lerpf(elb_l.rotation.x, 0.45 + 0.3 * arm_sp, lk)
         torso_pivot.rotation.y = lerpf(torso_pivot.rotation.y, 0.0, lk)
         torso_pivot.rotation.x = lerpf(torso_pivot.rotation.x, 0.12 * sp, lk)
         racket.rotation.x = lerpf(racket.rotation.x, 0.25, lk)
