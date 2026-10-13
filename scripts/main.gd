@@ -57,7 +57,11 @@ func _ready() -> void:
     menus.pad_inv_x = pad_inv_x
     menus.pad_inv_y = pad_inv_y
     menus.show_menu(career)
-    if args.has("--rallyshots"):
+    if args.has("--racketshot"):
+        call_deferred("_racketshot_harness", args)
+    elif args.has("--trailshot"):
+        call_deferred("_trailshot_harness", args)
+    elif args.has("--rallyshots"):
         call_deferred("_rallyshots_harness", args)
     elif args.has("--courtshot"):
         call_deferred("_courtshot_harness", args)
@@ -1021,6 +1025,89 @@ func _rallyshots_harness(args: Array) -> void:
         await _wait_sim(0.28)
         await _grab(out + "/r" + str(n) + ".png")
         print("shot r", n, " state=", match_view.sim.state, " hits=", match_view.sim.rally_hits, " bally=", snappedf(match_view.sim.ball.y, 0.01))
+    get_tree().quit(0)
+
+
+func _trailshot_harness(args: Array) -> void:
+    var out := "/home/sandbox/godot/shots/trail"
+    var i := args.find("--trailshot")
+    if i + 1 < args.size():
+        out = args[i + 1]
+    DirAccess.make_dir_recursive_absolute(out)
+    menus.visible = false
+    match_view = MatchView.new()
+    match_view.set_meta("surface", "hard")
+    match_view.set_meta("day", true)
+    match_view.set_meta("cpu_look", 2)
+    match_view.set_meta("my_name", "TU")
+    match_view.set_meta("cpu_label", "CPU · NORMAL")
+    match_view.setup({"demo": true, "surface": "hard", "AIP": DIFF_PARAMS[1], "sets_to_win": 1})
+    add_child(match_view)
+    # forzar un golpe duro: bola en juego cerca de la CPU y smash directo
+    var ok := await _wait_until(func(): return match_view.sim.state == "play" and match_view.sim.ball.in_play, 40.0)
+    var sim = match_view.sim
+    sim.ball.x = sim.pl[1].x
+    sim.ball.y = 1.4
+    sim.ball.z = 16.0
+    sim.ball.vx = 0.0
+    sim.ball.vy = 0.0
+    sim.ball.vz = -2.0
+    sim.ball.last = 0
+    sim.pl[1].x = 0.0
+    sim.pl[1].z = 16.2
+    sim.do_hit(sim.pl[1], "smash", true)
+    # harness visual: imponer vuelo duro para capturar la estela caliente
+    sim.ball.vx = 0.0
+    sim.ball.vy = 2.0
+    sim.ball.vz = -48.0
+    sim.ball.hot = 1.0
+    print("trail forced ok: ", ok, " hot=", snappedf(sim.ball.hot, 0.01))
+    for n in 3:
+        await _grab(out + "/t" + str(n) + ".png")
+        print("shot t", n, " hot=", snappedf(match_view.sim.ball.hot, 0.01), " bally=", snappedf(match_view.sim.ball.y, 0.01))
+        await _wait_sim(0.05)
+    get_tree().quit(0)
+
+
+func _racketshot_harness(args: Array) -> void:
+    var out := "/home/sandbox/godot/shots/racket"
+    var i := args.find("--racketshot")
+    if i + 1 < args.size():
+        out = args[i + 1]
+    DirAccess.make_dir_recursive_absolute(out)
+    menus.visible = false
+    var root3 := Node3D.new()
+    add_child(root3)
+    var env := WorldEnvironment.new()
+    var ee := Environment.new()
+    ee.background_mode = Environment.BG_COLOR
+    ee.background_color = Color(0.35, 0.42, 0.55)
+    ee.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+    ee.ambient_light_color = Color(0.9, 0.9, 0.95)
+    ee.ambient_light_energy = 0.8
+    env.environment = ee
+    root3.add_child(env)
+    var sun := DirectionalLight3D.new()
+    sun.rotation = Vector3(-0.7, 0.6, 0.0)
+    root3.add_child(sun)
+    var fig = PlayerFig.new(0, false)
+    root3.add_child(fig)
+    var cam := Camera3D.new()
+    root3.add_child(cam)
+    cam.current = true
+    var views := [
+        [Vector3(0.55, 0.52, 0.45), Vector3(0.30, 0.47, 0.02)],
+        [Vector3(0.18, 0.50, 0.62), Vector3(0.28, 0.45, 0.0)],
+        [Vector3(0.75, 0.50, 0.35), Vector3(0.28, 0.46, 0.0)],
+        [Vector3(0.42, 0.40, 0.42), Vector3(0.28, 0.44, 0.0)],
+    ]
+    for n in views.size():
+        cam.position = views[n][0]
+        cam.look_at(views[n][1], Vector3.UP)
+        await get_tree().process_frame
+        await get_tree().process_frame
+        await _grab(out + "/rk" + str(n) + ".png")
+        print("shot rk", n)
     get_tree().quit(0)
 
 
