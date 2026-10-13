@@ -68,6 +68,12 @@ func _ready() -> void:
         return
     if args.has("--racketshot"):
         call_deferred("_racketshot_harness", args)
+    elif args.has("--swingshot"):
+        call_deferred("_swingshot_harness", args)
+    elif args.has("--judgetest"):
+        call_deferred("_judgetest_harness", args)
+    elif args.has("--v29shots"):
+        call_deferred("_v29shots_harness", args)
     elif args.has("--trailshot"):
         call_deferred("_trailshot_harness", args)
     elif args.has("--rallyshots"):
@@ -1102,6 +1108,150 @@ func _trailshot_harness(args: Array) -> void:
         await _wait_sim(0.05)
     get_tree().quit(0)
 
+
+
+
+
+func _v29shots_harness(args: Array) -> void:
+    var out := "/home/sandbox/godot/shots/v29"
+    var i := args.find("--v29shots")
+    if i + 1 < args.size():
+        out = args[i + 1]
+    DirAccess.make_dir_recursive_absolute(out)
+    menus.visible = false
+    print("v29 harness start")
+    # A) partida real (no demo): dejada del jugador -> popup sobre su cabeza
+    match_view = MatchView.new()
+    match_view.set_meta("surface", "hard")
+    match_view.set_meta("day", true)
+    match_view.set_meta("cpu_look", 2)
+    match_view.set_meta("my_name", "TÚ")
+    match_view.set_meta("cpu_label", "CPU · NORMAL")
+    match_view.setup({"demo": false, "surface": "hard", "AIP": DIFF_PARAMS[1], "sets_to_win": 1})
+    add_child(match_view)
+    await _wait_sim(3.0)
+    var ok := true
+    var sim = match_view.sim
+    sim.state = "play"
+    sim.pl[0].x = 0.5
+    sim.pl[0].z = 10.0
+    sim.ball.x = 0.5
+    sim.ball.y = 1.1
+    sim.ball.z = 11.5
+    sim.ball.vx = 0.0
+    sim.ball.vy = 0.0
+    sim.ball.vz = -6.0
+    sim.ball.last = 1
+    sim.ball.in_play = true
+    sim.do_hit(sim.pl[0], "drop", false)
+    print("v29 A drop forced ok=", ok)
+    await _wait_sim(0.18)
+    await _grab(out + "/popup_dejada.png")
+    # B) pausa abierta: sin pista/banner/medidor por encima
+    var pev := InputEventAction.new()
+    pev.action = "pause"
+    pev.pressed = true
+    match_view._on_pause_input(pev)
+    await get_tree().process_frame
+    await get_tree().process_frame
+    await _grab(out + "/pausa_limpia.png")
+    print("v29 B pause shot")
+    match_view._on_pause_input(pev)
+    match_view.queue_free()
+    match_view = null
+    await get_tree().process_frame
+    # C) demo: recogepelotas y jueces girando el cuerpo a la bola
+    match_view = MatchView.new()
+    match_view.set_meta("surface", "hard")
+    match_view.set_meta("day", true)
+    match_view.set_meta("cpu_look", 2)
+    match_view.set_meta("my_name", "TÚ")
+    match_view.set_meta("cpu_label", "CPU · NORMAL")
+    match_view.setup({"demo": true, "surface": "hard", "AIP": DIFF_PARAMS[1], "sets_to_win": 1})
+    add_child(match_view)
+    ok = await _wait_until(func(): return match_view.sim.state == "play", 20.0)
+    sim = match_view.sim
+    sim.ball.in_play = false
+    sim.ball.x = -6.0
+    sim.ball.y = 0.4
+    sim.ball.z = 16.0
+    sim.ball.vx = 0.0; sim.ball.vy = 0.0; sim.ball.vz = 0.0
+    await _wait_sim(1.0)
+    await _grab(out + "/vida_izq.png")
+    sim.ball.x = 6.0
+    sim.ball.z = 14.0
+    await _wait_sim(1.2)
+    await _grab(out + "/vida_der.png")
+    print("v29 C life shots ok=", ok)
+    get_tree().quit(0)
+
+func _judgetest_harness(args: Array) -> void:
+    var out := "/home/sandbox/godot/shots/judge"
+    var i := args.find("--judgetest")
+    if i + 1 < args.size():
+        out = args[i + 1]
+    DirAccess.make_dir_recursive_absolute(out)
+    menus.visible = false
+    match_view = MatchView.new()
+    match_view.set_meta("surface", "hard")
+    match_view.set_meta("day", true)
+    match_view.set_meta("cpu_look", 2)
+    match_view.set_meta("my_name", "TÚ")
+    match_view.set_meta("cpu_label", "CPU · NORMAL")
+    match_view.setup({"demo": true, "surface": "hard", "AIP": DIFF_PARAMS[1], "sets_to_win": 1})
+    add_child(match_view)
+    var ok := await _wait_until(func(): return match_view.sim.state == "play", 40.0)
+    var sim = match_view.sim
+    print("judgetest play ok: ", ok)
+    # bola quieta a la izquierda del todo -> el juez cercano-derecho debe mirar a su izquierda
+    sim.ball.in_play = false
+    sim.ball.x = -6.0
+    sim.ball.y = 0.4
+    sim.ball.z = -2.0
+    sim.ball.vx = 0.0; sim.ball.vy = 0.0; sim.ball.vz = 0.0
+    await _wait_sim(0.6)
+    await _grab(out + "/j_left.png")
+    # y a la derecha del todo
+    sim.ball.x = 6.0
+    await _wait_sim(0.6)
+    await _grab(out + "/j_right.png")
+    print("judgetest done")
+    get_tree().quit(0)
+
+func _swingshot_harness(args: Array) -> void:
+    var out := "/home/sandbox/godot/shots/swing"
+    var i := args.find("--swingshot")
+    if i + 1 < args.size():
+        out = args[i + 1]
+    DirAccess.make_dir_recursive_absolute(out)
+    menus.visible = false
+    match_view = MatchView.new()
+    match_view.set_meta("surface", "hard")
+    match_view.set_meta("day", true)
+    match_view.set_meta("cpu_look", 2)
+    match_view.set_meta("my_name", "TÚ")
+    match_view.set_meta("cpu_label", "CPU · NORMAL")
+    match_view.setup({"demo": true, "surface": "hard", "AIP": DIFF_PARAMS[1], "sets_to_win": 1})
+    add_child(match_view)
+    var ok := await _wait_until(func(): return match_view.sim.state == "play" and match_view.sim.ball.in_play, 40.0)
+    var sim = match_view.sim
+    # bola facil al jugador cercano y golpe forzado para pillar el swing
+    sim.pl[0].x = 0.5
+    sim.pl[0].z = -14.0
+    sim.ball.x = 0.5
+    sim.ball.y = 1.1
+    sim.ball.z = -11.5
+    sim.ball.vx = 0.0
+    sim.ball.vy = 0.0
+    sim.ball.vz = -6.0
+    sim.ball.last = 1
+    sim.do_hit(sim.pl[0], "drive", false)
+    print("swing forced ok: ", ok)
+    for n in 6:
+        await _grab(out + "/sw" + str(n) + ".png")
+        print("shot sw", n)
+        await _wait_sim(0.07)
+    get_tree().quit(0)
 
 func _racketshot_harness(args: Array) -> void:
     var out := "/home/sandbox/godot/shots/racket"
