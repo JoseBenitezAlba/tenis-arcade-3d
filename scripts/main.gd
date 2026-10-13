@@ -27,6 +27,9 @@ func _ready() -> void:
     if args.has("--simtest"):
         _simtest(args)
         return
+    if args.has("--servespeed"):
+        _servespeed()
+        return
     if args.has("--careertest"):
         _careertest()
         return
@@ -57,6 +60,9 @@ func _ready() -> void:
     menus.pad_inv_x = pad_inv_x
     menus.pad_inv_y = pad_inv_y
     menus.show_menu(career)
+    if args.has("--serveshot"):
+        call_deferred("_serveshot_harness", args)
+        return
     if args.has("--racketshot"):
         call_deferred("_racketshot_harness", args)
     elif args.has("--trailshot"):
@@ -463,6 +469,31 @@ func _simtest(args: Array) -> void:
                 print("PUNTO w=", ev.w, " ", ev.txt, " | pts=", sim.M.pts, " games=", sim.M.games, " sets=", sim.M.sets, " t=", snapped(t, 0.01))
         sim.events.clear()
     print("FIN SIM: sets=", sim.M.sets, " games=", sim.M.games, " pts=", sim.M.pts, " over=", sim.match_over, " t=", snapped(t, 0.1))
+    get_tree().quit(0)
+
+func _servespeed() -> void:
+    # medicion de velocidades de saque para calibrar el marcador km/h (v0.27)
+    var sim := TennisSim.new(false, DIFF_PARAMS[1], {}, "CPU", 1)
+    for intent in [1.0, 0.0, -1.0]:
+        for q in [0.5, 0.75, 0.9, 1.0]:
+            sim.reset_serve_ball()
+            sim.pl[0].x = 1.4
+            sim.inp.x = 0.0
+            sim.inp.y = intent
+            sim.do_serve(sim.pl[0], q)
+            var v: Vector3 = Vector3(sim.ball.vx, sim.ball.vy, sim.ball.vz)
+            print("PLAYER intent=", intent, " q=", q, " spd=", snapped(v.length(), 0.01))
+    for first in [true, false]:
+        for i in 8:
+            sim.M.server = 1
+            sim.reset_serve_ball()
+            sim.serve_fault = 0 if first else 1
+            sim.ball.x = sim.pl[1].x
+            sim.ball.z = sim.pl[1].z - 0.5
+            sim.do_serve(sim.pl[1], 1.0)
+            sim.M.server = 0
+            var v2: Vector3 = Vector3(sim.ball.vx, sim.ball.vy, sim.ball.vz)
+            print("CPU first=", first, " spd=", snapped(v2.length(), 0.01))
     get_tree().quit(0)
 
 func _training_shots(out: String) -> void:
@@ -1133,6 +1164,37 @@ func _careershot_harness(args: Array) -> void:
         print("shot c", n, " p0=(", p0.x, ",", p0.z, ") p1=(", p1.x, ",", p1.z, ") rig0pos=", mv.rigs[0].global_position, " rig1pos=", mv.rigs[1].global_position, " rig1vis=", mv.rigs[1].visible, " cpulook=", mv.get_meta("cpu_look", -1), " state=", mv.sim.state)
     get_tree().quit(0)
 
+
+func _serveshot_harness(args: Array) -> void:
+    # v0.27: capturas del medidor de saque (aguja amarilla/verde) y del marcador km/h
+    var out := "/home/sandbox/godot/shots/serve"
+    var i := args.find("--serveshot")
+    if i + 1 < args.size():
+        out = args[i + 1]
+    DirAccess.make_dir_recursive_absolute(out)
+    career = Career.new()
+    career.new_career("Jugador")
+    menus.career = career
+    career.start_tournament()
+    _on_career_match()
+    await get_tree().process_frame
+    await get_tree().process_frame
+    var mv = match_view
+    if mv.sim.state != "serve" or mv.sim.M.server != 0:
+        print("SERVESHOT: estado inesperado ", mv.sim.state, " server=", mv.sim.M.server)
+        get_tree().quit(1)
+        return
+    mv.sim.toss_ball()
+    await _wait_until(func(): return mv.sim.ball.toss_t >= 0.30, 2.0)
+    await _grab(out + "/meter_mid.png")
+    await _wait_until(func(): return mv.sim.ball.toss_t >= 0.49, 2.0)  # zona verde perfecta
+    await _grab(out + "/meter_green.png")
+    mv.sim.do_serve(mv.sim.pl[0], 0.97)
+    mv.drain_events()
+    await get_tree().process_frame
+    await _grab(out + "/speed.png")
+    print("SERVESHOT done, spd event=", mv.hud.speed_label.text)
+    get_tree().quit(0)
 
 func _looktest_harness(_args: Array) -> void:
     menus.visible = false
