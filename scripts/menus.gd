@@ -1,7 +1,7 @@
 class_name GameMenus
 extends Control
 
-const VERSION := "v0.27"
+const VERSION := "v0.28"
 
 signal quick_match(surface: String, diff: int, sets: int, day: bool)
 signal play_career_match
