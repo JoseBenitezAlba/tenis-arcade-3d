@@ -367,7 +367,7 @@ func do_serve(e: Player, q: float) -> void:
     ball.hit_id += 1
     e.swing = 0.4
     e.kind = "serve"
-    events.append({"t": "serve", "id": e.id, "q": q, "x": ball.x, "y": ball.y, "z": ball.z})
+    events.append({"t": "serve", "id": e.id, "q": q, "spd": sspd, "x": ball.x, "y": ball.y, "z": ball.z})
     serve_stage = "hit"
     rally_hits = 1
 
