@@ -3,6 +3,10 @@ extends RefCounted
 
 # Port del modo carrera de la versión web.
 const SAVE_PATH := "user://career.save"
+# v0.32: save atomico (tmp + rename) con backup .bak del ultimo estado bueno
+const SAVE_TMP := "user://career.save.tmp"
+const SAVE_BAK := "user://career.save.bak"
+const SAVE_VERSION := 1
 const RNAMES := ["Octavos", "Cuartos", "Semifinal", "Final"]
 const POOL0 := [
     ["Carlos Alcaca", 0.98, 2600], ["Janiel Sinnar", 0.98, 2800], ["Novak Djokovitz", 0.94, 2200],
@@ -44,21 +48,31 @@ static func randn() -> float:
     return (randf() + randf() + randf() - 1.5) / 0.75
 
 static func exists_save() -> bool:
-    return FileAccess.file_exists(SAVE_PATH)
+    return FileAccess.file_exists(SAVE_PATH) or FileAccess.file_exists(SAVE_BAK)
 
-static func load_saved() -> Career:
-    var c := Career.new()
-    if not FileAccess.file_exists(SAVE_PATH):
+static func _load_from(path: String) -> Career:
+    if not FileAccess.file_exists(path):
         return null
-    var f := FileAccess.open(SAVE_PATH, FileAccess.READ)
+    var f := FileAccess.open(path, FileAccess.READ)
     if f == null:
         return null
     var txt := f.get_as_text()
     f.close()
     var parsed = JSON.parse_string(txt)
-    if typeof(parsed) != TYPE_DICTIONARY or parsed.get("v", 0) != 1:
+    if typeof(parsed) != TYPE_DICTIONARY or parsed.get("v", 0) != SAVE_VERSION:
         return null
+    var c := Career.new()
     c.data = parsed
+    return c
+
+static func load_saved() -> Career:
+    # v0.32: si el save principal esta corrupto (apagon a mitad de escritura,
+    # por ejemplo), se recupera el ultimo estado bueno del .bak
+    var c := _load_from(SAVE_PATH)
+    if c == null:
+        c = _load_from(SAVE_BAK)
+    if c == null:
+        return null
     c._migrate_names()
     return c
 
@@ -93,10 +107,17 @@ func new_career(pname: String) -> void:
     save()
 
 func save() -> void:
-    var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
-    if f:
-        f.store_string(JSON.stringify(data))
-        f.close()
+    # v0.32: escritura atomica - se escribe a .tmp y se renombra encima, de modo
+    # que el save nunca queda a medias; el anterior queda en .bak por si acaso
+    data["v"] = SAVE_VERSION
+    var f := FileAccess.open(SAVE_TMP, FileAccess.WRITE)
+    if f == null:
+        return
+    f.store_string(JSON.stringify(data))
+    f.close()
+    if FileAccess.file_exists(SAVE_PATH):
+        DirAccess.copy_absolute(SAVE_PATH, SAVE_BAK)
+    DirAccess.rename_absolute(SAVE_TMP, SAVE_PATH)
 
 func standings() -> Array:
     var a := []
