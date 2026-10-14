@@ -124,8 +124,8 @@ static func string_texture() -> ImageTexture:
     var h := 320
     var img := Image.create(w, h, false, Image.FORMAT_RGBA8)
     img.fill(Color(0, 0, 0, 0))
-    var main_c := Color(0.96, 0.95, 0.90, 0.95)   # verticales algo mas marcadas
-    var cross_c := Color(0.88, 0.87, 0.82, 0.85)
+    var main_c := Color(0.96, 0.95, 0.90, 0.75)   # v0.33: semitransparente (pedido)
+    var cross_c := Color(0.88, 0.87, 0.82, 0.6)
     # clip eliptico: el cordaje no sale del aro (rx/ry del aro interior)
     var cx := w / 2.0
     var cy := h / 2.0
