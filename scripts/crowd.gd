@@ -72,7 +72,7 @@ func build() -> void:
 	rng2.seed = 7
 	for i in n:
 		var shirt := Color(SHIRTS[rng2.randi_range(0, SHIRTS.size() - 1)])
-		shirt = shirt.lerp(Color(0.5, 0.5, 0.54), rng2.randf_range(0.38, 0.62))
+		shirt = shirt.lerp(Color(0.24, 0.24, 0.29), rng2.randf_range(0.62, 0.85))  # v0.32 VT3: grada oscura
 		mmb.set_instance_color(i, shirt)
 		mmh.set_instance_color(i, Color(SKINS[rng2.randi_range(0, SKINS.size() - 1)]))
 	mm_body = MultiMeshInstance3D.new()
