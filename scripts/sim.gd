@@ -54,14 +54,47 @@ class Ball extends RefCounted:
     var hot := 0.0  # v0.26: calor del tiro (estela blanca) - decae en update
     var spin := 0.0  # v0.30: efecto del tiro (+liftado / -cortado) - se aplica en el bote
 
+# v0.32: parametros tipados (antes diccionarios sueltos). Los campos son los
+# unicos que el simulador lee; from_dict admite dicts legacy (DIFF_PARAMS,
+# params_for, saves) ignorando claves desconocidas.
+class AIParams extends RefCounted:
+    var speed := 5.6
+    var react := 0.27
+    var err := 0.5
+    var miss := 0.15
+    static func from_dict(d: Dictionary) -> AIParams:
+        var p := AIParams.new()
+        for k in ["speed", "react", "err", "miss"]:
+            if d.has(k):
+                p.set(k, float(d[k]))
+        return p
+
+class PlayerStats extends RefCounted:
+    var speed := 7.0
+    var T := 1.0
+    var err := 1.0
+    static func from_dict(d: Dictionary) -> PlayerStats:
+        var p := PlayerStats.new()
+        for k in ["speed", "T", "err"]:
+            if d.has(k):
+                p.set(k, float(d[k]))
+        return p
+
+class MatchState extends RefCounted:
+    var pts: Array = [0, 0]
+    var games: Array = [0, 0]
+    var sets: Array = [0, 0]
+    var server := 0
+    var sets_to_win := 1
+
 var demo := true
-var AIP := {"speed": 5.6, "react": 0.27, "err": 0.5, "miss": 0.15}
-var PS := {"speed": 7.0, "T": 1.0, "err": 1.0}
+var AIP := AIParams.new()
+var PS := PlayerStats.new()
 var cpu_name := "CPU"
 
 var ball := Ball.new()
 var pl: Array = []
-var M := {"pts": [0, 0], "games": [0, 0], "sets": [0, 0], "server": 0, "sets_to_win": 1}
+var M := MatchState.new()
 var state := "serve"
 var state_t := 0.0
 var serve_fault := 0
@@ -78,9 +111,9 @@ var events: Array = []
 func _init(p_demo: bool = true, p_aip: Dictionary = {}, p_ps: Dictionary = {}, p_cpu_name: String = "CPU", sets_to_win: int = 1) -> void:
     demo = p_demo
     if not p_aip.is_empty():
-        AIP = p_aip
+        AIP = AIParams.from_dict(p_aip)
     if not p_ps.is_empty():
-        PS = p_ps
+        PS = PlayerStats.from_dict(p_ps)
     cpu_name = p_cpu_name
     var p0 := Player.new()
     p0.id = 0
@@ -205,94 +238,28 @@ func launch(tx: float, tz: float, T: float, y0: float) -> void:
         n += 1
     ball.y = max(y0, 0.35)
 
+# v0.32: do_hit troceado en fases con nombre. Mismo orden de ejecucion y de
+# llamadas aleatorias que la version monolitica (verificado con A/B sembrado):
+# _ai_aim / _player_aim deciden objetivo (tx), profundidad (d) y tiempo de
+# vuelo (T); el tramo comun aplica spin, lanza y registra el evento.
 func do_hit(e: Player, kind: String, ai: bool) -> void:
     var opp = pl[1 - e.id]
     var dir := 1.0 if e.near else -1.0
     var dx := absf(ball.x - e.x)
     var dz := absf(ball.z - e.z)
     var stretch := maxf(0.0, dx - 0.8) + maxf(0.0, dz - 0.8)
-    var tx := 0.0
-    var d := 0.0
-    var T := 1.0
-    var on_rise := false
-    var perfect := false
     if ball.y > 2.15 and kind != "lob":
         kind = "smash"
+    var aim: Dictionary
     if ai:
-        var D = AIP
-        tx = (-1.0 if opp.x > 0 else 1.0) * randf_range(1.0, 3.5)
-        if randf() < 0.22:
-            tx = randf_range(-1.0, 1.0)
-        if kind == "lob":
-            d = 0.9
-            T = 1.5
-        elif kind == "drop":
-            d = 0.12
-            T = 1.0
-        elif kind == "smash":
-            d = 0.55
-            T = 0.52
-        else:
-            d = 0.55 + randf() * 0.4
-            T = 0.86 + (1.0 - d) * 0.18
-        if absf(opp.x) > 3.0 and kind != "drop":
-            tx = clampf(-signf(opp.x) * randf_range(2.6, 3.8), -3.9, 3.9)
-            d = minf(d + 0.15, 1.0)
-            T *= 0.95
-        # v0.14: buscar el winner - a la esquina y mas rapido cuando el rival
-        # esta lejos del punto de caida o lleva inercia al lado contrario
-        var reversing: bool = absf(opp.vx) > 2.5
-        var clear_chance: bool = absf(opp.x) > 2.4 or reversing
-        if kind != "drop" and kind != "lob" and clear_chance and randf() < 0.75:
-            if reversing:
-                tx = clampf(-signf(opp.vx) * randf_range(2.8, 3.8), -3.9, 3.9)
-            else:
-                tx = clampf(signf(tx) * randf_range(2.8, 3.8), -3.9, 3.9)
-            T *= 0.62
-            d = minf(d + 0.12, 1.0)
-            tx += randn() * D.err * 0.5
-        tx += randn() * D.err * (0.5 + stretch * 0.7)
-        d += randn() * 0.08 * D.err
+        aim = _ai_aim(opp, kind, stretch)
     else:
-        tx = clamp(inp.x * 3.1 + (ball.x - e.x) * 1.4, -3.9, 3.9)
-        var up: bool = inp.y > 0.4
-        if kind == "lob":
-            d = 0.88
-            T = 1.55
-        elif kind == "drop":
-            d = 0.1
-            T = 1.0
-        elif kind == "smash":
-            d = 0.5 + (0.3 if up else 0.0)
-            T = 0.52 * PS.T
-        else:
-            d = 0.95 if up else 0.62
-            T = (0.86 if up else 0.94) * PS.T
-            # v0.16: golpear al bote (bola subiendo) quita tiempo al rival
-            # pero pide mas precision que esperar a que la bola baje
-            if ball.vy > 1.0:
-                on_rise = true
-                T *= 0.88
-                d = minf(d + 0.06, 1.0)
-        # v0.18: raquetazo perfecto - contacto en el punto dulce (bola delante
-        # del cuerpo y a la cintura): sale mas rapida, mas profunda y casi sin error
-        if kind == "drive" or kind == "smash":
-            var pdx := absf(ball.x - e.x)
-            var pdz := absf(ball.z - e.z)
-            perfect = pdx < 0.75 and pdz > 0.25 and pdz < 1.05 and ball.y > 0.85 and ball.y < 1.45
-        if perfect:
-            T *= 0.82
-            d = minf(d + 0.08, 1.0)
-        var es: float = 0.35 if perfect else 1.0
-        var hq: float = clampf(1.0 - absf(ball.y - 1.05) / 1.6, 0.35, 1.0)
-        var qf: float = 2.0 - hq
-        tx += randn() * (0.12 + stretch * 0.55) * PS.err * qf * es
-        d += randn() * (0.03 + stretch * 0.07) * PS.err * qf * es
-        if on_rise:
-            tx += randn() * 0.18 * PS.err * es
-            d += randn() * 0.05 * PS.err * es
-        d *= 0.85 + 0.15 * hq
-    d = clampf(d, 0.02, 1.04)
+        aim = _player_aim(e, kind, stretch)
+    var on_rise: bool = aim.get("rise", false)
+    var perfect: bool = aim.get("perfect", false)
+    var tx: float = aim.tx
+    var d: float = clampf(aim.d, 0.02, 1.04)
+    var T: float = aim.T
     # v0.30: caracter del tiro - la dejada es cortada y muere, el resto sale liftado
     ball.spin = {"drop": -1.0, "lob": 0.25, "smash": 0.5}.get(kind, 0.85)
     var tz := NZ + dir * (2.2 + d * (L / 2.0 - 2.2))
@@ -311,6 +278,97 @@ func do_hit(e: Player, kind: String, ai: bool) -> void:
     var spd := Vector3(ball.vx, ball.vy, ball.vz).length()
     ball.hot = clampf((spd - 30.0) / 20.0, 0.0, 1.0)
     events.append({"t": "hit", "id": e.id, "kind": kind, "x": ball.x, "y": ball.y, "z": ball.z, "rise": on_rise, "perfect": perfect, "spd": spd})
+
+# Objetivo de la CPU: cruzar, buscar el winner cuando el rival llega justo,
+# y error segun dificultad y estirada. Devuelve {tx, d, T}.
+func _ai_aim(opp: Player, kind: String, stretch: float) -> Dictionary:
+    var D = AIP
+    var tx := 0.0
+    var d := 0.0
+    var T := 1.0
+    tx = (-1.0 if opp.x > 0 else 1.0) * randf_range(1.0, 3.5)
+    if randf() < 0.22:
+        tx = randf_range(-1.0, 1.0)
+    if kind == "lob":
+        d = 0.9
+        T = 1.5
+    elif kind == "drop":
+        d = 0.12
+        T = 1.0
+    elif kind == "smash":
+        d = 0.55
+        T = 0.52
+    else:
+        d = 0.55 + randf() * 0.4
+        T = 0.86 + (1.0 - d) * 0.18
+    if absf(opp.x) > 3.0 and kind != "drop":
+        tx = clampf(-signf(opp.x) * randf_range(2.6, 3.8), -3.9, 3.9)
+        d = minf(d + 0.15, 1.0)
+        T *= 0.95
+    # v0.14: buscar el winner - a la esquina y mas rapido cuando el rival
+    # esta lejos del punto de caida o lleva inercia al lado contrario
+    var reversing: bool = absf(opp.vx) > 2.5
+    var clear_chance: bool = absf(opp.x) > 2.4 or reversing
+    if kind != "drop" and kind != "lob" and clear_chance and randf() < 0.75:
+        if reversing:
+            tx = clampf(-signf(opp.vx) * randf_range(2.8, 3.8), -3.9, 3.9)
+        else:
+            tx = clampf(signf(tx) * randf_range(2.8, 3.8), -3.9, 3.9)
+        T *= 0.62
+        d = minf(d + 0.12, 1.0)
+        tx += randn() * D.err * 0.5
+    tx += randn() * D.err * (0.5 + stretch * 0.7)
+    d += randn() * 0.08 * D.err
+    return {"tx": tx, "d": d, "T": T}
+
+# Objetivo del jugador: direccion del stick + compensacion por su posicion,
+# alzas (bola subiendo), raquetazo perfecto y error por calidad de contacto.
+# Devuelve {tx, d, T, rise, perfect}.
+func _player_aim(e: Player, kind: String, stretch: float) -> Dictionary:
+    var on_rise := false
+    var perfect := false
+    var tx := 0.0
+    var d := 0.0
+    var T := 1.0
+    tx = clamp(inp.x * 3.1 + (ball.x - e.x) * 1.4, -3.9, 3.9)
+    var up: bool = inp.y > 0.4
+    if kind == "lob":
+        d = 0.88
+        T = 1.55
+    elif kind == "drop":
+        d = 0.1
+        T = 1.0
+    elif kind == "smash":
+        d = 0.5 + (0.3 if up else 0.0)
+        T = 0.52 * PS.T
+    else:
+        d = 0.95 if up else 0.62
+        T = (0.86 if up else 0.94) * PS.T
+        # v0.16: golpear al bote (bola subiendo) quita tiempo al rival
+        # pero pide mas precision que esperar a que la bola baje
+        if ball.vy > 1.0:
+            on_rise = true
+            T *= 0.88
+            d = minf(d + 0.06, 1.0)
+    # v0.18: raquetazo perfecto - contacto en el punto dulce (bola delante
+    # del cuerpo y a la cintura): sale mas rapida, mas profunda y casi sin error
+    if kind == "drive" or kind == "smash":
+        var pdx := absf(ball.x - e.x)
+        var pdz := absf(ball.z - e.z)
+        perfect = pdx < 0.75 and pdz > 0.25 and pdz < 1.05 and ball.y > 0.85 and ball.y < 1.45
+    if perfect:
+        T *= 0.82
+        d = minf(d + 0.08, 1.0)
+    var es: float = 0.35 if perfect else 1.0
+    var hq: float = clampf(1.0 - absf(ball.y - 1.05) / 1.6, 0.35, 1.0)
+    var qf: float = 2.0 - hq
+    tx += randn() * (0.12 + stretch * 0.55) * PS.err * qf * es
+    d += randn() * (0.03 + stretch * 0.07) * PS.err * qf * es
+    if on_rise:
+        tx += randn() * 0.18 * PS.err * es
+        d += randn() * 0.05 * PS.err * es
+    d *= 0.85 + 0.15 * hq
+    return {"tx": tx, "d": d, "T": T, "rise": on_rise, "perfect": perfect}
 
 func do_serve(e: Player, q: float) -> void:
     serve_unreturned = true
