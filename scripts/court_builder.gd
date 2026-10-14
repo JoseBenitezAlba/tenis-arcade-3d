@@ -233,6 +233,7 @@ static func build(surface: String, day: bool = false) -> Node3D:
     # gradas laterales y de fondo con textura de publico
     var crowd_mat := StandardMaterial3D.new()
     crowd_mat.albedo_texture = TexGen.tier_texture()
+    crowd_mat.albedo_color = Color(0.40, 0.40, 0.47)  # v0.32 VT3: grada oscura
     crowd_mat.uv1_scale = Vector3(8, 3, 1)
     crowd_mat.roughness = 1.0
     var stands_far := _box(40, 7.0, 6.0, crowd_mat)
