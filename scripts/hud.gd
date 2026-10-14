@@ -26,22 +26,30 @@ func _ready() -> void:
     var panel := PanelContainer.new()
     panel.position = Vector2(14, 606)
     var sb := StyleBoxFlat.new()
-    sb.bg_color = Color(0.03, 0.05, 0.11, 0.86)
+    sb.bg_color = Color(0.03, 0.05, 0.11, 0.88)
     sb.corner_radius_top_left = 10
     sb.corner_radius_top_right = 10
     sb.corner_radius_bottom_left = 10
     sb.corner_radius_bottom_right = 10
-    sb.border_color = Color(1, 1, 1, 0.18)
+    # v0.32 VT3: borde sutil; acento amarillo TV como barra superior
+    sb.border_color = Color(1, 1, 1, 0.14)
     sb.set_border_width_all(1)
-    sb.content_margin_left = 12
-    sb.content_margin_right = 12
-    sb.content_margin_top = 8
-    sb.content_margin_bottom = 8
+    sb.content_margin_left = 14
+    sb.content_margin_right = 14
+    sb.content_margin_top = 10
+    sb.content_margin_bottom = 10
     panel.add_theme_stylebox_override("panel", sb)
     add_child(panel)
+    var vbox := VBoxContainer.new()
+    vbox.add_theme_constant_override("separation", 6)
+    panel.add_child(vbox)
+    var accent := ColorRect.new()
+    accent.color = Color("#ffd23f")
+    accent.custom_minimum_size = Vector2(0, 4)
+    vbox.add_child(accent)
     var grid := GridContainer.new()
     grid.columns = 4
-    panel.add_child(grid)
+    vbox.add_child(grid)
     var head := ["", "SET", "JUEG", "PTS"]
     for htxt in head:
         var l := Label.new()
@@ -53,7 +61,7 @@ func _ready() -> void:
         grid.add_child(l)
     for i in 2:
         var nm := Label.new()
-        nm.add_theme_font_size_override("font_size", 16)
+        nm.add_theme_font_size_override("font_size", 18)
         nm.add_theme_color_override("font_color", Color.WHITE)
         nm.custom_minimum_size = Vector2(180, 0)
         nm.clip_text = true
@@ -63,7 +71,7 @@ func _ready() -> void:
         for j in 3:
             var v := Label.new()
             v.text = "0"
-            v.add_theme_font_size_override("font_size", 19)
+            v.add_theme_font_size_override("font_size", 21)
             v.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
             v.custom_minimum_size = Vector2(52, 0)
             grid.add_child(v)
@@ -171,7 +179,7 @@ func set_names(n0: String, n1: String) -> void:
     name_labels[0].text = "  " + name_labels[0].get_meta("base")
     name_labels[1].text = "  " + name_labels[1].get_meta("base")
 
-func update_score(M: Dictionary) -> void:
+func update_score(M) -> void:  # sin tipo: acepta MatchState (v0.32) o Dictionary legado
     for i in 2:
         score_rows[i][0].text = str(M.sets[i])
         score_rows[i][1].text = str(M.games[i])
