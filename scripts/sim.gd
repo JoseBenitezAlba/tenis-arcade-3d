@@ -34,6 +34,10 @@ class Player extends RefCounted:
     var want := "drive"
     var want_t := 0.0
     var kind_roll := 0.5
+    # v0.33: esquiva de reflejo (bola al cuerpo sin tiempo de armar)
+    var dodge_for := -1
+    var dodge_t := 0.0
+    var letgo_for := -1
 
 class Ball extends RefCounted:
     var x := 0.0
@@ -62,9 +66,11 @@ class AIParams extends RefCounted:
     var react := 0.27
     var err := 0.5
     var miss := 0.15
+    # v0.32: estilo - riesgo al buscar el winner (0.5 = comportamiento clasico)
+    var risk := 0.5
     static func from_dict(d: Dictionary) -> AIParams:
         var p := AIParams.new()
-        for k in ["speed", "react", "err", "miss"]:
+        for k in ["speed", "react", "err", "miss", "risk"]:
             if d.has(k):
                 p.set(k, float(d[k]))
         return p
@@ -86,6 +92,11 @@ class MatchState extends RefCounted:
     var sets: Array = [0, 0]
     var server := 0
     var sets_to_win := 1
+    # v0.32: tie-break al llegar 3-3 de juegos (a 7 con margen 2)
+    var tb := false
+    var tb_pts: Array = [0, 0]
+    var tb_total := 0
+    var tb_first_server := 0
 
 var demo := true
 var AIP := AIParams.new()
@@ -184,15 +195,41 @@ func award_point(w: int, why: String, sub: String) -> void:
     state = "point"
     state_t = 0.0
     ball.in_play = false
-    M.pts[w] += 1
     var txt := why
     var sb := sub
     events.append({"t": "sfx_point", "w": w})
+    if M.tb:
+        # tie-break: puntos corridos, saque 1-2-2, a 7 con margen 2
+        M.tb_pts[w] += 1
+        M.tb_total += 1
+        # rotacion de saque: punto 0 lo saca tb_first_server; luego bloques de 2
+        var k := M.tb_total  # puntos ya jugados; saque del siguiente punto
+        if k == 1:
+            M.server = 1 - M.tb_first_server
+        elif k >= 2 and (k - 1) % 2 == 0:
+            M.server = 1 - M.server
+        if M.tb_pts[w] >= 7 and M.tb_pts[w] - M.tb_pts[1 - w] >= 2:
+            M.sets[w] += 1
+            M.games = [0, 0]
+            M.games[w] = 4
+            M.games[1 - w] = 3
+            M.tb = false
+            M.tb_pts = [0, 0]
+            txt = "SET"
+            sb = "Para ti" if w == 0 else "Para " + cpu_name
+            M.server = 1 - M.tb_first_server
+            if M.sets[w] >= M.sets_to_win:
+                match_over = true
+                sb = ""
+        events.append({"t": "point", "w": w, "txt": txt, "sub": sb})
+        serve_fault = 0
+        return
+    M.pts[w] += 1
     if M.pts[w] >= 4:
         M.games[w] += 1
         M.pts = [0, 0]
         M.server = 1 - M.server
-        if M.games[w] >= 4:
+        if M.games[w] >= 4 and M.games[1 - w] <= 2:
             M.sets[w] += 1
             M.games = [0, 0]
             txt = "SET"
@@ -200,6 +237,14 @@ func award_point(w: int, why: String, sub: String) -> void:
             if M.sets[w] >= M.sets_to_win:
                 match_over = true
                 sb = ""
+        elif M.games[0] == 3 and M.games[1] == 3:
+            # 3-3: el set se decide en tie-break
+            M.tb = true
+            M.tb_pts = [0, 0]
+            M.tb_total = 0
+            M.tb_first_server = M.server
+            txt = "JUEGO"
+            sb = "TIE-BREAK"
         else:
             txt = "JUEGO"
             sb = "Para ti" if w == 0 else "Para " + cpu_name
@@ -275,6 +320,7 @@ func do_hit(e: Player, kind: String, ai: bool) -> void:
     e.kind = kind
     e.cool = 0.4
     e.flash = 0.12
+    e.want_t = 0.0  # v0.33: contacto -> termina la preparacion
     var spd := Vector3(ball.vx, ball.vy, ball.vz).length()
     ball.hot = clampf((spd - 30.0) / 20.0, 0.0, 1.0)
     events.append({"t": "hit", "id": e.id, "kind": kind, "x": ball.x, "y": ball.y, "z": ball.z, "rise": on_rise, "perfect": perfect, "spd": spd})
@@ -309,12 +355,12 @@ func _ai_aim(opp: Player, kind: String, stretch: float) -> Dictionary:
     # esta lejos del punto de caida o lleva inercia al lado contrario
     var reversing: bool = absf(opp.vx) > 2.5
     var clear_chance: bool = absf(opp.x) > 2.4 or reversing
-    if kind != "drop" and kind != "lob" and clear_chance and randf() < 0.75:
+    if kind != "drop" and kind != "lob" and clear_chance and randf() < 0.55 + 0.4 * D.risk:
         if reversing:
             tx = clampf(-signf(opp.vx) * randf_range(2.8, 3.8), -3.9, 3.9)
         else:
             tx = clampf(signf(tx) * randf_range(2.8, 3.8), -3.9, 3.9)
-        T *= 0.62
+        T *= 0.70 - 0.16 * D.risk
         d = minf(d + 0.12, 1.0)
         tx += randn() * D.err * 0.5
     tx += randn() * D.err * (0.5 + stretch * 0.7)
@@ -445,7 +491,10 @@ func toss_ball() -> void:
 
 # v0.30: factores de bote segun el efecto. Liftado: pica bajo y SALE (apenas
 # pierde velocidad horizontal). Cortado: se queda muerto y bajo. Neutro: como antes.
-static func _bounce_factors(s: float) -> Array:
+# v0.33: superficie del partido ("clay"/"grass"/"hard"; hard = comportamiento clasico)
+var surface := "hard"
+
+func _bounce_factors(s: float) -> Array:
     var vy_f := 0.74
     var damp := 0.79
     if s > 0.2:
@@ -454,7 +503,19 @@ static func _bounce_factors(s: float) -> Array:
     elif s < -0.2:
         vy_f = 0.72 + 0.10 * s
         damp = 0.79 + 0.17 * s
-    return [vy_f, damp]
+    # v0.33: la superficie cambia el bote - tierra: lento y alto (el liftado
+    # muerde y pica mas); hierba: rapido y bajo (resbala); dura: neutro
+    if surface == "clay":
+        vy_f *= 1.07
+        damp *= 0.93
+        if s > 0.2:
+            vy_f *= 1.0 + 0.05 * s
+    elif surface == "grass":
+        vy_f *= 0.90
+        damp *= 1.05
+        if s > 0.2:
+            vy_f *= 1.0 - 0.06 * s
+    return [vy_f, minf(damp, 1.05)]
 
 # v0.30: estima donde cruzara la bola el plano de contacto (~0.55m por delante
 # del jugador) dentro de 1s. Devuelve [x, z, t] o t=-1 si no llega a tiempo.
@@ -599,7 +660,10 @@ func judge_landing() -> void:
     var dir := 1.0 if hitter.near else -1.0
     var x := ball.x
     var z := ball.z
-    var eps := 0.11  # radio visual de la bola: si la bola toca la linea es buena
+    # v0.33: eps = BR (radio fisico Y visual 0.17 - coinciden desde v0.32).
+    # Politica real: si el borde de la bola toca la linea es BUENA. Con eps<BR
+    # quedaba una franja donde se veia tocar linea y se cantaba fuera.
+    var eps := BR
     var on_opp: bool = z > NZ if dir > 0 else z < NZ
     if state == "serve":
         var box_sign := -signf(hitter.x)
@@ -697,8 +761,10 @@ func ai_control(e: Player, dt: float) -> void:
         tx = -signf(srv.x) * 2.2
         tz = -0.6 if e.near else L + 0.6
     var mv: float = D.speed * 0.7
+    e.dodge_t = maxf(0.0, e.dodge_t - dt)
+    e.want_t = maxf(0.0, e.want_t - dt)  # v0.33: la ventana de preparacion de la CPU tambien caduca
     if coming:
-        if e.pred_for != ball.hit_id:
+        if e.pred_for != ball.hit_id and e.dodge_t <= 0.0 and e.letgo_for != ball.hit_id:
             e.pred_for = ball.hit_id
             var srv_ret: bool = serve_unreturned and M.server != e.id
             e.react = (0.06 + randf_range(0.0, 0.04)) if srv_ret else (D.react + randf_range(0.0, 0.08))
@@ -706,6 +772,37 @@ func ai_control(e: Player, dt: float) -> void:
             e.tx = p.x + randn() * D.err * 0.6
             e.tz = p.z + (-0.2 if e.near else 0.2) + randn() * D.err * 0.3
             e.kind_roll = randf()
+        # v0.33: lectura de bola muerta - si la bola sale y va al cuerpo, la
+        # deja pasar de un salto lateral en vez de intentar el golpe y regalar
+        # el punto al contacto (regla real: bola en vuelo que te toca, punto
+        # del rival). Tambien esquiva si va al cuerpo en plena recuperacion.
+        if e.dodge_for != ball.hit_id and e.dodge_t <= 0.0 and absf(ball.vz) > 8.0:
+            var t_arr: float = (e.z - ball.z) / ball.vz
+            if t_arr > 0.02 and t_arr < 1.2:
+                var xa: float = ball.x + ball.vx * t_arr
+                var ya: float = ball.y + ball.vy * t_arr - 0.5 * G * t_arr * t_arr
+                if absf(xa - e.x) < 0.5 and ya > 0.25 and ya < 1.65:
+                    var locked: bool = e.swing > 0.05 or e.cool > 0.05
+                    var pb := predict_bounce()
+                    var lands_in: bool = pb.ok and absf(pb.x) <= 4.115 and pb.z >= 0.0 and pb.z <= L
+                    if locked or not lands_in:
+                        e.dodge_for = ball.hit_id
+                        if not lands_in:
+                            e.letgo_for = ball.hit_id  # bola muerta: no intentar el golpe
+                        var chance: float = clampf(1.05 - D.err, 0.3, 0.95)
+                        if randf() < chance:
+                            var side_d: float = signf(e.x - xa)
+                            if side_d == 0.0:
+                                side_d = 1.0 if e.x >= 0.0 else -1.0
+                            e.tx = clampf(e.x + side_d * randf_range(1.2, 1.7), -5.4, 5.4)
+                            e.tz = e.z
+                            e.react = 0.0
+                            e.dodge_t = 0.35
+                            # impulso inmediato de estocada (si no, la aceleracion
+                            # normal no aparta el cuerpo a tiempo)
+                            e.vx = side_d * 7.5
+                            e.vz = 0.0
+                            events.append({"t": "dodge", "id": e.id, "hid": ball.hit_id})
         e.react -= dt
         if e.react <= 0.0:
             tx = e.tx
@@ -727,7 +824,18 @@ func ai_control(e: Player, dt: float) -> void:
         var srv_ret2: bool = serve_unreturned and M.server != e.id
         var gx := 1.8 if srv_ret2 else 1.45
         var gz := 1.85 if srv_ret2 else 1.35
-        if dx < gx and dz < gz and ball.y < 2.9 and ball.y > 0.15 and (state != "serve" or ball.bounces >= 1):
+        # v0.33: preparacion - la CPU carga el backswing un instante antes del
+        # contacto (solo visual: no cambia ni adelanta el golpe, que sigue
+        # saliendo en do_hit dentro del mismo radio de siempre)
+        if e.want_t <= 0.0 and e.letgo_for != ball.hit_id and ball.y < 3.4:
+            var dist := Vector2(ball.x - e.x, ball.z - e.z).length()
+            var to_p := Vector2(e.x - ball.x, e.z - ball.z)
+            var closing := (ball.vx * to_p.x + ball.vz * to_p.y) / maxf(dist, 0.05)
+            var tta := dist / maxf(closing, 5.0)
+            if tta < 0.3:
+                e.want = "drive"
+                e.want_t = 0.3
+        if dx < gx and dz < gz and ball.y < 2.9 and ball.y > 0.15 and e.letgo_for != ball.hit_id and (state != "serve" or ball.bounces >= 1):
             var stretch := dx > 1.0 or dz > 1.0
             if not (stretch and randf() < D.miss):
                 var kind := "drive"
