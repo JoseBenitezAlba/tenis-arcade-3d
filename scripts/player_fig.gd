@@ -108,11 +108,11 @@ func _build_racket() -> void:
     var hc := CylinderMesh.new()
     hc.top_radius = 0.015
     hc.bottom_radius = 0.017
-    hc.height = 0.20
+    hc.height = 0.26  # v0.33: mango mas largo (proporcion real)
     hc.radial_segments = 8  # octogonal como un grip real
     hc.material = _mat(Color("#26221e"))  # overgrip oscuro
     handle.mesh = hc
-    handle.position = Vector3(0, -0.085, 0)
+    handle.position = Vector3(0, -0.095, 0)
     rk.add_child(handle)
     var butt := MeshInstance3D.new()
     var bc := CylinderMesh.new()
@@ -122,43 +122,58 @@ func _build_racket() -> void:
     bc.radial_segments = 8
     bc.material = _mat(Color("#141210"))
     butt.mesh = bc
-    butt.position = Vector3(0, 0.02, 0)
+    butt.position = Vector3(0, 0.05, 0)
     rk.add_child(butt)
     # cuello en V: dos varillas del final del grip a los lados del aro
     var graphite := _mat(Color("#191b20"))
+    var frame_red := _mat(Color("#d43a2c"))
+    var throat_light := _mat(Color("#cfd2d8"))
     for sx in [-1.0, 1.0]:
-        var a := Vector3(0, -0.185, 0)
-        var b := Vector3(sx * 0.062, -0.375, 0)
+        var a := Vector3(0, -0.225, 0)
+        var b := Vector3(sx * 0.082, -0.50, 0)
         var seg := b - a
         var arm := MeshInstance3D.new()
         var ac := CylinderMesh.new()
-        ac.top_radius = 0.008
-        ac.bottom_radius = 0.011
+        ac.top_radius = 0.009
+        ac.bottom_radius = 0.012
         ac.height = seg.length()
-        ac.material = graphite
+        ac.material = throat_light
         arm.mesh = ac
         arm.position = (a + b) * 0.5
         arm.basis = _basis_along_y(seg.normalized())
         rk.add_child(arm)
     var frame := MeshInstance3D.new()
     var tm := TorusMesh.new()
-    tm.inner_radius = 0.125
-    tm.outer_radius = 0.15
-    tm.material = graphite
+    tm.inner_radius = 0.216  # v0.33: cabeza +37% (pedido del usuario)
+    tm.outer_radius = 0.247
+    tm.ring_segments = 24
+    tm.rings = 12
+    tm.material = frame_red
     frame.mesh = tm
-    frame.scale = Vector3(1.0, 1.22, 1.0)
-    frame.position = Vector3(0, -0.44, 0)
+    frame.scale = Vector3(1.0, 1.18, 1.0)
+    frame.position = Vector3(0, -0.575, 0)
     rk.add_child(frame)
+    var trim := MeshInstance3D.new()
+    var tt := TorusMesh.new()
+    tt.inner_radius = 0.209
+    tt.outer_radius = 0.22
+    tt.ring_segments = 24
+    tt.rings = 12
+    tt.material = throat_light
+    trim.mesh = tt
+    trim.scale = Vector3(1.0, 1.18, 1.0)
+    trim.position = Vector3(0, -0.575, 0)
+    rk.add_child(trim)
     var strings := MeshInstance3D.new()
     var qm := QuadMesh.new()
-    qm.size = Vector2(0.235, 0.29)
+    qm.size = Vector2(0.405, 0.48)
     var sm := StandardMaterial3D.new()
     sm.albedo_texture = TexGen.string_texture()
     sm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
     sm.cull_mode = BaseMaterial3D.CULL_DISABLED
     qm.material = sm
     strings.mesh = qm
-    strings.position = Vector3(0, -0.44, 0)
+    strings.position = Vector3(0, -0.575, 0)
     rk.add_child(strings)
 
 static func _basis_along_y(dir: Vector3) -> Basis:
@@ -208,6 +223,19 @@ func _play_seek(name: String, tau: float) -> void:
 
 var celeb_t := 0.0
 var celeb_name := ""
+var had_windup := false
+
+# v0.33: wind-up - el backswing es el primer tramo del clip de golpe; el
+# contacto cae a CONTACT_K y el resto es follow-through
+const WINDUP := 0.3
+const CONTACT_K := 0.25
+
+static func _swing_clip(kind: String) -> Array:
+    # [clip, tau final del seek] - mismos mapeos que el swing de siempre
+    match kind:
+        "drop": return ["tennis/Punch_Cross", 0.9]
+        "smash": return ["tennis/Spell_Simple_Shoot", 0.45]
+        _: return ["tennis/Sword_Attack", 1.35]
 
 func celebrate(cname: String, dur: float) -> void:
     celeb_name = cname
@@ -216,8 +244,16 @@ func celebrate(cname: String, dur: float) -> void:
     _play(celeb_name)
 
 func update_from_sim(e, dt: float) -> void:
+    if e.swing <= 0.0 and e.want_t <= 0.0:
+        had_windup = false  # v0.33: fin del ciclo de golpe
     position = Vector3(e.x, 0, e.z)
-    rotation.y = 0.0 if e.near else PI
+    # v0.33: orientacion por carrera - en un sprint lateral el cuerpo gira y
+    # corre hacia la bola como un jugador real; en ajustes cortos o
+    # desplazamientos a fondo/red sigue encarado (backpedal)
+    var facing := 0.0 if e.near else PI
+    if e.speed > 3.5 and absf(e.vx) > absf(e.vz):
+        facing = atan2(e.vx, e.vz)
+    rotation.y = lerp_angle(rotation.y, facing, minf(1.0, dt * 9.0))
     var sp: float = clampf(e.speed / 6.0, 0.0, 1.0)
     var swing_dur: float = 0.4 if e.kind == "serve" else 0.34
     var k: float = 1.0 - e.swing / swing_dur if e.swing > 0.0 else -1.0
@@ -233,13 +269,24 @@ func update_from_sim(e, dt: float) -> void:
         else:
             _play_seek("tennis/Spell_Simple_Shoot", clampf((k - 0.55) / 0.45, 0.0, 1.0) * 0.45)
     elif hold_swing:
-        match e.kind:
-            "drop":
-                _play_seek("tennis/Punch_Cross", clampf(k, 0.0, 1.0) * 0.9)
-            "smash":
-                _play_seek("tennis/Spell_Simple_Shoot", clampf(k, 0.0, 1.0) * 0.45)
-            _:
-                _play_seek("tennis/Sword_Attack", clampf(k, 0.0, 1.0) * 1.35)
+        var sc := _swing_clip(e.kind)
+        var kk := clampf(k, 0.0, 1.0)
+        var tau: float
+        if had_windup:
+            # ya cargo el backswing en la espera: arranca en el punto de contacto
+            tau = (CONTACT_K + kk * (1.0 - CONTACT_K)) * sc[1]
+        elif kk < 0.3:
+            # sin aviso (CPU lejana, latigazo): backswing rapido en el arranque
+            tau = (kk / 0.3) * CONTACT_K * sc[1]
+        else:
+            tau = (CONTACT_K + (kk - 0.3) / 0.7 * (1.0 - CONTACT_K)) * sc[1]
+        _play_seek(sc[0], tau)
+    elif e.want_t > 0.0 and e.swing <= 0.0:
+        # preparacion: carga el backswing mientras espera la bola
+        var wk: float = clampf(1.0 - e.want_t / WINDUP, 0.0, 1.0)
+        var scw := _swing_clip(e.want)
+        _play_seek(scw[0], wk * CONTACT_K * scw[1])
+        had_windup = true
     elif celeb_t > 0.0:
         celeb_t -= dt
         _play(celeb_name)
@@ -247,7 +294,10 @@ func update_from_sim(e, dt: float) -> void:
         _play("tennis/Sword_Idle")
     elif e.speed > 6.5:
         _play("tennis/Sprint", clampf(e.speed / 8.0, 0.8, 1.4))
-    elif e.speed > 0.4:
+    elif e.speed > 2.8:
         _play("tennis/Jog_Fwd", clampf(e.speed / 5.0, 0.7, 1.8))
+    elif e.speed > 0.4:
+        # v0.33: pasitos de ajuste - caminar rapido en vez de trote fantasma
+        _play("tennis/Walk", clampf(e.speed / 2.2, 0.8, 1.6))
     else:
         _play("tennis/Idle")
