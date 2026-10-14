@@ -42,6 +42,8 @@ const SERVE_KMH_K := 8.4  # v0.27: medido - CPU 1er saque ~195-205 km/h, plano q
 var banner_dur := 0.0
 var hint_t := 9.0
 var demo := false
+# v0.34: true cuando hay controles tactiles (solo web movil/tablet)
+var touch_ui := false
 var is_career := false
 var paused_game := false
 var pause_layer: CanvasLayer
@@ -207,8 +209,17 @@ func _ready() -> void:
     add_child(hud)
     hud.set_names(get_meta("my_name", "TÚ"), get_meta("cpu_label", "CPU"))
     hud.update_score(sim.M)
+    touch_ui = false
     if not demo:
-        hud.set_hint("Stick/WASD mover · A/ESPACIO golpe · X/Z globo · B dejada · START pausa")
+        touch_ui = get_meta("force_touch", false) or TouchControls.should_show()
+        if touch_ui:
+            var tc := TouchControls.new()
+            add_child(tc)
+    if not demo:
+        if touch_ui:
+            hud.set_hint("Joystick izquierdo mover · GOLPE / GLOBO / DEJADA a la derecha · II pausa")
+        else:
+            hud.set_hint("Stick/WASD mover · A/ESPACIO golpe · X/Z globo · B dejada · START pausa")
     else:
         hud.set_hint("")
 
@@ -417,7 +428,10 @@ func _physics_process(dt: float) -> void:
         if hint_t <= 0.0:
             hud.set_hint("")
     elif not demo and sim.state == "serve" and sim.M.server == 0 and sim.serve_stage != "hit":
-        hud.set_hint("A / ESPACIO: lanzar la bola · otra vez para golpear" if sim.serve_stage == "ready" else "¡Golpea cuando la bola esté arriba!")
+        if touch_ui:
+            hud.set_hint("GOLPE: lanzar la bola · otra vez para golpear" if sim.serve_stage == "ready" else "¡Golpea cuando la bola esté arriba!")
+        else:
+            hud.set_hint("A / ESPACIO: lanzar la bola · otra vez para golpear" if sim.serve_stage == "ready" else "¡Golpea cuando la bola esté arriba!")
     elif not demo and hint_t <= 0.0:
         # v0.30: la pista del saque se quedaba pegada toda la jugada (video usuario)
         if hud.hint.text == "¡Golpea cuando la bola esté arriba!" or hud.hint.text.begins_with("A / ESPACIO"):
