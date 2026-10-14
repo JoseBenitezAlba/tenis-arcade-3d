@@ -26,6 +26,10 @@ var bounce_ring: MeshInstance3D
 var bounce_ring_mat: StandardMaterial3D
 var trail := []
 var cam: Camera3D
+# v0.32 VT3: camara broadcast mas alta y lejana
+const CAM_POS := Vector3(0, 8.7, -14.6)
+const CAM_FOV := 46.0
+const CAM_LOOK_Y := 0.9
 var hud: MatchHUD
 var sfx: SoundKit
 var dust_pool := []
@@ -80,13 +84,13 @@ func _ready() -> void:
     # bola
     ball_mesh = MeshInstance3D.new()
     var bs := SphereMesh.new()
-    bs.radius = 0.11
-    bs.height = 0.22
+    bs.radius = 0.17
+    bs.height = 0.34
     var bm := StandardMaterial3D.new()
-    bm.albedo_color = Color("#d4ee3a")
+    bm.albedo_color = Color("#e6ff4d")
     bm.emission_enabled = true
-    bm.emission = Color("#c8e030")
-    bm.emission_energy_multiplier = 0.6
+    bm.emission = Color("#d8f040")
+    bm.emission_energy_multiplier = 1.0
     bs.material = bm
     ball_mesh.mesh = bs
     add_child(ball_mesh)
@@ -137,14 +141,15 @@ func _ready() -> void:
     for i in 9:
         var t := MeshInstance3D.new()
         var ts := SphereMesh.new()
-        ts.radius = 0.07
-        ts.height = 0.14
+        ts.radius = 0.105
+        ts.height = 0.21
         var tm := StandardMaterial3D.new()
-        tm.albedo_color = Color(0.88, 1.0, 0.35, 0.2)
+        tm.albedo_color = Color(0.88, 1.0, 0.35, 0.42)
         tm.emission_enabled = true
         tm.emission = Color(0.88, 1.0, 0.35)
-        tm.emission_energy_multiplier = 0.4
+        tm.emission_energy_multiplier = 0.85
         tm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+        tm.blend_mode = BaseMaterial3D.BLEND_MODE_ADD  # v0.32 VT3: estela luminosa
         ts.material = tm
         t.mesh = ts
         t.visible = false
@@ -167,10 +172,10 @@ func _ready() -> void:
         dust_pool.append({"m": d, "mat": dm, "life": 0.0, "max": 0.6, "v": Vector3.ZERO})
 
     cam = Camera3D.new()
-    cam.position = Vector3(0, 6.9, -11.8)
-    cam.fov = 50.0
+    cam.position = CAM_POS
+    cam.fov = CAM_FOV
     add_child(cam)
-    cam.look_at(Vector3(0, 0.4, NZ))
+    cam.look_at(Vector3(0, CAM_LOOK_Y, NZ))
     cam.make_current()
 
     hud = MatchHUD.new()
@@ -330,9 +335,9 @@ func _physics_process(dt: float) -> void:
     cam.position.x = lerpf(cam.position.x, target_x, minf(1.0, dt * 2.2))
     if shake > 0.0:
         shake = maxf(0.0, shake - dt)
-        cam.position.y = 6.9 + randf_range(-1.0, 1.0) * shake * 0.35
-        cam.position.z = -11.8 + randf_range(-1.0, 1.0) * shake * 0.25
-    cam.look_at(Vector3(sim.ball.x * 0.2, 0.4, NZ))
+        cam.position.y = CAM_POS.y + randf_range(-1.0, 1.0) * shake * 0.35
+        cam.position.z = CAM_POS.z + randf_range(-1.0, 1.0) * shake * 0.25
+    cam.look_at(Vector3(sim.ball.x * 0.2, CAM_LOOK_Y, NZ))
 
     if banner_t > 0.0:
         banner_t -= dt
@@ -418,7 +423,7 @@ func _end_replay() -> void:
     replaying = false
     rec.clear()
     hud.hide_replay()
-    cam.position = Vector3(0.0, 6.9, -11.8)
+    cam.position = CAM_POS
 
 func drain_events() -> void:
     for ev in sim.events:
