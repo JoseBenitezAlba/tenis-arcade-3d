@@ -33,6 +33,10 @@ const CAM_LOOK_Y := 0.9
 var hud: MatchHUD
 var sfx: SoundKit
 var dust_pool := []
+# v0.33: superficie (polvo y marcas acordes), frenadas y marcas de bote
+var surface := "clay"
+var brake_cd := [0.0, 0.0]
+var mark_pool := []
 var banner_t := 0.0
 const SERVE_KMH_K := 8.4  # v0.27: medido - CPU 1er saque ~195-205 km/h, plano q1 ~197, seguro ~158
 var banner_dur := 0.0
@@ -51,6 +55,7 @@ var replaying := false
 var replay_pending := false
 var replay_i := 0.0
 var replay_test := false
+var replay_side := 1.0
 const REC_MAX := 2700
 
 func setup(cfg: Dictionary) -> void:
@@ -60,12 +65,15 @@ func setup(cfg: Dictionary) -> void:
     if typeof(ps) != TYPE_DICTIONARY:
         ps = {}
     sim = TennisSim.new(demo, cfg.AIP, ps, cfg.get("cpu_name", "CPU"), cfg.get("sets_to_win", 1))
+    sim.surface = get_meta("surface", "clay")  # v0.33: fisicas por superficie
     process_mode = Node.PROCESS_MODE_PAUSABLE
 
 func _ready() -> void:
     if sim == null:
         sim = TennisSim.new(true)
-    court = CourtBuilder.build(get_meta("surface", "clay"), get_meta("day", false))
+        sim.surface = get_meta("surface", "clay")
+    surface = get_meta("surface", "clay")
+    court = CourtBuilder.build(surface, get_meta("day", false))
     add_child(court)
     crowd = CrowdFX.new()
     add_child(crowd)
@@ -171,6 +179,22 @@ func _ready() -> void:
         add_child(d)
         dust_pool.append({"m": d, "mat": dm, "life": 0.0, "max": 0.6, "v": Vector3.ZERO})
 
+    # v0.33: marcas de bote tenues que se desvanecen (tierra deja huella)
+    for i in 10:
+        var mk := MeshInstance3D.new()
+        var mc := CylinderMesh.new()
+        mc.top_radius = 0.14
+        mc.bottom_radius = 0.14
+        mc.height = 0.006
+        var mm := StandardMaterial3D.new()
+        mm.albedo_color = Color(0.3, 0.2, 0.15, 0.0)
+        mm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+        mc.material = mm
+        mk.mesh = mc
+        mk.visible = false
+        add_child(mk)
+        mark_pool.append({"m": mk, "mat": mm, "life": 0.0, "max": 1.3})
+
     cam = Camera3D.new()
     cam.position = CAM_POS
     cam.fov = CAM_FOV
@@ -215,14 +239,42 @@ func _ready() -> void:
     guard.process_mode = Node.PROCESS_MODE_ALWAYS
     add_child(guard)
 
-func spawn_dust(pos: Vector3, n: int, col: Color) -> void:
+# v0.33: polvo y marca segun superficie
+func dust_color(a: float) -> Color:
+    if surface == "clay":
+        # palido: el polvo de tierra batida se ve CLARO sobre la pista naranja
+        return Color(0.92, 0.78, 0.64, a)
+    if surface == "grass":
+        return Color(0.50, 0.62, 0.38, a)
+    return Color(0.62, 0.63, 0.66, a)
+
+func mark_color() -> Color:
+    if surface == "clay":
+        return Color(0.38, 0.20, 0.12)
+    if surface == "grass":
+        return Color(0.12, 0.22, 0.10)
+    return Color(0.10, 0.12, 0.16)
+
+func spawn_mark(pos: Vector3) -> void:
+    for mk in mark_pool:
+        if mk.life <= 0.0:
+            mk.life = 1.3
+            mk.max = 1.3
+            mk.m.visible = true
+            mk.m.position = Vector3(pos.x, 0.004, pos.z)
+            mk.mat.albedo_color = mark_color()
+            mk.mat.albedo_color.a = 0.4
+            return
+
+func spawn_dust(pos: Vector3, n: int, col: Color, sc: float = 1.0) -> void:
     var c := 0
     for d in dust_pool:
         if d.life <= 0.0:
             d.life = randf_range(0.3, 0.6)
             d.max = 0.6
             d.m.visible = true
-            d.m.position = pos + Vector3(randf_range(-0.1, 0.1), 0.05, randf_range(-0.1, 0.1))
+            d.m.scale = Vector3.ONE * sc
+            d.m.position = pos + Vector3(randf_range(-0.15, 0.15), 0.05, randf_range(-0.15, 0.15))
             d.v = Vector3(randf_range(-1.5, 1.5), randf_range(0.5, 2.2), randf_range(-1.5, 1.5))
             d.mat.albedo_color = col
             c += 1
@@ -294,8 +346,15 @@ func _physics_process(dt: float) -> void:
         rigs[i].update_from_sim(sim.pl[i], dt)
         shadows[i].position.x = sim.pl[i].x
         shadows[i].position.z = sim.pl[i].z
-        if sim.pl[i].speed > 3.0 and randf() < dt * 9.0:
-            spawn_dust(Vector3(sim.pl[i].x, 0, sim.pl[i].z), 1, Color(1, 1, 1, 0.25))
+        brake_cd[i] = maxf(0.0, brake_cd[i] - dt)
+        var pv = sim.pl[i]
+        if pv.speed > 3.0 and randf() < dt * 9.0:
+            spawn_dust(Vector3(pv.x, 0, pv.z), 1, dust_color(0.25))
+        # v0.33: frenada brusca - chango de direccion a toda velocidad levanta
+        # una nube (el gesto clasico de la tierra batida)
+        if brake_cd[i] <= 0.0 and pv.speed > 4.0 and pv.vx * pv.tvx + pv.vz * pv.tvz < 0.0:
+            spawn_dust(Vector3(pv.x, 0, pv.z), 8, dust_color(0.6), 4.0)
+            brake_cd[i] = 0.45
     ball_mesh.position = Vector3(sim.ball.x, sim.ball.y, sim.ball.z)
     ball_shadow.position.x = sim.ball.x
     ball_shadow.position.z = sim.ball.z
@@ -330,6 +389,13 @@ func _physics_process(dt: float) -> void:
                     d.m.position.y = 0.0
                     d.v.y *= -0.3
                 d.mat.albedo_color.a = clampf(d.life / d.max, 0.0, 1.0) * 0.5
+    for mk in mark_pool:
+        if mk.life > 0.0:
+            mk.life -= dt
+            if mk.life <= 0.0:
+                mk.m.visible = false
+            else:
+                mk.mat.albedo_color.a = clampf(mk.life / mk.max, 0.0, 1.0) * 0.4
     # camara sigue suave a la bola
     var target_x: float = clampf(sim.ball.x * 0.35, -2.6, 2.6)
     cam.position.x = lerpf(cam.position.x, target_x, minf(1.0, dt * 2.2))
@@ -395,8 +461,15 @@ func _start_replay() -> void:
     hud.show_replay()
     for t in trail:
         t.m.visible = false
-    cam.position = Vector3(10.5, 7.0, -6.5)
-    cam.look_at(Vector3(0.0, 0.6, 1.0))
+    # v0.33: camara TV de repeticion - grada lateral baja que sigue la bola
+    var side := 1.0
+    if rec.size() > 0:
+        var fl: Dictionary = rec[rec.size() - 1]
+        side = -1.0 if fl.b.x < 0.0 else 1.0
+    replay_side = side
+    cam.position = Vector3(13.5 * side, 3.2, clampf(rec[0].b.z - NZ, -8.0, 8.0) * 0.55)
+    cam.fov = 42.0
+    cam.look_at(Vector3(rec[0].b.x * 0.7, 0.9, rec[0].b.z))
 
 func _replay_tick(dt: float) -> void:
     replay_i += dt * 54.0
@@ -405,6 +478,10 @@ func _replay_tick(dt: float) -> void:
         _end_replay()
         return
     var f: Dictionary = rec[idx]
+    # v0.33: dolly suave siguiendo la bola (sensacion de retransmision)
+    var cam_target := Vector3(13.5 * replay_side, 3.2, clampf(f.b.z - NZ, -8.0, 8.0) * 0.55)
+    cam.position = cam.position.lerp(cam_target, minf(1.0, dt * 3.0))
+    cam.look_at(Vector3(f.b.x * 0.7, 0.9, f.b.z))
     rigs[0].update_from_sim(f.p0, dt)
     rigs[1].update_from_sim(f.p1, dt)
     ball_mesh.position = f.b
@@ -424,6 +501,8 @@ func _end_replay() -> void:
     rec.clear()
     hud.hide_replay()
     cam.position = CAM_POS
+    cam.fov = CAM_FOV
+    cam.look_at(Vector3(0, CAM_LOOK_Y, NZ))
 
 func drain_events() -> void:
     for ev in sim.events:
@@ -465,7 +544,9 @@ func drain_events() -> void:
             "bounce":
                 if not demo or randf() < 0.3:
                     sfx.play("bounce", ev.v)
-                spawn_dust(Vector3(ev.x, 0.05, ev.z), 4, Color(0.8, 0.7, 0.6, 0.35))
+                # v0.33: mas polvo cuanto mas fuerte pica + marca tenue en la pista
+                spawn_dust(Vector3(ev.x, 0.05, ev.z), 5 + int(ev.v * 4.0), dust_color(0.55), 2.0 + ev.v * 2.0)
+                spawn_mark(Vector3(ev.x, 0.0, ev.z))
             "net":
                 sfx.play("net")
             "sfx_point":
