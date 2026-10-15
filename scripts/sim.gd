@@ -38,6 +38,16 @@ class Player extends RefCounted:
     var dodge_for := -1
     var dodge_t := 0.0
     var letgo_for := -1
+    # v0.36: estirada desesperada (dive) - salto a por la bola fuera de alcance
+    var dive_t := 0.0
+    var dive_cool := 0.0
+    var dive_for := -1
+    # v0.35: sprint de persecucion (lectura de dejada) y subida a la red
+    var chase := 1.0
+    var appr_t := 0.0
+    # v0.35: espera de resto (ready stance) y armado temprano (visual)
+    var wait_serve := false
+    var prep_t := 0.0
 
 class Ball extends RefCounted:
     var x := 0.0
@@ -57,6 +67,7 @@ class Ball extends RefCounted:
     var trail: Array = []
     var hot := 0.0  # v0.26: calor del tiro (estela blanca) - decae en update
     var spin := 0.0  # v0.30: efecto del tiro (+liftado / -cortado) - se aplica en el bote
+    var kind := "drive"  # v0.35: tipo del ultimo golpe (la CPU lee la dejada)
 
 # v0.32: parametros tipados (antes diccionarios sueltos). Los campos son los
 # unicos que el simulador lee; from_dict admite dicts legacy (DIFF_PARAMS,
@@ -307,6 +318,7 @@ func do_hit(e: Player, kind: String, ai: bool) -> void:
     var T: float = aim.T
     # v0.30: caracter del tiro - la dejada es cortada y muere, el resto sale liftado
     ball.spin = {"drop": -1.0, "lob": 0.25, "smash": 0.5}.get(kind, 0.85)
+    ball.kind = kind
     var tz := NZ + dir * (2.2 + d * (L / 2.0 - 2.2))
     launch(tx, tz, T, max(ball.y, 0.5))
     ball.last = e.id
@@ -332,9 +344,11 @@ func _ai_aim(opp: Player, kind: String, stretch: float) -> Dictionary:
     var tx := 0.0
     var d := 0.0
     var T := 1.0
-    tx = (-1.0 if opp.x > 0 else 1.0) * randf_range(1.0, 3.5)
-    if randf() < 0.22:
-        tx = randf_range(-1.0, 1.0)
+    # v0.36: la CPU busca esquinas - cruzado ancho y profundo por defecto,
+    # solo de vez en cuando un tiro comodo al centro (pedido del usuario)
+    tx = (-1.0 if opp.x > 0 else 1.0) * randf_range(1.8, 3.9)
+    if randf() < 0.14:
+        tx = randf_range(-0.8, 0.8)
     if kind == "lob":
         d = 0.9
         T = 1.5
@@ -345,7 +359,7 @@ func _ai_aim(opp: Player, kind: String, stretch: float) -> Dictionary:
         d = 0.55
         T = 0.52
     else:
-        d = 0.55 + randf() * 0.4
+        d = 0.62 + randf() * 0.36  # v0.36: fondo de pista, no a media pista
         T = 0.86 + (1.0 - d) * 0.18
     if absf(opp.x) > 3.0 and kind != "drop":
         tx = clampf(-signf(opp.x) * randf_range(2.6, 3.8), -3.9, 3.9)
@@ -417,6 +431,7 @@ func _player_aim(e: Player, kind: String, stretch: float) -> Dictionary:
     return {"tx": tx, "d": d, "T": T, "rise": on_rise, "perfect": perfect}
 
 func do_serve(e: Player, q: float) -> void:
+    var serve_spin := 0.6  # v0.35: la CPU varia el efecto segun el tipo de saque
     serve_unreturned = true
     var dir := 1.0 if e.near else -1.0
     var box_sign := -signf(e.x)
@@ -440,10 +455,12 @@ func do_serve(e: Player, q: float) -> void:
         # v0.17: primer saque agresivo y al hueco; segundo saque seguro
         var rec = pl[1 - e.id]
         if serve_fault > 0:
-            tx = box_sign * randf_range(1.2, 2.8)
-            tzr = randf_range(4.4, 5.0)
+            # v0.35: segundo saque con variedad - direccion abierta y kick que pica
+            tx = box_sign * randf_range(0.9, 3.3)
+            tzr = randf_range(4.2, 5.3)
             err = (AIP.err * 0.7 + 0.1) * 0.6
             serve_T = 1.05
+            serve_spin = randf_range(0.75, 1.0)
         else:
             # v0.21: primer saque de verdad - plano, rapido y con direccion
             # (linea / T / al cuerpo), velocidad segun dificultad
@@ -459,11 +476,24 @@ func do_serve(e: Player, q: float) -> void:
                 tx = box_sign * randf_range(1.0, 3.5)
             tzr = randf_range(5.4, 6.2)  # profundo, cerca de la linea de saque
             err = (AIP.err * 0.7 + 0.1) * 1.25
-            serve_T = 0.90 if AIP.speed < 5.0 else (0.82 if AIP.speed < 6.2 else 0.76)
+            var base_T: float = 0.90 if AIP.speed < 5.0 else (0.82 if AIP.speed < 6.2 else 0.76)
+            # v0.35: variedad de ritmo y efecto - el patron ya no es unico:
+            # bombas planas (mas si el estilo es agresivo), kick lento que pica,
+            # y el resto alrededor del ritmo base
+            var pace := randf()
+            var bomb_p: float = 0.10 + 0.20 * AIP.risk
+            if pace < bomb_p:
+                serve_T = base_T * 0.92
+                serve_spin = 0.45  # bomba plana
+            elif pace < bomb_p + 0.22:
+                serve_T = base_T * 1.16
+                serve_spin = 0.95  # kick: mas lento pero pica alto tras el bote
+            else:
+                serve_T = base_T * randf_range(0.97, 1.06)
     tx += randn() * err
     tzr += randn() * err * (0.9 if (e.id == 0 and not demo and inp.y > 0.4) else 0.5)
     launch(tx, NZ + dir * tzr, serve_T, max(ball.y, 2.0))
-    ball.spin = 0.6
+    ball.spin = serve_spin
     var sspd := Vector3(ball.vx, ball.vy, ball.vz).length()
     ball.hot = clampf((sspd - 30.0) / 20.0, 0.0, 1.0)
     ball.last = e.id
@@ -475,6 +505,7 @@ func do_serve(e: Player, q: float) -> void:
     ball.hit_id += 1
     e.swing = 0.4
     e.kind = "serve"
+    ball.kind = "serve"
     events.append({"t": "serve", "id": e.id, "q": q, "spd": sspd, "x": ball.x, "y": ball.y, "z": ball.z})
     serve_stage = "hit"
     rally_hits = 1
@@ -495,26 +526,32 @@ func toss_ball() -> void:
 var surface := "hard"
 
 func _bounce_factors(s: float) -> Array:
+    # v0.35: el efecto se nota - el liftado pica y acelera tras el bote;
+    # el cortado resbala BAJO y muere (antes flotaba alto, al reves)
     var vy_f := 0.74
     var damp := 0.79
     if s > 0.2:
-        vy_f = 0.72 - 0.08 * s
-        damp = 0.79 + 0.14 * s
+        vy_f = 0.72 + 0.05 * s
+        damp = 0.79 + 0.16 * s
     elif s < -0.2:
-        vy_f = 0.72 + 0.10 * s
-        damp = 0.79 + 0.17 * s
+        vy_f = 0.72 + 0.06 * s
+        damp = 0.79 + 0.12 * s
     # v0.33: la superficie cambia el bote - tierra: lento y alto (el liftado
-    # muerde y pica mas); hierba: rapido y bajo (resbala); dura: neutro
+    # muerde y pica mas); hierba: rapido y bajo (resbala)
+    # v0.35: la dura deja de ser neutra - corre y pica bajo (contraste claro)
     if surface == "clay":
-        vy_f *= 1.07
-        damp *= 0.93
+        vy_f *= 1.10
+        damp *= 0.90
         if s > 0.2:
-            vy_f *= 1.0 + 0.05 * s
+            vy_f *= 1.0 + 0.06 * s
     elif surface == "grass":
-        vy_f *= 0.90
-        damp *= 1.05
+        vy_f *= 0.88
+        damp *= 1.06
         if s > 0.2:
             vy_f *= 1.0 - 0.06 * s
+    else:
+        vy_f *= 0.96
+        damp *= 1.03
     return [vy_f, minf(damp, 1.05)]
 
 # v0.30: estima donde cruzara la bola el plano de contacto (~0.55m por delante
@@ -599,7 +636,20 @@ func step_ball(dt: float) -> void:
     ball.x += ball.vx * dt
     ball.y += ball.vy * dt
     ball.z += ball.vz * dt
-    if ball.in_play and (pz - NZ) * (ball.z - NZ) < 0 and ball.y < NET_H:
+    if ball.in_play and (pz - NZ) * (ball.z - NZ) < 0 and ball.y < NET_H + 0.08:
+        # v0.35: pelusa de cinta - si pasa rozando la banda en rally, se frena,
+        # queda suspendida un instante y cae a cualquiera de los dos lados
+        if ball.y >= NET_H and state == "play" and randf() < 0.55:
+            events.append({"t": "netcord"})
+            ball.vx *= 0.35
+            ball.vz *= randf_range(0.05, 0.3)
+            if randf() < 0.35:
+                ball.vz = -absf(ball.vz) * 0.18  # se queda del lado del que tira
+            ball.vy = minf(ball.vy, 0.4)
+            ball.spin = 0.0
+            return
+        if ball.y >= NET_H:
+            return  # rozo limpio sin pelusa: sigue su camino
         events.append({"t": "net"})
         ball.vx *= 0.1
         ball.vz *= -0.12
@@ -654,6 +704,12 @@ func step_ball(dt: float) -> void:
             if ball.in_play and ball.vy == 0.0 and ball.bounces >= 1 and state == "play":
                 ball.in_play = false
                 award_point(ball.last, "PUNTO", "Dos botes")
+    # v0.36: el doble bote se canta AL INSTANTE - una bola que muere rodando se
+    # detecta cada frame, no solo en el frame exacto del bote (antes podia
+    # seguir viva ~1s hasta salir por el fondo y la llamada llegaba tarde)
+    if ball.in_play and state == "play" and ball.bounces >= 1 and ball.y <= BR + 0.02 and absf(ball.vy) < 0.05:
+        ball.in_play = false
+        award_point(ball.last, "PUNTO", "Dos botes")
 
 func judge_landing() -> void:
     var hitter = pl[ball.last]
@@ -754,7 +810,8 @@ func ai_control(e: Player, dt: float) -> void:
     var coming: bool = ball.in_play and ball.last != e.id and ball.vz * dir < 0 and (state == "play" or state == "serve")
     var tx := clampf(ball.x * 0.3, -2.0, 2.0)
     var tz := -1.0 if e.near else L + 1.0
-    if state == "serve" and M.server != e.id:
+    e.wait_serve = state == "serve" and M.server != e.id
+    if e.wait_serve:
         # v0.18: posicion de resto - aguantar el lado del cuadro de saque
         # en vez de derivar hacia la bola durante el lanzamiento rival
         var srv = pl[M.server]
@@ -762,16 +819,45 @@ func ai_control(e: Player, dt: float) -> void:
         tz = -0.6 if e.near else L + 0.6
     var mv: float = D.speed * 0.7
     e.dodge_t = maxf(0.0, e.dodge_t - dt)
+    e.appr_t = maxf(0.0, e.appr_t - dt)
     e.want_t = maxf(0.0, e.want_t - dt)  # v0.33: la ventana de preparacion de la CPU tambien caduca
+    if not coming and e.appr_t > 0.0 and state == "play":
+        # v0.35: cierre a la red - tras el tiro forzado, ocupar el pasillo central
+        tx = clampf(ball.x * 0.5, -1.6, 1.6)
+        tz = (NZ - 2.3) if e.near else (NZ + 2.3)
+        mv = D.speed
     if coming:
         if e.pred_for != ball.hit_id and e.dodge_t <= 0.0 and e.letgo_for != ball.hit_id:
             e.pred_for = ball.hit_id
             var srv_ret: bool = serve_unreturned and M.server != e.id
             e.react = (0.06 + randf_range(0.0, 0.04)) if srv_ret else (D.react + randf_range(0.0, 0.08))
+            # v0.35: lectura tactica - la dejada se lee del armado y se arranca
+            # al instante en sprint; el globo se lee pronto (hay tiempo)
+            e.chase = 1.0
+            if ball.kind == "drop" and not srv_ret:
+                e.react *= 0.35
+                e.chase = 1.3
             var p := predict(e)
-            e.tx = p.x + randn() * D.err * 0.6
+            e.tx = p.x + randn() * D.err * (0.35 if srv_ret else 0.6)
             e.tz = p.z + (-0.2 if e.near else 0.2) + randn() * D.err * 0.3
             e.kind_roll = randf()
+            # v0.36: dive de la CPU - bola viva que se le escapa por poco:
+            # se tira a por ella en vez de quedarse a un paso (video del usuario)
+            if e.dive_t <= 0.0 and e.dive_cool <= 0.0 and e.swing <= 0.0 and e.letgo_for != ball.hit_id:
+                var dpd := Vector2(e.tx - e.x, e.tz - e.z).length()
+                var t_est: float = (e.z - ball.z) / ball.vz if absf(ball.vz) > 2.0 else 99.0
+                var pbd := predict_bounce()
+                var alive_d: bool = ball.bounces >= 1 or (pbd.ok and absf(pbd.x) <= 4.115 and pbd.z >= 0.0 and pbd.z <= L)
+                var gap: float = dpd - D.speed * 1.48 * maxf(t_est - 0.12, 0.0)
+                if alive_d and t_est > 0.12 and t_est < 0.9 and gap > 0.8 and dpd < 4.6:
+                    e.dive_t = 0.55
+                    e.dive_cool = 2.4
+                    e.dive_for = ball.hit_id
+                    e.react = 0.0
+                    var dl := maxf(dpd, 0.1)
+                    e.vx = (e.tx - e.x) / dl * 10.5
+                    e.vz = (e.tz - e.z) / dl * 10.5
+                    events.append({"t": "dive", "id": e.id, "hid": ball.hit_id})
         # v0.33: lectura de bola muerta - si la bola sale y va al cuerpo, la
         # deja pasar de un salto lateral en vez de intentar el golpe y regalar
         # el punto al contacto (regla real: bola en vuelo que te toca, punto
@@ -784,12 +870,21 @@ func ai_control(e: Player, dt: float) -> void:
                 if absf(xa - e.x) < 0.5 and ya > 0.25 and ya < 1.65:
                     var locked: bool = e.swing > 0.05 or e.cool > 0.05
                     var pb := predict_bounce()
-                    var lands_in: bool = pb.ok and absf(pb.x) <= 4.115 and pb.z >= 0.0 and pb.z <= L
-                    if locked or not lands_in:
+                    # v0.35: tras el primer bote la bola SIEMPRE esta viva y hay
+                    # que jugarla (antes se miraba el SEGUNDO bote, que sale
+                    # siempre -> la dejaba pasar y regalaba el punto). La lectura
+                    # de bola muerta solo vale antes del primer bote.
+                    var playable: bool = ball.bounces >= 1 or (pb.ok and absf(pb.x) <= 4.115 and pb.z >= 0.0 and pb.z <= L)
+                    # v0.35: saque/resto plano al cuerpo - aunque la bola entre,
+                    # si llega en un suspiro no hay golpeo posible: apartarse SIEMPRE
+                    # (regla: bola viva que te toca, punto del rival) y luego
+                    # releer la jugada para devolver tras el bote.
+                    var no_time: bool = playable and t_arr < 0.6 and absf(ball.vz) > 16.0
+                    if locked or not playable or no_time:
                         e.dodge_for = ball.hit_id
-                        if not lands_in:
+                        if not playable:
                             e.letgo_for = ball.hit_id  # bola muerta: no intentar el golpe
-                        var chance: float = clampf(1.05 - D.err, 0.3, 0.95)
+                        var chance: float = clampf((1.15 if no_time else 1.05) - D.err, 0.45, 0.97)
                         if randf() < chance:
                             var side_d: float = signf(e.x - xa)
                             if side_d == 0.0:
@@ -798,6 +893,11 @@ func ai_control(e: Player, dt: float) -> void:
                             e.tz = e.z
                             e.react = 0.0
                             e.dodge_t = 0.35
+                            if playable:
+                                # v0.35: bola buena esquivada -> releer la jugada
+                                # en cuanto acabe la estocada y buscar el resto
+                                e.pred_for = -1
+                                e.dodge_t = 0.26
                             # impulso inmediato de estocada (si no, la aceleracion
                             # normal no aparta el cuerpo a tiempo)
                             e.vx = side_d * 7.5
@@ -807,7 +907,7 @@ func ai_control(e: Player, dt: float) -> void:
         if e.react <= 0.0:
             tx = e.tx
             tz = e.tz
-            mv = D.speed * (1.25 if (serve_unreturned and M.server != e.id) else 1.0)
+            mv = D.speed * (1.48 if (serve_unreturned and M.server != e.id) else e.chase)
     var ex := tx - e.x
     var ez := tz - e.z
     var d := Vector2(ex, ez).length()
@@ -822,8 +922,11 @@ func ai_control(e: Player, dt: float) -> void:
         var dx := absf(ball.x - e.x)
         var dz := absf(ball.z - e.z)
         var srv_ret2: bool = serve_unreturned and M.server != e.id
-        var gx := 1.8 if srv_ret2 else 1.45
-        var gz := 1.85 if srv_ret2 else 1.35
+        var gx := 2.35 if srv_ret2 else 1.45
+        var gz := 2.25 if srv_ret2 else 1.35
+        if e.dive_t > 0.0:
+            gx *= 1.8  # v0.36: en estirada el alcance crece
+            gz *= 1.8
         # v0.33: preparacion - la CPU carga el backswing un instante antes del
         # contacto (solo visual: no cambia ni adelanta el golpe, que sigue
         # saliendo en do_hit dentro del mismo radio de siempre)
@@ -832,7 +935,8 @@ func ai_control(e: Player, dt: float) -> void:
             var to_p := Vector2(e.x - ball.x, e.z - ball.z)
             var closing := (ball.vx * to_p.x + ball.vz * to_p.y) / maxf(dist, 0.05)
             var tta := dist / maxf(closing, 5.0)
-            if tta < 0.3:
+            if tta < 0.55:
+                # v0.35: arma la raqueta mientras se acerca al bote (antes: en 1 frame)
                 e.want = "drive"
                 e.want_t = 0.3
         if dx < gx and dz < gz and ball.y < 2.9 and ball.y > 0.15 and e.letgo_for != ball.hit_id and (state != "serve" or ball.bounces >= 1):
@@ -840,6 +944,12 @@ func ai_control(e: Player, dt: float) -> void:
             if not (stretch and randf() < D.miss):
                 var kind := "drive"
                 var r: float = e.kind_roll
+                # v0.35: subir a la red tras el tiro forzado - si el rival va
+                # estirado y el estilo lo permite (los agresivos suben mas),
+                # se cierra el punto en la red en vez de quedarse atras
+                if absf(opp.x) > 2.4 or absf(opp.vx) > 2.5:
+                    if randf() < D.risk * 0.55:
+                        e.appr_t = 1.6
                 # v0.15: repertorio con criterio - la CPU elige el golpe segun
                 # donde esta el rival y lo estirada que llega ella
                 var opp_deep: bool = (opp.z < 0.3) if opp.near else (opp.z > L - 0.3)
@@ -854,7 +964,13 @@ func ai_control(e: Player, dt: float) -> void:
                     if r > 1.0 - drop_p:
                         kind = "drop"  # rival atras (y mas si esta abierto): dejada
                 if kind == "drive" and stretch:
-                    var def_lob_p: float = 0.04 + (0.9 - D.err) * 0.05
+                    # v0.35: mas repertorio defensivo - globo para salir del smash,
+                    # de la contradejada y de la estirada (los defensivos, mas)
+                    var def_lob_p: float = 0.10 + (0.9 - D.err) * 0.10 + (1.0 - D.risk) * 0.12
+                    if ball.kind == "smash":
+                        def_lob_p += 0.25
+                    elif ball.kind == "drop":
+                        def_lob_p += 0.15
                     if r < def_lob_p:
                         kind = "lob"  # llega estirada: globo defensivo para recuperar
                 do_hit(e, kind, true)
@@ -866,6 +982,35 @@ func ai_control(e: Player, dt: float) -> void:
 func human_control(e: Player, dt: float) -> void:
     e.tvx = inp.x * PS.speed
     e.tvz = inp.y * PS.speed
+    e.wait_serve = state == "serve" and M.server != e.id
+    # v0.35: armado temprano (solo visual) - lleva la raqueta atras mientras
+    # se acerca al bote, en vez de sacar el raquetazo de la nada
+    e.prep_t = maxf(0.0, e.prep_t - dt)
+    if e.swing <= 0.0 and e.want_t <= 0.0 and ball.in_play and ball.last != e.id and ball.vz < 0.0 and state == "play":
+        var pdist := Vector2(ball.x - e.x, ball.z - e.z).length()
+        var pto := Vector2(e.x - ball.x, e.z - ball.z)
+        var pclose := (ball.vx * pto.x + ball.vz * pto.y) / maxf(pdist, 0.05)
+        if pdist / maxf(pclose, 5.0) < 0.6:
+            e.prep_t = 0.25
+    # v0.36: estirada automatica del humano - corriendo a tope hacia una bola
+    # que se te escapa por ~1m, el muñeco se tira y gana alcance (pedido)
+    if e.dive_t <= 0.0 and e.dive_cool <= 0.0 and e.swing <= 0.0 and state == "play" and ball.in_play and ball.last != e.id and ball.vz < 0.0 and e.speed > 3.2:
+        var bdist := Vector2(ball.x - e.x, ball.z - e.z).length()
+        var bto := Vector2(e.x - ball.x, e.z - ball.z)
+        var bclose := (ball.vx * bto.x + ball.vz * bto.y) / maxf(bdist, 0.05)
+        var tta := bdist / maxf(bclose, 5.0)
+        var h_gap: float = bdist - PS.speed * maxf(tta - 0.12, 0.0)
+        if tta < 0.75 and h_gap > 0.7 and bdist < 4.2 and e.dive_for != ball.hit_id:
+            e.dive_t = 0.55
+            e.dive_cool = 2.4
+            e.dive_for = ball.hit_id
+            var bl := maxf(bdist, 0.1)
+            e.vx = (ball.x - e.x) / bl * 10.5
+            e.vz = (ball.z - e.z) / bl * 10.5
+            if e.want_t <= 0.0:
+                e.want = "drive"
+                e.want_t = 0.3
+            events.append({"t": "dive", "id": e.id, "hid": ball.hit_id})
     var want_hit: bool = inp.hit
     var want_lob: bool = inp.lob
     inp.hit = false
@@ -890,7 +1035,12 @@ func human_control(e: Player, dt: float) -> void:
             _assist(e)
             var dx := absf(ball.x - e.x)
             var dz := absf(ball.z - e.z)
-            if dx < 2.05 and dz < 1.75 and ball.y < 3.1:
+            var hgx := 2.05
+            var hgz := 1.75
+            if e.dive_t > 0.0:
+                hgx *= 1.8  # v0.36: alcance de estirada
+                hgz *= 1.8
+            if dx < hgx and dz < hgz and ball.y < 3.1:
                 do_hit(e, e.want, false)
                 e.want_t = 0.0
 
@@ -898,18 +1048,23 @@ func update_player(e: Player, dt: float) -> void:
     e.cool = max(0.0, e.cool - dt)
     e.swing = max(0.0, e.swing - dt)
     e.flash = max(0.0, e.flash - dt)
+    e.dive_t = max(0.0, e.dive_t - dt)  # v0.36
+    e.dive_cool = max(0.0, e.dive_cool - dt)  # v0.36
     # v0.30: inercia con derrape - al cortar una carrera o cambiar de sentido
     # el cuerpo tarda un pelin mas (derrape corto estilo Virtua Tennis)
     var kvx := 11.0
     var kvz := 11.0
+    if e.dive_t > 0.0:
+        kvx = 2.2  # v0.36: en estirada manda el impulso del salto
+        kvz = 2.2
     if e.tvx == 0.0:
         kvx = 7.5
     elif signf(e.tvx) != signf(e.vx) and absf(e.vx) > 2.2:
-        kvx = 5.5
+        kvx = 4.2  # v0.35: derrape mas visible al cambiar de sentido
     if e.tvz == 0.0:
         kvz = 7.5
     elif signf(e.tvz) != signf(e.vz) and absf(e.vz) > 2.2:
-        kvz = 5.5
+        kvz = 4.2  # v0.35: derrape mas visible al cambiar de sentido
     e.vx += (e.tvx - e.vx) * minf(1.0, dt * kvx)
     e.vz += (e.tvz - e.vz) * minf(1.0, dt * kvz)
     e.x += e.vx * dt
