@@ -387,7 +387,8 @@ func show_hub(msg: String, ok := true) -> void:
             for i in st.size():
                 if st[i].n == opp.n:
                     orank = i + 1
-            vb.add_child(_sub("Rival: " + opp.n + " (#" + str(orank) + ") " + Career.stars(opp.r), 15, Color("#ffe27a")))
+            var sty_txt := " · " + Career.style_name(int(opp.get("sty", 1)))
+            vb.add_child(_sub("Rival: " + opp.n + " (#" + str(orank) + ") " + Career.stars(opp.r) + sty_txt, 15, Color("#ffe27a")))
         else:
             vb.add_child(_sub("Se sortea el cuadro al empezar. Cada ronda: 1 set (GS: mejor de 3 desde semis).", 13))
         var btns := []
