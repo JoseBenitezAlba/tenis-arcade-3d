@@ -3,9 +3,9 @@ extends Node
 const DebugHarness := preload("res://scripts/debug_harness.gd")
 
 const DIFF_PARAMS := [
-    {"speed": 4.3, "react": 0.45, "err": 0.9, "miss": 0.3},
-    {"speed": 5.6, "react": 0.27, "err": 0.5, "miss": 0.15},
-    {"speed": 6.8, "react": 0.14, "err": 0.28, "miss": 0.06},
+    {"speed": 4.3, "react": 0.45, "err": 0.9, "miss": 0.3, "risk": 0.35},
+    {"speed": 5.6, "react": 0.27, "err": 0.5, "miss": 0.15, "risk": 0.5},
+    {"speed": 6.8, "react": 0.14, "err": 0.28, "miss": 0.06, "risk": 0.7},
 ]
 const CPU_LABELS := ["CPU · FÁCIL", "CPU · NORMAL", "CPU · DIFÍCIL"]
 
@@ -186,7 +186,7 @@ func _on_career_match() -> void:
     var sets_to_win := 2 if (def.t == "GS" and career.data.tour.round >= 2) else 1
     _start_match({
         "surface": def.s,
-        "AIP": Career.params_for(opp.r),
+        "AIP": Career.params_for(opp.r, int(opp.get("sty", 1))),
         "PS": career.player_from_stats(),
         "demo": false,
         "career": true,
@@ -250,7 +250,7 @@ func _on_tourney_match() -> void:
     var last: String = opp.n.split(" ")[-1]
     _start_match({
         "surface": tourney.surface,
-        "AIP": Career.params_for(opp.r),
+        "AIP": Career.params_for(opp.r, int(opp.get("sty", 1))),
         "PS": {"speed": 7.0, "T": 1.0, "err": 1.0},
         "demo": false,
         "career": false,
