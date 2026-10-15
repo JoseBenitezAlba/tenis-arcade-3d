@@ -99,7 +99,8 @@ func _build_racket() -> void:
     skel.add_child(ba)
     var rk := Node3D.new()
     # espacio de hueso: 1 unidad mundo = 0.01; compensar escala del personaje
-    rk.scale = Vector3.ONE * (0.01 / CHAR_SCALE)
+    # v0.35: +35% de escala total (pedido del usuario - seguia pareciendo un matamosquitos)
+    rk.scale = Vector3.ONE * (0.01 / CHAR_SCALE) * 1.35
     rk.rotation = Vector3(PI * 0.5, PI * 0.5, 0)  # v0.12: la raqueta cuelga del puno, no atraviesa el antebrazo
     rk.position = Vector3.ZERO
     ba.add_child(rk)
@@ -210,9 +211,12 @@ func _build_eyes() -> void:
         eye.position = Vector3(0.125 * sx, 0.32, 0.41)
         anchor.add_child(eye)
 
+var last_spd := 1.0
 func _play(name: String, spd: float = 1.0) -> void:
-    if state == name: return
+    # v0.35: el signo cambia la reproduccion (Jog al reves = backpedal)
+    if state == name and signf(spd) == signf(last_spd): return
     state = name
+    last_spd = spd
     ap.play(name, blend, spd)
 
 func _play_seek(name: String, tau: float) -> void:
@@ -233,7 +237,7 @@ const CONTACT_K := 0.25
 static func _swing_clip(kind: String) -> Array:
     # [clip, tau final del seek] - mismos mapeos que el swing de siempre
     match kind:
-        "drop": return ["tennis/Punch_Cross", 0.9]
+        "drop": return ["tennis/PickUp_Table", 0.6]  # v0.35: flexiona y acaricia (pedido del usuario)
         "smash": return ["tennis/Spell_Simple_Shoot", 0.45]
         _: return ["tennis/Sword_Attack", 1.35]
 
@@ -247,6 +251,13 @@ func update_from_sim(e, dt: float) -> void:
     if e.swing <= 0.0 and e.want_t <= 0.0:
         had_windup = false  # v0.33: fin del ciclo de golpe
     position = Vector3(e.x, 0, e.z)
+    # v0.35: ready stance - esperando el saque rival rebota sobre las puntas
+    # v0.36: el rebote se funde con lerp - al arrancar a correr el cuerpo ya no
+    # "cae" 5cm de golpe (el pop agachado->carrera del video del usuario)
+    var target_y := 0.0
+    if e.wait_serve and e.swing <= 0.0 and e.want_t <= 0.0 and e.speed < 0.5:
+        target_y = absf(sin(float(Time.get_ticks_msec() % 1400) / 1400.0 * TAU * 2.6)) * 0.055
+    position.y = lerpf(position.y, target_y, minf(1.0, dt * 14.0))
     # v0.33: orientacion por carrera - en un sprint lateral el cuerpo gira y
     # corre hacia la bola como un jugador real; en ajustes cortos o
     # desplazamientos a fondo/red sigue encarado (backpedal)
@@ -262,6 +273,10 @@ func update_from_sim(e, dt: float) -> void:
     # jugador se mueve las piernas mandan sobre la pose de raqueta (crossfade)
     var elapsed: float = swing_dur - e.swing if e.swing > 0.0 else 99.0
     var hold_swing: bool = e.swing > 0.0 and (elapsed < 0.15 or e.speed <= 0.4)
+    # v0.36: estirada desesperada - el cuerpo se tira a por la bola (roll rapido)
+    if e.get("dive_t") != null and e.dive_t > 0.0:
+        _play("tennis/Roll", 1.6)
+        return
     if hold_swing and e.kind == "serve":
         # saque: lanzamiento (enter) + golpeo (shoot)
         if k < 0.55:
@@ -281,9 +296,9 @@ func update_from_sim(e, dt: float) -> void:
         else:
             tau = (CONTACT_K + (kk - 0.3) / 0.7 * (1.0 - CONTACT_K)) * sc[1]
         _play_seek(sc[0], tau)
-    elif e.want_t > 0.0 and e.swing <= 0.0:
-        # preparacion: carga el backswing mientras espera la bola
-        var wk: float = clampf(1.0 - e.want_t / WINDUP, 0.0, 1.0)
+    elif (e.want_t > 0.0 or e.prep_t > 0.0) and e.swing <= 0.0:
+        # preparacion: carga el backswing mientras espera la bola (o al acercarse)
+        var wk: float = clampf(1.0 - e.want_t / WINDUP, 0.0, 1.0) if e.want_t > 0.0 else clampf(1.0 - e.prep_t / 0.25, 0.0, 1.0) * 0.7
         var scw := _swing_clip(e.want)
         _play_seek(scw[0], wk * CONTACT_K * scw[1])
         had_windup = true
@@ -292,6 +307,9 @@ func update_from_sim(e, dt: float) -> void:
         _play(celeb_name)
     elif e.want_t > 0.0:
         _play("tennis/Sword_Idle")
+    elif e.speed > 1.6 and ((e.vz < 0.0) if e.near else (e.vz > 0.0)) and absf(e.vz) > absf(e.vx) * 0.7:
+        # v0.35: backpedal - recula con pasos hacia atras encarando la red
+        _play("tennis/Jog_Fwd", -clampf(e.speed / 5.0, 0.7, 1.4))
     elif e.speed > 6.5:
         _play("tennis/Sprint", clampf(e.speed / 8.0, 0.8, 1.4))
     elif e.speed > 2.8:
