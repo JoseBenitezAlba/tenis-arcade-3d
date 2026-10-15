@@ -227,6 +227,12 @@ func _ready() -> void:
     pause_layer.layer = 30
     pause_layer.visible = false
     add_child(pause_layer)
+    # v0.36: fondo oscuro - el texto de pausa ya no se funde con el partido
+    var dim := ColorRect.new()
+    dim.color = Color(0.02, 0.03, 0.08, 0.72)
+    dim.position = Vector2.ZERO
+    dim.size = Vector2(1280, 720)
+    pause_layer.add_child(dim)
     var pl := Label.new()
     pl.text = "PAUSA"
     pl.add_theme_font_size_override("font_size", 44)
@@ -309,6 +315,9 @@ func _on_pause_input(event: InputEvent) -> void:
                 hud.hint.visible = true
                 _hint_hidden = false
         else:
+            # v0.36: cerrar la repeticion antes de pausar (PAUSA sobre REPETICION ilegible)
+            if replaying:
+                _end_replay()
             paused_game = true
             get_tree().paused = true
             pause_layer.visible = true
@@ -350,6 +359,7 @@ func _physics_process(dt: float) -> void:
         if rec.size() > REC_MAX:
             rec.pop_front()
     var exc: float = clampf(sim.rally_hits / 10.0, 0.0, 1.0) if sim.state not in ["point", "over"] else 0.0
+    crowd.ball_pos = ball_mesh.position
     crowd.update(dt, exc)
 
     # visuales
@@ -412,8 +422,9 @@ func _physics_process(dt: float) -> void:
     cam.position.x = lerpf(cam.position.x, target_x, minf(1.0, dt * 2.2))
     if shake > 0.0:
         shake = maxf(0.0, shake - dt)
-        cam.position.y = CAM_POS.y + randf_range(-1.0, 1.0) * shake * 0.35
-        cam.position.z = CAM_POS.z + randf_range(-1.0, 1.0) * shake * 0.25
+        # v0.36: amplitud mayor - el pico fuerte dura ~0.05s y decae (pedido)
+        cam.position.y = CAM_POS.y + randf_range(-1.0, 1.0) * shake * 0.5
+        cam.position.z = CAM_POS.z + randf_range(-1.0, 1.0) * shake * 0.38
     cam.look_at(Vector3(sim.ball.x * 0.2, CAM_LOOK_Y, NZ))
 
     if banner_t > 0.0:
@@ -447,7 +458,9 @@ func _physics_process(dt: float) -> void:
         hud.serve_meter_hide()
 
 func _snap(pl) -> Dictionary:
-    return {"x": pl.x, "z": pl.z, "near": pl.near, "speed": pl.speed, "run": pl.run, "kind": pl.kind, "swing": pl.swing, "want_t": pl.want_t}
+    return {"x": pl.x, "z": pl.z, "near": pl.near, "speed": pl.speed, "run": pl.run, "kind": pl.kind, "swing": pl.swing, "want_t": pl.want_t,
+        "want": pl.want, "vx": pl.vx, "vz": pl.vz, "prep_t": 0.0, "wait_serve": false,
+        "dive_t": pl.dive_t}
 
 func _update_bounce_ring() -> void:
     if sim.state != "play":
@@ -475,27 +488,30 @@ func _start_replay() -> void:
     hud.show_replay()
     for t in trail:
         t.m.visible = false
-    # v0.33: camara TV de repeticion - grada lateral baja que sigue la bola
+    # v0.36: camara de repeticion tipo spidercam - arranca YA por encima de la
+    # grada (antes nacia a 3.2m dentro del publico y el primer plano era la
+    # espalda gris de un espectador hasta que el lerp la sacaba de ahi)
     var side := 1.0
     if rec.size() > 0:
         var fl: Dictionary = rec[rec.size() - 1]
         side = -1.0 if fl.b.x < 0.0 else 1.0
     replay_side = side
-    cam.position = Vector3(13.5 * side, 3.2, clampf(rec[0].b.z - NZ, -8.0, 8.0) * 0.55)
+    cam.position = Vector3(9.2 * side, 7.0, clampf(rec[0].b.z - NZ, -8.0, 8.0) * 0.55)
     cam.fov = 42.0
     cam.look_at(Vector3(rec[0].b.x * 0.7, 0.9, rec[0].b.z))
 
 func _replay_tick(dt: float) -> void:
-    replay_i += dt * 54.0
+    replay_i += dt * 36.0  # v0.35: camara lenta en la repeticion (pedido del usuario)
     var idx := int(replay_i)
     if idx >= rec.size():
         _end_replay()
         return
     var f: Dictionary = rec[idx]
-    # v0.33: dolly suave siguiendo la bola (sensacion de retransmision)
-    var cam_target := Vector3(13.5 * replay_side, 3.2, clampf(f.b.z - NZ, -8.0, 8.0) * 0.55)
-    cam.position = cam.position.lerp(cam_target, minf(1.0, dt * 3.0))
-    cam.look_at(Vector3(f.b.x * 0.7, 0.9, f.b.z))
+    # v0.36: travelling alto por dentro de la grada (x<11.3 queda libre de
+    # publico; a 6.8m de altura las cabezas de la ultima fila no tapan la bola)
+    var cam_target := Vector3(8.6 * replay_side, 6.8, clampf(f.b.z - NZ, -6.5, 6.5) * 0.55)
+    cam.position = cam.position.lerp(cam_target, minf(1.0, dt * 2.6))
+    cam.look_at(Vector3(f.b.x * 0.75, 0.55, f.b.z))
     rigs[0].update_from_sim(f.p0, dt)
     rigs[1].update_from_sim(f.p1, dt)
     ball_mesh.position = f.b
@@ -508,6 +524,7 @@ func _replay_tick(dt: float) -> void:
     shadows[0].position.z = f.p0.z
     shadows[1].position.x = f.p1.x
     shadows[1].position.z = f.p1.z
+    crowd.ball_pos = Vector3(f.b.x, f.b.y, f.b.z)
     crowd.update(dt, 0.4)
 
 func _end_replay() -> void:
@@ -518,22 +535,49 @@ func _end_replay() -> void:
     cam.fov = CAM_FOV
     cam.look_at(Vector3(0, CAM_LOOK_Y, NZ))
 
+func _hot_level() -> int:
+    # v0.35: puntos calientes - oro, tie-break tardio, bola de set, bola de partido
+    var M = sim.M
+    if M.tb:
+        var hi := maxi(M.tb_pts[0], M.tb_pts[1])
+        var dif := absi(M.tb_pts[0] - M.tb_pts[1])
+        if hi >= 5 and dif <= 1:
+            return 1
+        return 0
+    if M.pts[0] == 3 and M.pts[1] == 3:
+        return 1
+    for i in 2:
+        if M.pts[i] == 3 and M.games[i] == 3:
+            return 3 if M.sets[i] >= M.sets_to_win - 1 else 2
+    return 0
+
+var _serve_armed := false
+var _murmur_step := 0  # v0.36: murmullo que crece con el rally (4+ golpes)
+
 func drain_events() -> void:
     for ev in sim.events:
         match ev.t:
             "hit":
-                if ev.get("spd", 0.0) >= 44.0:
-                    hitstop_t = 0.03  # v0.26: impacto seco en tiros duros
+                if ev.get("spd", 0.0) >= 38.0:
+                    # v0.36: hit-stop mas perceptible en golpes duros (pedido del usuario)
+                    hitstop_t = 0.05
+                    shake = maxf(shake, 0.16)
                 var perfect: bool = ev.get("perfect", false) and ev.id == 0 and not demo
                 sfx.play("hit_big" if (perfect or ev.kind == "smash" or ev.get("rise", false)) else "hit", 1.0)
                 if ev.kind == "smash":
-                    shake = 0.25
+                    shake = 0.34  # v0.36: sacudida corta e intensa
                 spawn_dust(Vector3(ev.x, ev.y, ev.z), 3, Color(1, 0.96, 0.7, 0.4))
+                # v0.36: grada viva - el murmullo crece cada 4 golpes de rally
+                if sim.state == "play" and sim.rally_hits >= 4:
+                    var stp := int(sim.rally_hits / 4)
+                    if stp > _murmur_step:
+                        _murmur_step = stp
+                        sfx.play("murmur", clampf(0.4 + 0.15 * stp, 0.4, 0.85))
                 # v0.29: popups sobre la cabeza del muñeco, no flotando en la red
                 var pwp := Vector3(sim.pl[ev.id].x, 0.0, sim.pl[ev.id].z)
                 if perfect:
-                    shake = 0.3
-                    hud.popup("¡PERFECTO!", pwp, Color("#ffe27a"))
+                    shake = 0.36
+                    hud.popup_big("¡PERFECTO!", Color("#ffe27a"))  # v0.36: legible
                 elif ev.id == 0 and not demo:
                     match ev.kind:
                         "smash":
@@ -543,17 +587,25 @@ func drain_events() -> void:
                         "drop":
                             hud.popup("DEJADA", pwp, Color("#c8ffb0"))
             "serve":
+                if _hot_level() >= 1 and not _serve_armed:
+                    sfx.play("murmur", 0.8)  # v0.35: la grada contiene la respiracion en puntos calientes
+                    _serve_armed = true
+                elif _hot_level() == 0:
+                    _serve_armed = false
                 hud.serve_meter_hide()
                 var skmh: int = int(round(ev.get("spd", 0.0) * SERVE_KMH_K))
                 if skmh > 0 and not demo:
                     hud.show_serve_speed(skmh)
                 if ev.get("q", 0.0) >= 0.88:
-                    hitstop_t = 0.03  # v0.26
+                    hitstop_t = 0.05  # v0.36: saque perfecto con mas pegada
                 sfx.play("hit_big" if (ev.get("q", 0.0) >= 0.88) else "hit", 1.2)
                 if ev.get("q", 0.0) >= 0.88 and ev.get("id", 1) == 0 and not demo:
-                    shake = 0.3
-                    hud.popup("¡SAQUE PERFECTO!", Vector3(sim.pl[ev.get("id", 0)].x, 0.0, sim.pl[ev.get("id", 0)].z), Color("#ffe27a"))
+                    shake = 0.34
+                    hud.popup_big("¡SAQUE PERFECTO!", Color("#ffe27a"))  # v0.36: centro y grande (antes ilegible)
             "toss":
+                # v0.36: la grada enmudece con el lanzamiento de bola
+                sfx.hush()
+                _murmur_step = 0
                 sfx.play("serve")
             "bounce":
                 if not demo or randf() < 0.3:
@@ -563,12 +615,23 @@ func drain_events() -> void:
                 spawn_mark(Vector3(ev.x, 0.0, ev.z))
             "net":
                 sfx.play("net")
+            "dive":
+                sfx.play("dive", 0.9)
+                if ev.id == 0 and not demo:
+                    shake = maxf(shake, 0.12)
             "sfx_point":
                 if not demo:
                     sfx.play("point_win" if ev.w == 0 else "point_lose")
             "point":
                 var is_err: bool = ev.txt in ["FUERA", "RED", "DOBLE FALTA"]
                 crowd.react(is_err)
+                # v0.36: ovacion en los aces (saque bueno sin resto: 1 solo golpe)
+                if sim.rally_hits == 1 and ev.txt == "PUNTO":
+                    sfx.play("ovation", 0.9)
+                    if ev.w == 0 and not demo:
+                        hud.popup("¡ACE!", Vector3(sim.pl[0].x, 0.0, sim.pl[0].z), Color("#ffe27a"))
+                if _hot_level() >= 1:
+                    sfx.play("ovation", 0.85)  # v0.35: explosion de grada al cerrar punto caliente
                 # v0.30: baile post-punto eliminado (orden del usuario) - solo queda
                 # el gesto del que pierde el punto
                 rigs[1 - ev.w].celebrate("tennis/Hit_Head" if is_err else "tennis/Hit_Chest", 2.0)
