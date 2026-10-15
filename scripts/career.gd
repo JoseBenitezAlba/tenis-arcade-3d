@@ -8,15 +8,17 @@ const SAVE_TMP := "user://career.save.tmp"
 const SAVE_BAK := "user://career.save.bak"
 const SAVE_VERSION := 1
 const RNAMES := ["Octavos", "Cuartos", "Semifinal", "Final"]
+# v0.35: estilo explicito por rival (0 defensivo, 1 equilibrado, 2 agresivo),
+# asignado por arquetipo real para que cada uno se sienta distinto.
 const POOL0 := [
-    ["Carlos Alcaca", 0.98, 2600], ["Janiel Sinnar", 0.98, 2800], ["Novak Djokovitz", 0.94, 2200],
-    ["Alex Zvereff", 0.9, 2000], ["Daniil Medelle", 0.86, 1700], ["Jack Drapper", 0.84, 1500],
-    ["Taylor Fritzz", 0.84, 1500], ["Holger Runne", 0.8, 1300], ["Kasper Ruud", 0.8, 1300],
-    ["Andrei Rubleff", 0.8, 1250], ["Alex de Minaurr", 0.78, 1150], ["Lorenzo Musseti", 0.76, 1050],
-    ["Stefanos Tsitsipass", 0.75, 1000], ["Ben Chelton", 0.74, 950], ["Tommy Paull", 0.72, 850],
-    ["Grigor Dimitroff", 0.72, 800], ["Hubert Hurkatz", 0.7, 750], ["Frances Tiafo", 0.7, 700],
-    ["Alexei Popyrine", 0.66, 600], ["Francisco Serundolo", 0.64, 550], ["Sebastian Kordda", 0.62, 500],
-    ["Ugo Humber", 0.6, 450], ["Jakub Mensikk", 0.6, 400], ["Joao Fonsecca", 0.6, 350],
+    ["Carlos Alcaca", 0.98, 2600, 2], ["Janiel Sinnar", 0.98, 2800, 1], ["Novak Djokovitz", 0.94, 2200, 0],
+    ["Alex Zvereff", 0.9, 2000, 1], ["Daniil Medelle", 0.86, 1700, 0], ["Jack Drapper", 0.84, 1500, 2],
+    ["Taylor Fritzz", 0.84, 1500, 2], ["Holger Runne", 0.8, 1300, 2], ["Kasper Ruud", 0.8, 1300, 0],
+    ["Andrei Rubleff", 0.8, 1250, 2], ["Alex de Minaurr", 0.78, 1150, 0], ["Lorenzo Musseti", 0.76, 1050, 1],
+    ["Stefanos Tsitsipass", 0.75, 1000, 1], ["Ben Chelton", 0.74, 950, 2], ["Tommy Paull", 0.72, 850, 1],
+    ["Grigor Dimitroff", 0.72, 800, 1], ["Hubert Hurkatz", 0.7, 750, 2], ["Frances Tiafo", 0.7, 700, 2],
+    ["Alexei Popyrine", 0.66, 600, 2], ["Francisco Serundolo", 0.64, 550, 0], ["Sebastian Kordda", 0.62, 500, 1],
+    ["Ugo Humber", 0.6, 450, 1], ["Jakub Mensikk", 0.6, 400, 2], ["Joao Fonsecca", 0.6, 350, 2],
 ]
 # v0.31: nombres reales -> inventados; mapa para migrar saves antiguas
 const RENAME := {"Carlos Alcaraz": "Carlos Alcaca", "Jannik Sinner": "Janiel Sinnar", "Novak Djokovic": "Novak Djokovitz", "Alexander Zverev": "Alex Zvereff", "Daniil Medvedev": "Daniil Medelle", "Jack Draper": "Jack Drapper", "Taylor Fritz": "Taylor Fritzz", "Holger Rune": "Holger Runne", "Casper Ruud": "Kasper Ruud", "Andrey Rublev": "Andrei Rubleff", "Alex de Minaurr": "Alex de Minaurr", "Lorenzo Musetti": "Lorenzo Musseti", "Stefanos Tsitsipas": "Stefanos Tsitsipass", "Ben Shelton": "Ben Chelton", "Tommy Paul": "Tommy Paull", "Grigor Dimitrov": "Grigor Dimitroff", "Hubert Hurkacz": "Hubert Hurkatz", "Frances Tiafoe": "Frances Tiafo", "Alexei Popyrin": "Alexei Popyrine", "Francisco Cerúndolo": "Francisco Serundolo", "Sebastian Korda": "Sebastian Kordda", "Ugo Humbert": "Ugo Humber", "Jakub Mensik": "Jakub Mensikk", "Joao Fonseca": "Joao Fonsecca"}
@@ -82,6 +84,9 @@ func _migrate_names() -> void:
         for pl in data.pool:
             if RENAME.has(pl.get("n", "")):
                 pl.n = RENAME[pl.n]
+            # v0.35: saves antiguas no tenian estilo -> todos quedaban en 1 (risk 0.5)
+            if not pl.has("sty"):
+                pl["sty"] = _style_of(pl.get("n", ""))
     if data.has("tour") and typeof(data.tour) == TYPE_DICTIONARY:
         var t: Dictionary = data.tour
         for k in ["opps", "field"]:
@@ -98,7 +103,7 @@ static func delete_save() -> void:
 func new_career(pname: String) -> void:
     var pool := []
     for p in POOL0:
-        pool.append({"n": p[0], "r": p[1], "pts": p[2]})
+        pool.append({"n": p[0], "r": p[1], "pts": p[2], "sty": int(p[3]) if p.size() > 3 else hash(p[0]) % 3})
     data = {
         "v": 1, "name": pname, "stats": {"pw": 3, "sp": 3, "pr": 3}, "free": 3,
         "season": 1, "tIdx": 0, "pts": 0, "pool": pool, "tour": null,
@@ -177,8 +182,32 @@ func opp_profile(pname: String) -> Dictionary:
 func current_opp() -> Dictionary:
     return opp_profile(data.tour.opps[data.tour.round])
 
-static func params_for(r: float) -> Dictionary:
-    return {"speed": 4.3 + 2.6 * r, "react": 0.46 - 0.34 * r, "err": 0.95 - 0.7 * r, "miss": 0.32 - 0.27 * r}
+static func _style_of(pname: String) -> int:
+    for p in POOL0:
+        if p[0] == pname and p.size() > 3:
+            return int(p[3])
+    return 1
+
+static func style_name(sty: int) -> String:
+    return ["Defensivo", "Equilibrado", "Agresivo"][clampi(sty, 0, 2)]
+
+static func params_for(r: float, sty: int = 1) -> Dictionary:
+    # v0.32: estilos - 0 defensivo, 1 equilibrado, 2 agresivo
+    # v0.35: personalidades visibles, no solo risk. El ranking r sigue marcando
+    # la dificultad; el estilo modula COMO juega:
+    # - defensivo: cubre mas pista (+vel), comete menos (-err), busca menos el winner
+    # - agresivo: gatillo mas rapido (-react), mas winners (+risk) pero mas fallos (+err)
+    var risk: float = [0.3, 0.5, 0.75][clampi(sty, 0, 2)]
+    var spd: float = [1.07, 1.0, 0.97][clampi(sty, 0, 2)]
+    var rea: float = [1.0, 1.0, 0.88][clampi(sty, 0, 2)]
+    var errm: float = [0.82, 1.0, 1.18][clampi(sty, 0, 2)]
+    return {
+        "speed": clampf((4.3 + 2.6 * r) * spd, 3.5, 7.4),
+        "react": clampf((0.46 - 0.34 * r) * rea, 0.06, 0.5),
+        "err": clampf((0.95 - 0.7 * r) * errm, 0.2, 1.6),
+        "miss": 0.32 - 0.27 * r,
+        "risk": risk,
+    }
 
 func player_from_stats() -> Dictionary:
     # v0.22: defensivo - saves antiguas pueden no tener "stats"
