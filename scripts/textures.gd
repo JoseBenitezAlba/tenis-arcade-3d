@@ -54,6 +54,25 @@ static func court_texture(surface: String) -> ImageTexture:
         var y := int(py_of.call(zx + rng.randf_range(-0.5, 0.5)))
         if x >= 0 and x < w and y >= 0 and y < h:
             img.set_pixel(x, y, img.get_pixel(x, y).blend(Color(1, 1, 1, rng.randf_range(0.04, 0.1))))
+    # v0.36: hierba real - calvas secas en fondos y lineas de saque (el desgaste
+    # anterior era invisible) y veta direccional de siega
+    if surface == "grass":
+        var dry := Color("#7d8446")
+        for zone in [[0.0, 0.05, 2.9, 1.1], [0.0, L - 0.05, 2.9, 1.1], [0.0, NZ - 6.4, 2.2, 0.8], [0.0, NZ + 6.4, 2.2, 0.8]]:
+            for n2 in 5200:
+                var a := rng.randf() * TAU
+                var rr := sqrt(rng.randf())
+                var zx2: float = zone[1] + sin(a) * rr * zone[3]
+                var xx2: float = zone[0] + cos(a) * rr * zone[2]
+                var x2 := int(px_of.call(xx2))
+                var y2 := int(py_of.call(zx2))
+                if x2 >= 0 and x2 < w and y2 >= 0 and y2 < h:
+                    img.set_pixel(x2, y2, img.get_pixel(x2, y2).blend(dry).lerp(dry, rng.randf_range(0.04, 0.13)))
+        for cx in range(0, w, 3):
+            var f := 1.0 + 0.03 * sin(cx * 0.13) + rng.randf_range(-0.012, 0.012)
+            for yy in range(0, h, 2):
+                var p2 := img.get_pixel(cx, yy)
+                img.set_pixel(cx, yy, Color(minf(p2.r * f, 1.0), minf(p2.g * f, 1.0), minf(p2.b * f, 1.0), p2.a))
     # lineas: 5cm reglamentarias, 10cm las de fondo
     var line_c: Color = T.line
     var line := func(x1: float, z1: float, x2: float, z2: float, w_m: float) -> void:
@@ -135,10 +154,10 @@ static func string_texture() -> ImageTexture:
         var dxn := (x + 1.0 - cx) / rx
         var hy := ry * sqrt(maxf(0.0, 1.0 - dxn * dxn))
         img.fill_rect(Rect2i(x, int(cy - hy), 2, int(hy * 2.0)), main_c)
-    for y in range(6, h - 4, 13):
+    for y in range(6, h - 4, 15):
         var dyn := (y + 1.0 - cy) / ry
         var hx := rx * sqrt(maxf(0.0, 1.0 - dyn * dyn))
-        img.fill_rect(Rect2i(int(cx - hx), y, int(hx * 2.0), 2), cross_c)
+        img.fill_rect(Rect2i(int(cx - hx), y, int(hx * 2.0), 3), cross_c)
     return ImageTexture.create_from_image(img)
 
 static func crowd_texture() -> ImageTexture:
