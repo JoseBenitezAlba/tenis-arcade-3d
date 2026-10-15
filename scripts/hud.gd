@@ -9,6 +9,8 @@ var banner: Label
 var banner_sub: Label
 var hint: Label
 var popup_pool := []
+var big_popup: Label
+var big_popup_t := 0.0
 var cam: Camera3D
 var replay_tag: Label
 var replay_t := 0.0
@@ -111,11 +113,22 @@ func _ready() -> void:
     hint.add_theme_constant_override("outline_size", 5)
     add_child(hint)
 
+    # v0.36: momentos grandes (PERFECTO / SAQUE PERFECTO) - centro, grande, legible
+    big_popup = Label.new()
+    big_popup.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    big_popup.position = Vector2(0, 132)
+    big_popup.size = Vector2(1280, 60)
+    big_popup.add_theme_font_size_override("font_size", 34)
+    big_popup.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
+    big_popup.add_theme_constant_override("outline_size", 9)
+    big_popup.visible = false
+    add_child(big_popup)
+
     for i in 4:
         var p := Label.new()
-        p.add_theme_font_size_override("font_size", 26)
-        p.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.7))
-        p.add_theme_constant_override("outline_size", 6)
+        p.add_theme_font_size_override("font_size", 17)  # v0.35: discreto (pedido del usuario)
+        p.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.55))
+        p.add_theme_constant_override("outline_size", 4)
         p.visible = false
         add_child(p)
         popup_pool.append({"l": p, "age": 0.0, "active": false, "wp": Vector3.ZERO})
@@ -180,10 +193,12 @@ func set_names(n0: String, n1: String) -> void:
     name_labels[1].text = "  " + name_labels[1].get_meta("base")
 
 func update_score(M) -> void:  # sin tipo: acepta MatchState (v0.32) o Dictionary legado
+    var in_tb: bool = "tb" in M and M.tb
     for i in 2:
         score_rows[i][0].text = str(M.sets[i])
         score_rows[i][1].text = str(M.games[i])
-        score_rows[i][2].text = PT[mini(3, M.pts[i])]
+        # v0.32: en tie-break se muestran los puntos corridos del tb
+        score_rows[i][2].text = str(M.tb_pts[i]) if in_tb else PT[mini(3, M.pts[i])]
         var base: String = name_labels[i].get_meta("base")
         name_labels[i].text = ("● " if M.server == i else "  ") + base
 
@@ -223,6 +238,13 @@ func hide_banner() -> void:
 
 func set_hint(t: String) -> void:
     hint.text = t
+
+func popup_big(txt: String, color: Color) -> void:
+    big_popup.text = txt
+    big_popup.add_theme_color_override("font_color", color)
+    big_popup.visible = true
+    big_popup.modulate.a = 1.0
+    big_popup_t = 1.15
 
 func popup(txt: String, wp: Vector3, color: Color) -> void:
     for p in popup_pool:
@@ -272,6 +294,12 @@ func _process(dt: float) -> void:
             speed_label.visible = false
         elif speed_t < 0.6:
             speed_label.modulate.a = speed_t / 0.6
+    if big_popup_t > 0.0:
+        big_popup_t -= dt
+        if big_popup_t <= 0.0:
+            big_popup.visible = false
+        elif big_popup_t < 0.35:
+            big_popup.modulate.a = big_popup_t / 0.35
     for p in popup_pool:
         if p.active:
             p.age += dt
@@ -281,5 +309,5 @@ func _process(dt: float) -> void:
             else:
                 p.l.modulate.a = 1.0 - p.age / 0.6
                 if cam:
-                    var sp := cam.unproject_position(p.wp + Vector3(0, 2.2 + p.age * 0.6, 0))
-                    p.l.position = sp - Vector2(40, 0)
+                    var sp := cam.unproject_position(p.wp + Vector3(0, 1.5 + p.age * 0.35, 0))
+                    p.l.position = sp - Vector2(26, 0)
