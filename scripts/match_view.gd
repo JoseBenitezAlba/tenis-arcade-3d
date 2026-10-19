@@ -661,6 +661,12 @@ func _physics_process(dt: float) -> void :
 		elif pv.speed <= 2.2:
 			step_t[i] = 0.0
 	ball_mesh.position = Vector3(sim.ball.x, sim.ball.y, sim.ball.z)
+	# La bola de punto no debe seguir dibujandose durante el primer plano ni
+	# dejar un rastro que atraviese la camara al preparar el siguiente saque.
+	var point_break: bool = sim.state == "point" or sim.state == "over"
+	ball_mesh.visible = not point_break
+	ball_shadow.visible = not point_break
+	ball_seam.visible = not point_break
 	# v0.138: la bola en la mano / botando antes del saque se ve mas pequena (antes: pelota gigante junto al sacador)
 	var bk: float = held_ball_scale(sim.ball.held, sim.ball.toss, sim.ball.toss_t)
 	if ball_squash > 0.0:
@@ -698,7 +704,7 @@ func _physics_process(dt: float) -> void :
 	var hb: float = hot_trail_boost(_hot_level())
 	for i in trail.size():
 		var t = trail[i]
-		if i < sim.ball.trail.size():
+		if not point_break and i < sim.ball.trail.size():
 			t.m.visible = true
 			t.m.position = sim.ball.trail[i]
 			var f: float = float(i) / trail.size()
@@ -859,6 +865,9 @@ func _start_replay() -> void :
 		return
 	replaying = true
 	replay_i = 0.0
+	ball_mesh.visible = true
+	ball_shadow.visible = true
+	ball_seam.visible = true
 	bounce_ring.visible = false
 	hud.show_replay()
 	for t in trail:
@@ -1337,6 +1346,10 @@ func drain_events() -> void :
 				if not demo:
 					sfx.play("point_win" if ev.w == 0 else "point_lose")
 			"point":
+				hud.hide_speed()
+				ball_mesh.visible = false
+				ball_shadow.visible = false
+				ball_seam.visible = false
 				_point_winner = ev.get("w", -1)
 				_fatigue = fatigue_from_rally(sim.rally_hits)
 				var is_err: bool = ev.txt in ["FUERA", "RED", "DOBLE FALTA"]

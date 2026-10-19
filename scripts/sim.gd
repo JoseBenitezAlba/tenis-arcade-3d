@@ -8,6 +8,7 @@ const G: = 23.0
 const SOFT_V: = 46.0
 const STROKE_VCAP: = 52.0
 const SMASH_VCAP: = 56.0
+const SERVE_VCAP: = 28.0
 const MAGNUS_K: = 4.0
 
 
@@ -246,7 +247,8 @@ func prep_serve() -> void :
 	srv.vx = 0.0
 	srv.vz = 0.0
 	srv.swing = 0.0
-	rec.x = -2.0 * sgn if near else 2.0 * sgn
+	# Resto 1.5m mas cerca del centro que el spawn anterior.
+	rec.x = -0.5 * sgn if near else 0.5 * sgn
 	rec.z = L + 0.6 if near else -0.6
 	rec.vx = 0.0
 	rec.vz = 0.0
@@ -267,7 +269,7 @@ func break_pos(e) -> Vector2:
 	var snear: bool = pl[M.server].near
 	if M.server == e.id:
 		return Vector2(1.4 * sgn if snear else -1.4 * sgn, -0.9 if snear else L + 0.9)
-	return Vector2(-2.0 * sgn if snear else 2.0 * sgn, L + 0.6 if snear else -0.6)
+	return Vector2(-0.5 * sgn if snear else 0.5 * sgn, L + 0.6 if snear else -0.6)
 
 
 static func break_vel(d: float) -> float:
@@ -299,6 +301,13 @@ func award_point(w: int, why: String, sub: String) -> void :
 	state_t = 0.0
 	last_winner = w
 	ball.in_play = false
+	ball.trail.clear()
+	for p in pl:
+		p.tvx = 0.0
+		p.tvz = 0.0
+		p.vx = 0.0
+		p.vz = 0.0
+		p.speed = 0.0
 	var txt: = why
 	var sb: = sub
 	var brk: = false
@@ -945,7 +954,7 @@ func do_serve(e: Player, q: float, stype: String = "") -> void :
 	tx += randn() * err
 	tzr += randn() * err * (0.9 if (e.id == 0 and not demo and inp.y > 0.4) else 0.5)
 	last_serve_tx = tx
-	launch(tx, NZ + dir * tzr, serve_T, max(ball.y, 2.0))
+	launch(tx, NZ + dir * tzr, serve_T, max(ball.y, 2.0), 1.3, SERVE_VCAP)
 
 
 
@@ -954,7 +963,7 @@ func do_serve(e: Player, q: float, stype: String = "") -> void :
 		var kmh: = sspd * 8.4
 		if kmh < 162.0:
 			var t2: float = clampf(serve_T * kmh / 162.0, 0.7, serve_T)
-			launch(tx, NZ + dir * tzr, t2, max(ball.y, 2.0))
+			launch(tx, NZ + dir * tzr, t2, max(ball.y, 2.0), 1.3, SERVE_VCAP)
 			sspd = Vector3(ball.vx, ball.vy, ball.vz).length()
 	ball.spin = serve_spin
 	ball.curve = serve_curve
@@ -1303,13 +1312,14 @@ func ai_control(e: Player, dt: float) -> void :
 	var D = AIP
 	var dir: = 1.0 if e.near else -1.0
 	var opp = pl[1 - e.id]
-	if state == "point" and v112_walk:
-
-
+	if state == "point":
 		e.wait_serve = false
-		if e.id == last_winner and state_t < 1.1:
+		if e.id == last_winner or not v112_walk:
 			e.tvx = 0.0
 			e.tvz = 0.0
+			e.vx = 0.0
+			e.vz = 0.0
+			e.speed = 0.0
 			return
 		var bp: = break_pos(e)
 		var bx: = bp.x - e.x
@@ -1610,9 +1620,16 @@ func human_control(e: Player, dt: float) -> void :
 	e.tvx = inp.x * PS.speed
 	e.tvz = inp.y * PS.speed
 	if state == "point":
+		if e.id == last_winner:
+			e.tvx = 0.0
+			e.tvz = 0.0
+			e.vx = 0.0
+			e.vz = 0.0
+			e.speed = 0.0
+			return
 
 
-		if Vector2(inp.x, inp.y).length() < 0.25 and not (e.id == last_winner and state_t < 1.1):
+		if Vector2(inp.x, inp.y).length() < 0.25:
 			var bp: = break_pos(e)
 			var bx: = bp.x - e.x
 			var bz: = bp.y - e.z
