@@ -41,6 +41,8 @@ func _ready() -> void:
     _make_button("GOLPE", "hit", Vector2(_vp.x - m * 0.145, _vp.y - m * 0.19), m * 0.105, Color(0.95, 0.62, 0.12, 0.55))
     _make_button("GLOBO", "lob", Vector2(_vp.x - m * 0.385, _vp.y - m * 0.125), m * 0.082, Color(0.35, 0.55, 0.95, 0.55))
     _make_button("DEJADA", "drop", Vector2(_vp.x - m * 0.16, _vp.y - m * 0.455), m * 0.075, Color(0.45, 0.85, 0.45, 0.55))
+    _make_button("SLICE", "slice", Vector2(_vp.x - m * 0.385, _vp.y - m * 0.31), m * 0.07, Color(0.45, 0.74, 0.82, 0.55))
+    _make_button("TOP", "topspin", Vector2(_vp.x - m * 0.39, _vp.y - m * 0.49), m * 0.07, Color(0.90, 0.40, 0.30, 0.55))
     _make_button("II", "pause", Vector2(_vp.x - m * 0.055, m * 0.075), m * 0.045, Color(0.7, 0.7, 0.75, 0.5))
 
 func _make_button(txt: String, action: String, center: Vector2, r: float, col: Color) -> void:

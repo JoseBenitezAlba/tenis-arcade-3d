@@ -65,6 +65,9 @@ var rally_display := 0
 var rally_change_t := 0.0
 var camera_smooth_x := 0.0
 var camera_smooth_z := 0.0
+var contact_ring: MeshInstance3D
+var contact_ring_mat: StandardMaterial3D
+var player_condition: Label
 
 func setup(cfg: Dictionary) -> void:
     demo = cfg.get("demo", false)
@@ -153,6 +156,22 @@ func _ready() -> void:
     bounce_ring.visible = false
     add_child(bounce_ring)
 
+    contact_ring = MeshInstance3D.new()
+    var cr_mesh := TorusMesh.new()
+    cr_mesh.inner_radius = 0.38
+    cr_mesh.outer_radius = 0.47
+    contact_ring.mesh = cr_mesh
+    contact_ring_mat = StandardMaterial3D.new()
+    contact_ring_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+    contact_ring_mat.albedo_color = Color("#78e7ff")
+    contact_ring_mat.emission_enabled = true
+    contact_ring_mat.emission = Color("#38bfff")
+    contact_ring.material_override = contact_ring_mat
+    contact_ring.rotation.x = PI * 0.5
+    contact_ring.position.y = 0.08
+    contact_ring.visible = false
+    add_child(contact_ring)
+
     # estela de la bola
     for i in 9:
         var t := MeshInstance3D.new()
@@ -225,6 +244,15 @@ func _ready() -> void:
     rally_label.add_theme_constant_override("outline_size", 6)
     rally_label.visible = false
     hud.add_child(rally_label)
+    player_condition = Label.new()
+    player_condition.position = Vector2(500, 608)
+    player_condition.size = Vector2(280, 42)
+    player_condition.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    player_condition.add_theme_font_size_override("font_size", 20)
+    player_condition.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
+    player_condition.add_theme_constant_override("outline_size", 5)
+    player_condition.visible = false
+    hud.add_child(player_condition)
     touch_ui = false
     if not demo:
         touch_ui = get_meta("force_touch", false) or TouchControls.should_show()
@@ -233,9 +261,9 @@ func _ready() -> void:
             add_child(tc)
     if not demo:
         if touch_ui:
-            hud.set_hint("Joystick izquierdo mover · GOLPE / GLOBO / DEJADA a la derecha · II pausa")
+            hud.set_hint("Joystick mover · GOLPE / TOP / SLICE / GLOBO / DEJADA · II pausa")
         else:
-            hud.set_hint("Stick/WASD mover · A/ESPACIO golpe · X/Z globo · B dejada · START pausa")
+            hud.set_hint("Mover · A/ESPACIO drive · X/I topspin · B/SHIFT slice · Y/Z globo · L dejada · START/P pausa")
     else:
         hud.set_hint("")
 
@@ -369,6 +397,10 @@ func _physics_process(dt: float) -> void:
             sim.inp.hit = true
         elif Input.is_action_just_pressed("lob"):
             sim.inp.lob = true
+        elif Input.is_action_just_pressed("slice"):
+            sim.inp.slice = true
+        elif Input.is_action_just_pressed("topspin"):
+            sim.inp.topspin = true
     var this_rally := sim.rally_hits if sim.state == "play" else 0
     rally_display = this_rally
     if this_rally >= 3:
@@ -416,6 +448,7 @@ func _physics_process(dt: float) -> void:
     ball_shadow.scale = Vector3(sh_scale * 0.4, 1, sh_scale * 0.4)
     ball_shadow_mat.albedo_color.a = clampf(0.7 - sim.ball.y * 0.06, 0.12, 0.7)
     _update_bounce_ring()
+    _update_contact_ring()
     var heat: float = sim.ball.hot  # v0.26: estela blanca en tiros duros
     for i in trail.size():
         var t = trail[i]
@@ -456,11 +489,12 @@ func _physics_process(dt: float) -> void:
     camera_smooth_x = lerpf(camera_smooth_x, target_x, minf(1.0, dt * 2.6))
     camera_smooth_z = lerpf(camera_smooth_z, target_z, minf(1.0, dt * 1.6))
     cam.position.x = camera_smooth_x
+    cam.position.y = lerpf(cam.position.y, CAM_POS.y + clampf(sim.ball.y * 0.07, 0.0, 0.75), minf(1.0, dt * 1.4))
     cam.position.z = camera_smooth_z
     if shake > 0.0:
         shake = maxf(0.0, shake - dt)
         # v0.36: amplitud mayor - el pico fuerte dura ~0.05s y decae (pedido)
-        cam.position.y = CAM_POS.y + randf_range(-1.0, 1.0) * shake * 0.5
+        cam.position.y += randf_range(-1.0, 1.0) * shake * 0.5
         cam.position.z = camera_smooth_z + randf_range(-1.0, 1.0) * shake * 0.22
     var focus := Vector3(sim.ball.x * 0.22, CAM_LOOK_Y + clampf(sim.ball.y * 0.04, 0.0, 0.35), lerpf(NZ, sim.ball.z, 0.12))
     cam.look_at(focus)
@@ -485,6 +519,13 @@ func _physics_process(dt: float) -> void:
         # v0.30: la pista del saque se quedaba pegada toda la jugada (video usuario)
         if hud.hint.text == "¡Golpea cuando la bola esté arriba!" or hud.hint.text.begins_with("A / ESPACIO"):
             hud.set_hint("")
+
+    if player_condition.visible:
+        var condition_life: float = float(player_condition.get_meta("life", 0.0)) - dt
+        player_condition.set_meta("life", condition_life)
+        player_condition.modulate.a = clampf(condition_life / 0.2, 0.0, 1.0)
+        if condition_life <= 0.0:
+            player_condition.visible = false
 
     # v0.27: medidor de saque - visible mientras el jugador prepara/lanza, se oculta al golpear
     if not demo and sim.state == "serve" and sim.M.server == 0 and sim.serve_stage in ["ready", "toss"]:
@@ -515,6 +556,26 @@ func _update_bounce_ring() -> void:
     var sc: float = lerpf(0.35, 1.0, k)
     bounce_ring.scale = Vector3(sc, 1, sc)
     bounce_ring_mat.albedo_color.a = lerpf(0.95, 0.55, k)
+
+func _update_contact_ring() -> void:
+    if demo or sim.state != "play" or not sim.ball.in_play or sim.ball.last == 0 or sim.ball.vz >= 0.0:
+        contact_ring.visible = false
+        return
+    var e = sim.pl[0]
+    var to_ball := Vector2(sim.ball.x - e.x, sim.ball.z - e.z)
+    var distance := to_ball.length()
+    var closing := -(sim.ball.vx * to_ball.x + sim.ball.vz * to_ball.y) / maxf(distance, 0.1)
+    var eta := distance / maxf(closing, 4.0)
+    var reachable := distance < 2.35 and sim.ball.y < 3.1 and eta < 0.75
+    contact_ring.visible = reachable
+    if reachable:
+        contact_ring.position.x = sim.ball.x
+        contact_ring.position.z = sim.ball.z
+        var urgency := clampf(1.0 - eta / 0.75, 0.0, 1.0)
+        var pulse := 0.92 + 0.12 * sin(Time.get_ticks_msec() * 0.012)
+        contact_ring.scale = Vector3.ONE * (0.75 + urgency * 0.28) * pulse
+        contact_ring_mat.albedo_color = Color("#86ebff").lerp(Color("#ffe05c"), urgency)
+        contact_ring_mat.emission = contact_ring_mat.albedo_color
 
 func _start_replay() -> void:
     if rec.size() < 10:
@@ -616,14 +677,35 @@ func drain_events() -> void:
                 if perfect:
                     shake = 0.36
                     hud.popup_big("¡PERFECTO!", Color("#ffe27a"))  # v0.36: legible
+                    player_condition.text = "CONTACTO PERFECTO"
+                    player_condition.add_theme_color_override("font_color", Color("#ffe27a"))
+                    player_condition.visible = true
+                    player_condition.set_meta("life", 1.0)
                 elif ev.id == 0 and not demo:
-                    match ev.kind:
-                        "smash":
-                            hud.popup("¡SMASH!", pwp, Color("#ffd23f"))
-                        "lob":
-                            hud.popup("GLOBO", pwp, Color("#7ac7ff"))
-                        "drop":
-                            hud.popup("DEJADA", pwp, Color("#c8ffb0"))
+                    if ev.get("stretch", 0.0) > 0.9:
+                        hud.popup("ESTIRADO", pwp, Color("#ffad7a"))
+                        player_condition.text = "CONTACTO FORZADO"
+                        player_condition.add_theme_color_override("font_color", Color("#ffad7a"))
+                    elif ev.get("rise", false):
+                        hud.popup("AL BOTE", pwp, Color("#b5e8ff"))
+                        player_condition.text = "GOLPEA AL BOTE"
+                        player_condition.add_theme_color_override("font_color", Color("#b5e8ff"))
+                    else:
+                        match ev.kind:
+                            "smash":
+                                hud.popup("¡SMASH!", pwp, Color("#ffd23f"))
+                            "lob":
+                                hud.popup("GLOBO", pwp, Color("#7ac7ff"))
+                            "drop":
+                                hud.popup("DEJADA", pwp, Color("#c8ffb0"))
+                            "slice":
+                                hud.popup("SLICE", pwp, Color("#9df4ee"))
+                            "topspin":
+                                hud.popup("TOPSPIN", pwp, Color("#ffb07a"))
+                        player_condition.text = ev.kind.to_upper()
+                        player_condition.add_theme_color_override("font_color", Color.WHITE)
+                    player_condition.visible = true
+                    player_condition.set_meta("life", 0.9)
             "serve":
                 if _hot_level() >= 1 and not _serve_armed:
                     sfx.play("murmur", 0.8)  # v0.35: la grada contiene la respiracion en puntos calientes

@@ -150,6 +150,23 @@ static func build(surface: String, day: bool = false) -> Node3D:
     court.position = Vector3(0, 0.06, (L + 3.6 - 4.0) / 2.0)
     root.add_child(court)
 
+    # Banners de pista con marcas visuales del circuito y patrocinadores ficticios.
+    var ribbon_colors := [Color("#12396f"), Color("#6c1d38"), Color("#0c5848"), Color("#39236b")]
+    for side in [-1.0, 1.0]:
+        for section in 7:
+            var ribbon := _box(0.08, 0.62, 3.25, _mat(ribbon_colors[(section + int(side)) % ribbon_colors.size()]))
+            ribbon.position = Vector3(side * 7.24, 0.58, 0.4 + section * 3.25)
+            root.add_child(ribbon)
+            var mark := Label3D.new()
+            mark.text = "ARCADE TOUR"
+            mark.font_size = 34
+            mark.modulate = Color("#f1f5ff")
+            mark.outline_size = 4
+            mark.position = Vector3(side * 7.18, 0.58, 1.98 + section * 3.25)
+            mark.rotation_degrees.y = 90 if side < 0 else -90
+            mark.pixel_size = 0.008
+            root.add_child(mark)
+
     # Iluminacion tipo retransmision: relleno suave y luz de contorno para
     # separar a los jugadores de la pista, especialmente en partidos nocturnos.
     var fill := OmniLight3D.new()

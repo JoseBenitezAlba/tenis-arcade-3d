@@ -127,7 +127,7 @@ var rally_hits := 0
 var serve_unreturned := false
 var match_over := false
 var over_sent := false
-var inp := {"x": 0.0, "y": 0.0, "hit": false, "lob": false}
+var inp := {"x": 0.0, "y": 0.0, "hit": false, "lob": false, "slice": false, "topspin": false}
 var events: Array = []
 
 func _init(p_demo: bool = true, p_aip: Dictionary = {}, p_ps: Dictionary = {}, p_cpu_name: String = "CPU", sets_to_win: int = 1) -> void:
@@ -317,8 +317,12 @@ func do_hit(e: Player, kind: String, ai: bool) -> void:
     var d: float = clampf(aim.d, 0.02, 1.04)
     var T: float = aim.T
     # v0.30: caracter del tiro - la dejada es cortada y muere, el resto sale liftado
-    ball.spin = {"drop": -1.0, "lob": 0.25, "smash": 0.5}.get(kind, 0.85)
+    ball.spin = {"drop": -1.0, "slice": -0.68, "lob": 0.25, "smash": 0.5, "topspin": 1.25}.get(kind, 0.85)
     ball.kind = kind
+    if kind == "slice":
+        d = minf(d + 0.05, 0.82)
+    elif kind == "topspin":
+        d = minf(d + 0.08, 1.0)
     var tz := NZ + dir * (2.2 + d * (L / 2.0 - 2.2))
     launch(tx, tz, T, max(ball.y, 0.5))
     ball.last = e.id
@@ -335,7 +339,7 @@ func do_hit(e: Player, kind: String, ai: bool) -> void:
     e.want_t = 0.0  # v0.33: contacto -> termina la preparacion
     var spd := Vector3(ball.vx, ball.vy, ball.vz).length()
     ball.hot = clampf((spd - 30.0) / 20.0, 0.0, 1.0)
-    events.append({"t": "hit", "id": e.id, "kind": kind, "x": ball.x, "y": ball.y, "z": ball.z, "rise": on_rise, "perfect": perfect, "spd": spd})
+    events.append({"t": "hit", "id": e.id, "kind": kind, "x": ball.x, "y": ball.y, "z": ball.z, "rise": on_rise, "perfect": perfect, "stretch": stretch, "spd": spd})
 
 # Objetivo de la CPU: cruzar, buscar el winner cuando el rival llega justo,
 # y error segun dificultad y estirada. Devuelve {tx, d, T}.
@@ -395,6 +399,12 @@ func _player_aim(e: Player, kind: String, stretch: float) -> Dictionary:
     if kind == "lob":
         d = 0.88
         T = 1.55
+    elif kind == "slice":
+        d = 0.48 if up else 0.34
+        T = 1.13 * PS.T
+    elif kind == "topspin":
+        d = 0.84 if up else 0.58
+        T = 0.91 * PS.T
     elif kind == "drop":
         d = 0.1
         T = 1.0
@@ -412,14 +422,14 @@ func _player_aim(e: Player, kind: String, stretch: float) -> Dictionary:
             d = minf(d + 0.06, 1.0)
     # v0.18: raquetazo perfecto - contacto en el punto dulce (bola delante
     # del cuerpo y a la cintura): sale mas rapida, mas profunda y casi sin error
-    if kind == "drive" or kind == "smash":
+    if kind == "drive" or kind == "smash" or kind == "topspin":
         var pdx := absf(ball.x - e.x)
         var pdz := absf(ball.z - e.z)
         perfect = pdx < 0.75 and pdz > 0.25 and pdz < 1.05 and ball.y > 0.85 and ball.y < 1.45
     if perfect:
         T *= 0.82
         d = minf(d + 0.08, 1.0)
-    var es: float = 0.35 if perfect else 1.0
+    var es: float = 0.35 if perfect else (0.72 if kind == "slice" else 1.0)
     var hq: float = clampf(1.0 - absf(ball.y - 1.05) / 1.6, 0.35, 1.0)
     var qf: float = 2.0 - hq
     tx += randn() * (0.12 + stretch * 0.55) * PS.err * qf * es
@@ -980,8 +990,9 @@ func ai_control(e: Player, dt: float) -> void:
                 e.kind = "drive"
 
 func human_control(e: Player, dt: float) -> void:
-    e.tvx = inp.x * PS.speed
-    e.tvz = inp.y * PS.speed
+    var move_input := Vector2(inp.x, inp.y).limit_length(1.0)
+    e.tvx = move_input.x * PS.speed
+    e.tvz = move_input.y * PS.speed
     e.wait_serve = state == "serve" and M.server != e.id
     # v0.35: armado temprano (solo visual) - lleva la raqueta atras mientras
     # se acerca al bote, en vez de sacar el raquetazo de la nada
@@ -1013,20 +1024,24 @@ func human_control(e: Player, dt: float) -> void:
             events.append({"t": "dive", "id": e.id, "hid": ball.hit_id})
     var want_hit: bool = inp.hit
     var want_lob: bool = inp.lob
+    var want_slice: bool = inp.slice
+    var want_topspin: bool = inp.topspin
     inp.hit = false
     inp.lob = false
+    inp.slice = false
+    inp.topspin = false
     if state == "serve" and M.server == 0:
-        if want_hit or want_lob:
+        if want_hit or want_lob or want_slice or want_topspin:
             if serve_stage == "ready":
                 toss_ball()
             elif serve_stage == "toss":
                 do_serve(e, 1.0 - clamp(absf(ball.toss_t - 0.50) / 0.45, 0.0, 1.0))
         return
     # v0.25: no iniciar el swing sobre bola muerta (parecia que aun podias pegarle)
-    if want_hit or want_lob:
+    if want_hit or want_lob or want_slice or want_topspin:
         if e.swing <= 0.0 and state == "play" and ball.in_play:
             e.swing = 0.3
-            e.kind = "lob" if want_lob else ("drop" if inp.y < -0.4 else "drive")
+            e.kind = "lob" if want_lob else ("slice" if want_slice else ("topspin" if want_topspin else ("drop" if inp.y < -0.4 else "drive")))
             e.want = e.kind
             e.want_t = 0.3
     if e.want_t > 0.0:
@@ -1045,6 +1060,12 @@ func human_control(e: Player, dt: float) -> void:
             if dx < hgx and dz < hgz and ball.y < 3.1:
                 do_hit(e, e.want, false)
                 e.want_t = 0.0
+    # Tras golpear, volver gradualmente a una posicion de recuperacion central.
+    if state == "play" and ball.in_play and ball.last == e.id and e.swing <= 0.0 and e.want_t <= 0.0 and move_input.length() < 0.12:
+        var home_x := clampf(ball.x * 0.32, -2.2, 2.2)
+        var home_z := -0.5 if e.near else L + 0.5
+        e.tvx = clampf((home_x - e.x) * 1.4, -PS.speed * 0.62, PS.speed * 0.62)
+        e.tvz = clampf((home_z - e.z) * 1.1, -PS.speed * 0.4, PS.speed * 0.4)
 
 func update_player(e: Player, dt: float) -> void:
     e.cool = max(0.0, e.cool - dt)

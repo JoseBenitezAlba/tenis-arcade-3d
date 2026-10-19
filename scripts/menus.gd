@@ -1,7 +1,7 @@
 class_name GameMenus
 extends Control
 
-const VERSION := "v0.34"
+const VERSION := "v0.37"
 
 signal quick_match(surface: String, diff: int, sets: int, day: bool)
 signal play_career_match
@@ -200,7 +200,7 @@ func show_menu(p_career: Career) -> void:
         pad_invert.emit(false, i == 1))]))
     root_box.add_child(_row([_sub("Eje X", 14), _opt_group(["NORMAL", "INVERTIDO"], 1 if pad_inv_x else 0, func(i):
         pad_invert.emit(true, i == 1))]))
-    root_box.add_child(_sub("Mando: stick mover · A golpe · X globo · B dejada · START pausa\nTeclado: WASD/flechas · ESPACIO golpe · Z globo · SHIFT dejada · P pausa", 13, Color("#8ea2d8")))
+    root_box.add_child(_sub("Mando: stick mover · A drive · X topspin · B slice · Y globo · START pausa\nTeclado: WASD/flechas · ESPACIO drive · I topspin · SHIFT slice · Z globo · L dejada", 13, Color("#8ea2d8")))
     wt.grab_focus()
 
 # ---------- EXHIBICIÓN ----------
