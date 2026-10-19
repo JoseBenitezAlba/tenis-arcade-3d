@@ -15,6 +15,8 @@ static func g_eff(spin: float) -> float:
 	return clampf(G + MAGNUS_K * spin, 16.0, 30.0)
 const BR: = 0.17
 const NET_H: = 0.95
+const RETURN_X: = 2.0
+const SINGLES_HALF: = 4.115
 
 static func randn() -> float:
 	return (randf() + randf() + randf() - 1.5) / 0.75
@@ -246,7 +248,8 @@ func prep_serve() -> void :
 	srv.vx = 0.0
 	srv.vz = 0.0
 	srv.swing = 0.0
-	rec.x = -2.0 * sgn if near else 2.0 * sgn
+	# v0.144: el restador espera dentro del cuadro de individuales (nunca en el pasillo de dobles)
+	rec.x = clampf(-RETURN_X * sgn if near else RETURN_X * sgn, -SINGLES_HALF + 0.4, SINGLES_HALF - 0.4)
 	rec.z = L + 0.6 if near else -0.6
 	rec.vx = 0.0
 	rec.vz = 0.0
@@ -267,7 +270,7 @@ func break_pos(e) -> Vector2:
 	var snear: bool = pl[M.server].near
 	if M.server == e.id:
 		return Vector2(1.4 * sgn if snear else -1.4 * sgn, -0.9 if snear else L + 0.9)
-	return Vector2(-2.0 * sgn if snear else 2.0 * sgn, L + 0.6 if snear else -0.6)
+	return Vector2(-RETURN_X * sgn if snear else RETURN_X * sgn, L + 0.6 if snear else -0.6)
 
 
 static func break_vel(d: float) -> float:
@@ -1637,6 +1640,13 @@ func human_control(e: Player, dt: float) -> void :
 			e.tvx = 0.0
 			e.tvz = 0.0
 	e.wait_serve = state == "serve" and M.server != e.id
+	if e.wait_serve and Vector2(inp.x, inp.y).length() < 0.2:
+		# v0.144: al soltar el mando, el restador vuelve solo a su posicion de espera
+		var rp: = break_pos(e)
+		var rdx: = rp.x - e.x
+		var rdz: = rp.y - e.z
+		e.tvx = clampf(rdx * 3.0, -PS.speed * 0.55, PS.speed * 0.55)
+		e.tvz = clampf(rdz * 3.0, -PS.speed * 0.55, PS.speed * 0.55)
 
 
 	e.prep_t = maxf(0.0, e.prep_t - dt)
@@ -1889,6 +1899,10 @@ func update_player(e: Player, dt: float) -> void :
 		var _sside: float = signf((1.4 * _sgn) if e.near else (-1.4 * _sgn))
 		e.x = clampf(e.x, 0.25, 4.1) if _sside > 0.0 else clampf(e.x, -4.1, -0.25)
 		e.z = clamp(e.z, -2.2, -0.3) if e.near else clamp(e.z, L + 0.3, L + 2.2)
+	elif state == "serve":
+		# v0.144: mientras se espera el saque el restador no puede meterse en el pasillo de dobles
+		e.x = clampf(e.x, -SINGLES_HALF + 0.2, SINGLES_HALF - 0.2)
+		e.z = clamp(e.z, -2.4, NZ - 2.2) if e.near else clamp(e.z, NZ + 2.2, L + 2.4)
 	else:
 		e.x = clamp(e.x, -5.2, 5.2)
 		e.z = clamp(e.z, -2.4, NZ - 2.2) if e.near else clamp(e.z, NZ + 2.2, L + 2.4)

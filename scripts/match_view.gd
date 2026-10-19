@@ -113,12 +113,13 @@ var mark_pool: = []
 var banner_t: = 0.0
 const SERVE_KMH_K: = 8.4
 const HELD_BALL_K: = 0.3
+const TOSS_BALL_K: = 0.42
 
 static func held_ball_scale(held: bool, toss: bool, toss_t: float) -> float:
 	if held:
 		return HELD_BALL_K
 	if toss:
-		return lerpf(HELD_BALL_K, 0.6, clampf(toss_t / 0.35, 0.0, 1.0))
+		return lerpf(HELD_BALL_K, TOSS_BALL_K, clampf(toss_t / 0.35, 0.0, 1.0))
 	return 1.0
 const HIT_KMH_K: = 4.0  # v0.138: golpes de fondo (la gravedad arcade fija una velocidad minima alta; el factor de saque inflaba los peloteos)
 var banner_dur: = 0.0
@@ -133,6 +134,7 @@ var over_sent: = false
 var shake: = 0.0
 var hitstop_t: = 0.0
 var ball_squash: = 0.0
+var ball_vis_scale: = 1.0
 var _point_winner: = -1
 var _prev_sim_state: = ""
 var _serve_blank: = 0.0
@@ -257,7 +259,7 @@ func _ready() -> void :
 	bounce_ring_mat.albedo_texture = TexGen.ring_texture()
 
 
-	bounce_ring_mat.albedo_color = Color(0.45, 0.92, 1.0, 0.95) if surface == "clay" else Color(1.0, 0.95, 0.35, 0.85)
+	bounce_ring_mat.albedo_color = Color(1.0, 1.0, 1.0, 1.0) if surface == "clay" else Color(1.0, 0.95, 0.35, 0.9)
 	bounce_ring_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	bounce_ring_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	bounce_ring_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
@@ -673,14 +675,18 @@ func _physics_process(dt: float) -> void :
 	ball_mesh.visible = not blank
 	ball_shadow.visible = not blank
 	ball_seam.visible = not blank
-	# v0.138: la bola en la mano / botando antes del saque se ve mas pequena (antes: pelota gigante junto al sacador)
+	# v0.144: escala suavizada y tope bajo en el lanzamiento (antes la bola del saque parecia un balon)
 	var bk: float = held_ball_scale(sim.ball.held, sim.ball.toss, sim.ball.toss_t)
+	if bk < ball_vis_scale:
+		ball_vis_scale = bk
+	else:
+		ball_vis_scale = lerpf(ball_vis_scale, bk, minf(1.0, dt * 18.0))
 	if ball_squash > 0.0:
 		ball_squash = maxf(0.0, ball_squash - dt)
 		var sqk: float = ball_squash / 0.09
-		ball_mesh.scale = Vector3(1.0 + 0.45 * sqk, 1.0 - 0.45 * sqk, 1.0 + 0.45 * sqk) * bk
-	elif ball_mesh.scale != Vector3.ONE * bk:
-		ball_mesh.scale = Vector3.ONE * bk
+		ball_mesh.scale = Vector3(1.0 + 0.45 * sqk, 1.0 - 0.45 * sqk, 1.0 + 0.45 * sqk) * ball_vis_scale
+	elif ball_mesh.scale != Vector3.ONE * ball_vis_scale:
+		ball_mesh.scale = Vector3.ONE * ball_vis_scale
 
 
 	var hsp: = Vector2(sim.ball.vx, sim.ball.vz).length()
@@ -864,10 +870,10 @@ func _update_bounce_ring() -> void :
 	var sc: float = lerpf(0.35, 1.0, k)
 	bounce_ring.scale = Vector3(sc, 1, sc)
 	if surface == "clay":
-		# v0.143: en tierra el aro se perdia; blanco puro y casi opaco
+		# v0.144: blanco puro y aro mas grueso con borde oscuro para que se lea sobre tierra
 		bounce_ring_mat.albedo_color = Color(1.0, 1.0, 1.0, lerpf(1.0, 0.85, k))
 	else:
-		bounce_ring_mat.albedo_color.a = lerpf(0.95, 0.55, k)
+		bounce_ring_mat.albedo_color = Color(1.0, 0.95, 0.35, lerpf(0.95, 0.72, k))
 
 func _start_replay() -> void :
 	if rec.size() < 10:

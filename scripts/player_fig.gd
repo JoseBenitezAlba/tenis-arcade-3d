@@ -635,8 +635,8 @@ func update_from_sim(e, dt: float) -> void :
 	ap.advance(dt)
 	if racket_node != null:
 		racket_node.rotation = Vector3(PI, 0.0, 0.0)
-		# v0.143: en la reaccion de punto perdido la raqueta atravesaba la cabeza
-		racket_node.visible = not (celeb_t > 0.0 and celeb_name == "HitRecieve")
+		# v0.144: la raqueta atravesaba la cabeza al celebrar/reaccionar; se oculta en esos clips
+		racket_node.visible = not (celeb_t > 0.0 and (celeb_name == "HitRecieve" or celeb_name == "Wave" or celeb_name == "Punch_Right"))
 	swing_now = e.swing
 	var _fatk: float = e.get("fat") if e.get("fat") != null else 0.0
 
