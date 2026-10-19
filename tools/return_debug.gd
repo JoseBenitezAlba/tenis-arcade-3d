@@ -1,18 +1,18 @@
 extends SceneTree
-# Por que la CPU no devuelve saques planos abiertos
-func _initialize() -> void:
-	var sim := TennisSim.new(false, {"speed": 5.6, "react": 0.27, "err": 0.5, "miss": 0.15}, {"speed": 6.2, "T": 1.0, "err": 1.0}, "CPU", 1)
-	# saque humano flat, q=1.0, apuntando abierto (como el usuario)
+
+func _initialize() -> void :
+	var sim: = TennisSim.new(false, {"speed": 5.6, "react": 0.27, "err": 0.5, "miss": 0.15}, {"speed": 6.2, "T": 1.0, "err": 1.0}, "CPU", 1)
+
 	sim.inp.x = 0.9
-	sim.inp.y = 1.0  # flat
-	sim.inp.hit = true  # toss
-	var tossed := false
-	var served := false
-	var printed := 0
+	sim.inp.y = 1.0
+	sim.inp.hit = true
+	var tossed: = false
+	var served: = false
+	var printed: = 0
 	var cpu = sim.pl[1]
-	var last_t := -1.0
+	var last_t: = -1.0
 	for i in 600:
-		if tossed and not served and sim.ball.toss_t >= 0.50:
+		if tossed and not served and sim.ball.toss_t >= 0.5:
 			sim.inp.hit = true
 			served = true
 		elif tossed and not served:

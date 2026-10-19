@@ -1,30 +1,30 @@
 extends SceneTree
-# v0.17: mide saques - CPU 1o agresivo/2o seguro, humano plano vs seguro.
+
 const DIFFS: Array = [
-	{"speed": 4.3, "react": 0.45, "err": 0.9, "miss": 0.3},
-	{"speed": 5.6, "react": 0.27, "err": 0.5, "miss": 0.15},
-	{"speed": 6.8, "react": 0.14, "err": 0.28, "miss": 0.06},
+	{"speed": 4.3, "react": 0.45, "err": 0.9, "miss": 0.3}, 
+	{"speed": 5.6, "react": 0.27, "err": 0.5, "miss": 0.15}, 
+	{"speed": 6.8, "react": 0.14, "err": 0.28, "miss": 0.06}, 
 ]
 
-func _initialize() -> void:
+func _initialize() -> void :
 	for di in DIFFS.size():
 		_cpu(di, 5)
-	_human("flat", 6, 0.50)
-	_human("flat-maltiempo", 6, 0.80)
-	_human("safe", 6, 0.50)
+	_human("flat", 6, 0.5)
+	_human("flat-maltiempo", 6, 0.8)
+	_human("safe", 6, 0.5)
 	print("SERVE done")
 	quit(0)
 
-func _cpu(di: int, n: int) -> void:
-	var dt := 1.0 / 60.0
-	var serves := 0
-	var faults := 0
-	var dfs := 0
-	var aces := 0
-	var pts := 0
+func _cpu(di: int, n: int) -> void :
+	var dt: = 1.0 / 60.0
+	var serves: = 0
+	var faults: = 0
+	var dfs: = 0
+	var aces: = 0
+	var pts: = 0
 	for m in n:
-		var sim := TennisSim.new(true, DIFFS[di], {}, "CPU", 1)
-		var guard := 0
+		var sim: = TennisSim.new(true, DIFFS[di], {}, "CPU", 1)
+		var guard: = 0
 		while not sim.match_over and guard < 60 * 60 * 30:
 			sim.update(dt)
 			guard += 1
@@ -42,24 +42,24 @@ func _cpu(di: int, n: int) -> void:
 			sim.events.clear()
 	print("SERVE CPU DIFF %d | saques %d faltas %d (%.0f%% 1saque) DF %d (%.1f%% pts) aces %d (%.0f%% pts) | pts %d" % [di, serves, faults, 100.0 * faults / maxf(1.0, float(serves)), dfs, 100.0 * dfs / maxf(1.0, float(pts)), aces, 100.0 * aces / maxf(1.0, float(pts)), pts])
 
-func _human(mode: String, n: int, hit_at: float = 0.84) -> void:
-	var dt := 1.0 / 60.0
-	var serves := 0
-	var faults := 0
-	var dfs := 0
-	var aces := 0
-	var hp := 0
-	var cp := 0
-	var ft_sum := 0.0
-	var ft_n := 0
+func _human(mode: String, n: int, hit_at: float = 0.84) -> void :
+	var dt: = 1.0 / 60.0
+	var serves: = 0
+	var faults: = 0
+	var dfs: = 0
+	var aces: = 0
+	var hp: = 0
+	var cp: = 0
+	var ft_sum: = 0.0
+	var ft_n: = 0
 	for m in n:
-		var sim := TennisSim.new(false, DIFFS[1], {"speed": 6.2, "T": 1.0, "err": 1.0}, "CPU", 1)
-		var guard := 0
-		var serve_t := -1.0
+		var sim: = TennisSim.new(false, DIFFS[1], {"speed": 6.2, "T": 1.0, "err": 1.0}, "CPU", 1)
+		var guard: = 0
+		var serve_t: = -1.0
 		while not sim.match_over and guard < 60 * 60 * 25:
 			var p = sim.pl[0]
 			if sim.state == "serve" and sim.M.server == 0:
-				var bs := -signf(p.x)
+				var bs: = - signf(p.x)
 				if mode.begins_with("flat"):
 					sim.inp.y = 1.0
 					sim.inp.x = 0.9 * bs

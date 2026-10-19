@@ -1,0 +1,193 @@
+[remap]
+
+importer="scene"
+importer_version=1
+type="PackedScene"
+uid="uid://dhenu52frpmyg"
+path="res://.godot/imported/32-AnimationLibrary_Godot_Standard.gltf-c849e0713a4e45e66e0b857823540579.scn"
+
+[deps]
+
+source_file="res://models/32-AnimationLibrary_Godot_Standard.gltf"
+dest_files=["res://.godot/imported/32-AnimationLibrary_Godot_Standard.gltf-c849e0713a4e45e66e0b857823540579.scn"]
+
+[params]
+
+nodes/root_type="Node3D"
+nodes/root_name="32-AnimationLibrary_Godot_Standard"
+nodes/apply_root_scale=true
+nodes/root_scale=1.0
+nodes/import_as_skeleton_bones=false
+nodes/use_name_suffixes=true
+nodes/use_node_type_suffixes=true
+meshes/ensure_tangents=true
+meshes/generate_lods=true
+meshes/create_shadow_meshes=false
+meshes/light_baking=1
+meshes/lightmap_texel_size=0.2
+meshes/force_disable_compression=true
+skins/use_named_skins=true
+animation/import=true
+animation/fps=30
+animation/trimming=false
+animation/remove_immutable_tracks=true
+animation/import_rest_as_RESET=false
+import_script/path=""
+_subresources={
+"animations": {
+"Crouch_Fwd": {
+"save_to_file/enabled": false,
+"save_to_file/fallback_path": "",
+"save_to_file/keep_custom_tracks": false,
+"save_to_file/path": "",
+"settings/loop_mode": 1,
+"slices/amount": 0
+},
+"Crouch_Idle": {
+"save_to_file/enabled": false,
+"save_to_file/fallback_path": "",
+"save_to_file/keep_custom_tracks": false,
+"save_to_file/path": "",
+"settings/loop_mode": 1,
+"slices/amount": 0
+},
+"Dance": {
+"save_to_file/enabled": false,
+"save_to_file/fallback_path": "",
+"save_to_file/keep_custom_tracks": false,
+"save_to_file/path": "",
+"settings/loop_mode": 1,
+"slices/amount": 0
+},
+"Driving": {
+"save_to_file/enabled": false,
+"save_to_file/fallback_path": "",
+"save_to_file/keep_custom_tracks": false,
+"save_to_file/path": "",
+"settings/loop_mode": 1,
+"slices/amount": 0
+},
+"Idle": {
+"save_to_file/enabled": false,
+"save_to_file/fallback_path": "",
+"save_to_file/keep_custom_tracks": false,
+"save_to_file/path": "",
+"settings/loop_mode": 1,
+"slices/amount": 0
+},
+"Idle_Talking": {
+"save_to_file/enabled": false,
+"save_to_file/fallback_path": "",
+"save_to_file/keep_custom_tracks": false,
+"save_to_file/path": "",
+"settings/loop_mode": 1,
+"slices/amount": 0
+},
+"Idle_Torch": {
+"save_to_file/enabled": false,
+"save_to_file/fallback_path": "",
+"save_to_file/keep_custom_tracks": false,
+"save_to_file/path": "",
+"settings/loop_mode": 1,
+"slices/amount": 0
+},
+"Jog_Fwd": {
+"save_to_file/enabled": false,
+"save_to_file/fallback_path": "",
+"save_to_file/keep_custom_tracks": false,
+"save_to_file/path": "",
+"settings/loop_mode": 1,
+"slices/amount": 0
+},
+"Jump": {
+"save_to_file/enabled": false,
+"save_to_file/fallback_path": "",
+"save_to_file/keep_custom_tracks": false,
+"save_to_file/path": "",
+"settings/loop_mode": 1,
+"slices/amount": 0
+},
+"Pistol_Idle": {
+"save_to_file/enabled": false,
+"save_to_file/fallback_path": "",
+"save_to_file/keep_custom_tracks": false,
+"save_to_file/path": "",
+"settings/loop_mode": 1,
+"slices/amount": 0
+},
+"Push": {
+"save_to_file/enabled": false,
+"save_to_file/fallback_path": "",
+"save_to_file/keep_custom_tracks": false,
+"save_to_file/path": "",
+"settings/loop_mode": 1,
+"slices/amount": 0
+},
+"Sitting_Idle": {
+"save_to_file/enabled": false,
+"save_to_file/fallback_path": "",
+"save_to_file/keep_custom_tracks": false,
+"save_to_file/path": "",
+"settings/loop_mode": 1,
+"slices/amount": 0
+},
+"Sitting_Talking": {
+"save_to_file/enabled": false,
+"save_to_file/fallback_path": "",
+"save_to_file/keep_custom_tracks": false,
+"save_to_file/path": "",
+"settings/loop_mode": 1,
+"slices/amount": 0
+},
+"Spell_Simple_Idle": {
+"save_to_file/enabled": false,
+"save_to_file/fallback_path": "",
+"save_to_file/keep_custom_tracks": false,
+"save_to_file/path": "",
+"settings/loop_mode": 1,
+"slices/amount": 0
+},
+"Sprint": {
+"save_to_file/enabled": false,
+"save_to_file/fallback_path": "",
+"save_to_file/keep_custom_tracks": false,
+"save_to_file/path": "",
+"settings/loop_mode": 1,
+"slices/amount": 0
+},
+"Swim_Fwd": {
+"save_to_file/enabled": false,
+"save_to_file/fallback_path": "",
+"save_to_file/keep_custom_tracks": false,
+"save_to_file/path": "",
+"settings/loop_mode": 1,
+"slices/amount": 0
+},
+"Swim_Idle": {
+"save_to_file/enabled": false,
+"save_to_file/fallback_path": "",
+"save_to_file/keep_custom_tracks": false,
+"save_to_file/path": "",
+"settings/loop_mode": 1,
+"slices/amount": 0
+},
+"Walk": {
+"save_to_file/enabled": false,
+"save_to_file/fallback_path": "",
+"save_to_file/keep_custom_tracks": false,
+"save_to_file/path": "",
+"settings/loop_mode": 1,
+"slices/amount": 0
+},
+"Walk_Formal": {
+"save_to_file/enabled": false,
+"save_to_file/fallback_path": "",
+"save_to_file/keep_custom_tracks": false,
+"save_to_file/path": "",
+"settings/loop_mode": 1,
+"slices/amount": 0
+}
+}
+}
+gltf/naming_version=2
+gltf/embedded_image_handling=1

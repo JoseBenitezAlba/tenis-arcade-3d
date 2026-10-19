@@ -1,12 +1,12 @@
 extends SceneTree
-# v0.16: mide golpear AL BOTE (vy>1, agresivo) vs ESPERAR (vy<0, seguro).
-# Uso: godot --headless -s tools/timing_test.gd -- [partidos]
 
-const D := {"speed": 5.6, "react": 0.27, "err": 0.5, "miss": 0.15}
 
-func _initialize() -> void:
-	var n := 8
-	var args := OS.get_cmdline_user_args()
+
+const D: = {"speed": 5.6, "react": 0.27, "err": 0.5, "miss": 0.15}
+
+func _initialize() -> void :
+	var n: = 8
+	var args: = OS.get_cmdline_user_args()
 	if args.size() > 0:
 		n = int(args[0])
 	_run("rise", n)
@@ -14,20 +14,20 @@ func _initialize() -> void:
 	print("TIMING done")
 	quit(0)
 
-func _run(mode: String, n: int) -> void:
-	var dt := 1.0 / 60.0
-	var hp := 0
-	var cp := 0
-	var outs := {}
-	var hits_rise := 0
-	var hits_wait := 0
-	var ft_rise := 0.0
-	var ft_wait := 0.0
+func _run(mode: String, n: int) -> void :
+	var dt: = 1.0 / 60.0
+	var hp: = 0
+	var cp: = 0
+	var outs: = {}
+	var hits_rise: = 0
+	var hits_wait: = 0
+	var ft_rise: = 0.0
+	var ft_wait: = 0.0
 	for m in n:
-		var sim := TennisSim.new(false, D, {"speed": 6.2, "T": 1.0, "err": 1.0}, "CPU", 1)
-		var guard := 0
-		var last_hit_t := -1.0
-		var last_hit_rise := false
+		var sim: = TennisSim.new(false, D, {"speed": 6.2, "T": 1.0, "err": 1.0}, "CPU", 1)
+		var guard: = 0
+		var last_hit_t: = -1.0
+		var last_hit_rise: = false
 		while not sim.match_over and guard < 60 * 60 * 25:
 			var p = sim.pl[0]
 			if sim.state == "serve" and sim.M.server == 0:
