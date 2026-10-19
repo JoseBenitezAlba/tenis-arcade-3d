@@ -1035,8 +1035,10 @@ func human_control(e: Player, dt: float) -> void:
             _assist(e)
             var dx := absf(ball.x - e.x)
             var dz := absf(ball.z - e.z)
-            var hgx := 2.05
-            var hgz := 1.75
+            # Ventana de contacto arcade: el jugador puede anticipar el golpe
+            # mientras llega a la zona, evitando que el input se sienta perdido.
+            var hgx := 2.30
+            var hgz := 2.00
             if e.dive_t > 0.0:
                 hgx *= 1.8  # v0.36: alcance de estirada
                 hgz *= 1.8

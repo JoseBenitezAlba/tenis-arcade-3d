@@ -27,9 +27,9 @@ var bounce_ring_mat: StandardMaterial3D
 var trail := []
 var cam: Camera3D
 # v0.32 VT3: camara broadcast mas alta y lejana
-const CAM_POS := Vector3(0, 8.7, -14.6)
-const CAM_FOV := 46.0
-const CAM_LOOK_Y := 0.9
+const CAM_POS := Vector3(0, 9.4, -16.8)
+const CAM_FOV := 43.0
+const CAM_LOOK_Y := 1.0
 var hud: MatchHUD
 var sfx: SoundKit
 var dust_pool := []
@@ -59,6 +59,12 @@ var replay_i := 0.0
 var replay_test := false
 var replay_side := 1.0
 const REC_MAX := 2700
+var rally_label: Label
+var rally_best := 0
+var rally_display := 0
+var rally_change_t := 0.0
+var camera_smooth_x := 0.0
+var camera_smooth_z := 0.0
 
 func setup(cfg: Dictionary) -> void:
     demo = cfg.get("demo", false)
@@ -209,6 +215,16 @@ func _ready() -> void:
     add_child(hud)
     hud.set_names(get_meta("my_name", "TÚ"), get_meta("cpu_label", "CPU"))
     hud.update_score(sim.M)
+    rally_label = Label.new()
+    rally_label.position = Vector2(1040, 604)
+    rally_label.size = Vector2(220, 54)
+    rally_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+    rally_label.add_theme_font_size_override("font_size", 23)
+    rally_label.add_theme_color_override("font_color", Color("#ffe783"))
+    rally_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.82))
+    rally_label.add_theme_constant_override("outline_size", 6)
+    rally_label.visible = false
+    hud.add_child(rally_label)
     touch_ui = false
     if not demo:
         touch_ui = get_meta("force_touch", false) or TouchControls.should_show()
@@ -342,6 +358,10 @@ func _physics_process(dt: float) -> void:
     if not demo:
         sim.inp.x = Input.get_axis("move_left", "move_right")
         sim.inp.y = Input.get_axis("move_down", "move_up")
+        # Ligeramente más ágil en cambios de dirección, estilo arcade.
+        var move := Vector2(sim.inp.x, sim.inp.y).limit_length(1.0)
+        sim.inp.x = move.x
+        sim.inp.y = move.y
         if Input.is_action_just_pressed("drop"):
             sim.inp.y = -1.0
             sim.inp.hit = true
@@ -349,6 +369,19 @@ func _physics_process(dt: float) -> void:
             sim.inp.hit = true
         elif Input.is_action_just_pressed("lob"):
             sim.inp.lob = true
+    var this_rally := sim.rally_hits if sim.state == "play" else 0
+    rally_display = this_rally
+    if this_rally >= 3:
+        rally_label.visible = true
+        rally_label.text = "RALLY  %02d   ·   BEST %02d" % [this_rally, rally_best]
+        rally_label.modulate.a = 1.0
+    elif rally_change_t > 0.0:
+        rally_label.visible = true
+        rally_change_t = maxf(0.0, rally_change_t - dt)
+        rally_label.text = "RALLY BEST  %02d" % rally_best
+        rally_label.modulate.a = minf(1.0, rally_change_t * 1.7)
+    else:
+        rally_label.visible = false
     if hitstop_t > 0.0:
         hitstop_t -= dt  # v0.26: congela el sim un instante (el mundo sigue respirando)
     else:
@@ -418,14 +451,19 @@ func _physics_process(dt: float) -> void:
             else:
                 mk.mat.albedo_color.a = clampf(mk.life / mk.max, 0.0, 1.0) * 0.4
     # camara sigue suave a la bola
-    var target_x: float = clampf(sim.ball.x * 0.35, -2.6, 2.6)
-    cam.position.x = lerpf(cam.position.x, target_x, minf(1.0, dt * 2.2))
+    var target_x: float = clampf(sim.ball.x * 0.27 + sim.pl[0].x * 0.12, -3.4, 3.4)
+    var target_z: float = CAM_POS.z + clampf((sim.ball.z - NZ) * 0.08, -1.0, 1.0)
+    camera_smooth_x = lerpf(camera_smooth_x, target_x, minf(1.0, dt * 2.6))
+    camera_smooth_z = lerpf(camera_smooth_z, target_z, minf(1.0, dt * 1.6))
+    cam.position.x = camera_smooth_x
+    cam.position.z = camera_smooth_z
     if shake > 0.0:
         shake = maxf(0.0, shake - dt)
         # v0.36: amplitud mayor - el pico fuerte dura ~0.05s y decae (pedido)
         cam.position.y = CAM_POS.y + randf_range(-1.0, 1.0) * shake * 0.5
-        cam.position.z = CAM_POS.z + randf_range(-1.0, 1.0) * shake * 0.38
-    cam.look_at(Vector3(sim.ball.x * 0.2, CAM_LOOK_Y, NZ))
+        cam.position.z = camera_smooth_z + randf_range(-1.0, 1.0) * shake * 0.22
+    var focus := Vector3(sim.ball.x * 0.22, CAM_LOOK_Y + clampf(sim.ball.y * 0.04, 0.0, 0.35), lerpf(NZ, sim.ball.z, 0.12))
+    cam.look_at(focus)
 
     if banner_t > 0.0:
         banner_t -= dt
@@ -624,6 +662,10 @@ func drain_events() -> void:
                     sfx.play("point_win" if ev.w == 0 else "point_lose")
             "point":
                 var is_err: bool = ev.txt in ["FUERA", "RED", "DOBLE FALTA"]
+                if sim.rally_hits > rally_best:
+                    rally_best = sim.rally_hits
+                if sim.rally_hits >= 3:
+                    rally_change_t = 1.4
                 crowd.react(is_err)
                 # v0.36: ovacion en los aces (saque bueno sin resto: 1 solo golpe)
                 if sim.rally_hits == 1 and ev.txt == "PUNTO":

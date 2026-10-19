@@ -36,6 +36,8 @@ func _ready() -> void:
     # v0.32 VT3: borde sutil; acento amarillo TV como barra superior
     sb.border_color = Color(1, 1, 1, 0.14)
     sb.set_border_width_all(1)
+    sb.shadow_color = Color(0, 0, 0, 0.38)
+    sb.shadow_size = 12
     sb.content_margin_left = 14
     sb.content_margin_right = 14
     sb.content_margin_top = 10
@@ -79,6 +81,10 @@ func _ready() -> void:
             grid.add_child(v)
             row.append(v)
         score_rows.append(row)
+    # Presentacion de marcador de retransmision, con jerarquia clara para los
+    # puntos actuales y un acento que identifica el lado del jugador.
+    name_labels[0].add_theme_color_override("font_color", Color("#ffffff"))
+    name_labels[1].add_theme_color_override("font_color", Color("#c8d3ea"))
     score_rows[0][2].add_theme_color_override("font_color", Color("#ffd23f"))
     score_rows[1][2].add_theme_color_override("font_color", Color("#ffd23f"))
 

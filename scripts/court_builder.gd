@@ -150,6 +150,26 @@ static func build(surface: String, day: bool = false) -> Node3D:
     court.position = Vector3(0, 0.06, (L + 3.6 - 4.0) / 2.0)
     root.add_child(court)
 
+    # Iluminacion tipo retransmision: relleno suave y luz de contorno para
+    # separar a los jugadores de la pista, especialmente en partidos nocturnos.
+    var fill := OmniLight3D.new()
+    fill.position = Vector3(0, 10.0, NZ)
+    fill.light_color = Color("#d8e8ff") if not day else Color("#fff0d0")
+    fill.light_energy = 1.25 if not day else 0.65
+    fill.omni_range = 35.0
+    fill.shadow_enabled = false
+    root.add_child(fill)
+    for lx in [-9.5, 9.5]:
+        var rim := SpotLight3D.new()
+        rim.position = Vector3(lx, 12.0, NZ)
+        rim.rotation_degrees = Vector3(-72, 0 if lx < 0 else 180, 0)
+        rim.spot_range = 27.0
+        rim.spot_angle = 52.0
+        rim.light_energy = 1.5 if not day else 0.45
+        rim.light_color = Color("#8fc5ff") if not day else Color("#ffffff")
+        rim.shadow_enabled = false
+        root.add_child(rim)
+
     # red reglamentaria: postes a 0.914m de la linea de dobles (+-6.40m),
     # 1.07m en los postes, 0.914m en el centro (caida parabolica), correa central
     var post_mat := _mat(Color("#202634"))
