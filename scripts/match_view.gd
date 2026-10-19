@@ -118,7 +118,7 @@ static func held_ball_scale(held: bool, toss: bool, toss_t: float) -> float:
 	if held:
 		return HELD_BALL_K
 	if toss:
-		return lerpf(HELD_BALL_K, 1.0, clampf(toss_t / 0.35, 0.0, 1.0))
+		return lerpf(HELD_BALL_K, 0.6, clampf(toss_t / 0.35, 0.0, 1.0))
 	return 1.0
 const HIT_KMH_K: = 4.0  # v0.138: golpes de fondo (la gravedad arcade fija una velocidad minima alta; el factor de saque inflaba los peloteos)
 var banner_dur: = 0.0
@@ -134,6 +134,8 @@ var shake: = 0.0
 var hitstop_t: = 0.0
 var ball_squash: = 0.0
 var _point_winner: = -1
+var _prev_sim_state: = ""
+var _serve_blank: = 0.0
 var _prev_state: = ""
 var point_hot: = 0
 var cam_look: = Vector3(0, 1.0, 11.885)
@@ -661,12 +663,16 @@ func _physics_process(dt: float) -> void :
 		elif pv.speed <= 2.2:
 			step_t[i] = 0.0
 	ball_mesh.position = Vector3(sim.ball.x, sim.ball.y, sim.ball.z)
-	# La bola de punto no debe seguir dibujandose durante el primer plano ni
-	# dejar un rastro que atraviese la camara al preparar el siguiente saque.
-	var point_break: bool = sim.state == "point" or sim.state == "over"
-	ball_mesh.visible = not point_break
-	ball_shadow.visible = not point_break
-	ball_seam.visible = not point_break
+	# v0.142: al pasar de punto a saque la camara aun vuelve desde el primer plano; la pelota
+	# (y su rastro) se oculta unos instantes para que no cruce la camara enorme y lenta.
+	if sim.state == "serve" and (_prev_sim_state == "point" or _prev_sim_state == "over"):
+		_serve_blank = 0.75
+	_prev_sim_state = sim.state
+	_serve_blank = maxf(0.0, _serve_blank - dt)
+	var blank: bool = _serve_blank > 0.0 and not replaying
+	ball_mesh.visible = not blank
+	ball_shadow.visible = not blank
+	ball_seam.visible = not blank
 	# v0.138: la bola en la mano / botando antes del saque se ve mas pequena (antes: pelota gigante junto al sacador)
 	var bk: float = held_ball_scale(sim.ball.held, sim.ball.toss, sim.ball.toss_t)
 	if ball_squash > 0.0:
@@ -704,7 +710,7 @@ func _physics_process(dt: float) -> void :
 	var hb: float = hot_trail_boost(_hot_level())
 	for i in trail.size():
 		var t = trail[i]
-		if not point_break and i < sim.ball.trail.size():
+		if i < sim.ball.trail.size() and not blank:
 			t.m.visible = true
 			t.m.position = sim.ball.trail[i]
 			var f: float = float(i) / trail.size()
@@ -857,7 +863,11 @@ func _update_bounce_ring() -> void :
 	var k: float = clampf(pb.t / 1.1, 0.0, 1.0)
 	var sc: float = lerpf(0.35, 1.0, k)
 	bounce_ring.scale = Vector3(sc, 1, sc)
-	bounce_ring_mat.albedo_color.a = lerpf(0.95, 0.55, k)
+	if surface == "clay":
+		# v0.143: en tierra el aro se perdia; blanco puro y casi opaco
+		bounce_ring_mat.albedo_color = Color(1.0, 1.0, 1.0, lerpf(1.0, 0.85, k))
+	else:
+		bounce_ring_mat.albedo_color.a = lerpf(0.95, 0.55, k)
 
 func _start_replay() -> void :
 	if rec.size() < 10:
@@ -865,9 +875,6 @@ func _start_replay() -> void :
 		return
 	replaying = true
 	replay_i = 0.0
-	ball_mesh.visible = true
-	ball_shadow.visible = true
-	ball_seam.visible = true
 	bounce_ring.visible = false
 	hud.show_replay()
 	for t in trail:
@@ -1347,9 +1354,6 @@ func drain_events() -> void :
 					sfx.play("point_win" if ev.w == 0 else "point_lose")
 			"point":
 				hud.hide_speed()
-				ball_mesh.visible = false
-				ball_shadow.visible = false
-				ball_seam.visible = false
 				_point_winner = ev.get("w", -1)
 				_fatigue = fatigue_from_rally(sim.rally_hits)
 				var is_err: bool = ev.txt in ["FUERA", "RED", "DOBLE FALTA"]
@@ -1384,7 +1388,7 @@ func drain_events() -> void :
 						sfx.play(rx[0], rx[1])
 
 
-				rigs[1 - ev.w].celebrate("HitRecieve" if is_err else "Wave", 2.0)
+				rigs[1 - ev.w].celebrate("HitRecieve" if is_err else "Wave", 1.3 if is_err else 2.0)
 
 				var wp: Array = winner_celebration_plan(ev.txt, point_hot)
 				if not wp.is_empty():

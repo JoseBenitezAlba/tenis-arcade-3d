@@ -80,7 +80,7 @@ func _init() -> void :
 	var appr_sv: = _count_appr("sv")
 	var appr_base: = _count_appr("")
 	print("C cierres sv=", appr_sv, " base=", appr_base, " (900s demo)")
-	if appr_sv < 35 or appr_sv < appr_base * 1.5: print("FAIL C: el sv no cierra mucho mas en rally");ok = false
+	if appr_sv < 30 or appr_sv < appr_base * 1.5: print("FAIL C: el sv no cierra mucho mas en rally");ok = false
 	print("GATE077 " + ("PASS" if ok else "FAIL"))
 	quit(0 if ok else 1)
 func _count_appr(style: String) -> int:

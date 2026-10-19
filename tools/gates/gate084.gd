@@ -22,7 +22,7 @@ func _state(spd: float, vx: float) -> String:
 func _init() -> void :
 	call_deferred("_go")
 func _go() -> void :
-	var run_st: = _state(4.0, 4.0)
+	var run_st: = _state(7.0, 7.0)  # v0.142: el shuffle lateral llega hasta 5.5 m/s; por encima es sprint
 	var shuf_st: = _state(2.4, 2.4)
 	var set_st: = _state(1.0, 0.5)
 	var idle_st: = _state(0.0, 0.0)

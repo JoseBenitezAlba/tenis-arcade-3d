@@ -361,12 +361,14 @@ func serve_meter_hide() -> void :
 
 func show_speed_kmh(kmh: int, is_serve: bool) -> void :
 	kmh = clampi(kmh, 0, 245)
+
 	speed_label.text = ("SAQUE  %d km/h" % kmh) if is_serve else ("VELOCIDAD  %d km/h" % kmh)
 	speed_label.visible = true
 	speed_label.modulate.a = 1.0
 	speed_t = 2.2
 
-func hide_speed() -> void:
+
+func hide_speed() -> void :
 	speed_t = 0.0
 	if speed_label != null:
 		speed_label.visible = false

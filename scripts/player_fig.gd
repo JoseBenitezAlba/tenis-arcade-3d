@@ -635,6 +635,8 @@ func update_from_sim(e, dt: float) -> void :
 	ap.advance(dt)
 	if racket_node != null:
 		racket_node.rotation = Vector3(PI, 0.0, 0.0)
+		# v0.143: en la reaccion de punto perdido la raqueta atravesaba la cabeza
+		racket_node.visible = not (celeb_t > 0.0 and celeb_name == "HitRecieve")
 	swing_now = e.swing
 	var _fatk: float = e.get("fat") if e.get("fat") != null else 0.0
 
@@ -830,10 +832,9 @@ func update_from_sim(e, dt: float) -> void :
 		_play(celeb_name)
 	elif e.want_t > 0.0 and e.speed <= 2.2:
 		_play("Idle_Sword")
-	elif e.speed > 0.9 and absf(e.vx) > absf(e.vz) * 1.15:
-		# El shuffle lateral debe tener prioridad sobre el ciclo de carrera frontal;
-		# de lo contrario el modelo corre de frente mientras se desplaza de costado.
-		_play("Run_Left" if e.vx > 0.0 else "Run_Right", clampf(e.speed / 3.2, 0.65, 1.65))
+	elif e.speed > 0.9 and e.speed <= 5.5 and absf(e.vx) > absf(e.vz) * 1.15:
+		# v0.142: desplazamiento lateral con paso lateral (antes corria de frente de lado y los pies patinaban)
+		_play("Run_Left" if e.vx > 0.0 else "Run_Right", clampf(e.speed / 3.2, 0.65, 1.5))
 	elif e.speed > 1.6 and ((e.vz < 0.0) if e.near else (e.vz > 0.0)) and absf(e.vz) > absf(e.vx) * 0.7:
 
 		_play("Run_Back", clampf(e.speed / 5.0, 0.7, 1.4))
@@ -841,6 +842,10 @@ func update_from_sim(e, dt: float) -> void :
 		_play("Run", clampf(e.speed / 4.0, 1.0, 1.6) * (1.0 - 0.18 * _fatk))
 	elif e.speed > 2.8:
 		_play("Run", clampf(e.speed / 5.0, 0.6, 1.2) * (1.0 - 0.18 * _fatk))
+	elif e.speed > 1.6 and absf(e.vx) > absf(e.vz) * 1.2:
+
+
+		_play("Run_Left" if e.vx > 0.0 else "Run_Right", clampf(e.speed / 3.2, 0.7, 1.3))
 	elif e.speed > 0.4:
 
 		_play("Walk", clampf(e.speed / 2.2, 0.8, 1.6))
