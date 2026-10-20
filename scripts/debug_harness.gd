@@ -17,7 +17,7 @@ const LATE: = {
 	"--looktest": "_looktest_harness", "--careershot": "_careershot_harness", 
 	"--faceshots": "_faceshots_harness", "--matchprobe": "_matchprobe_harness", 
 	"--shots": "_shots_harness", 
-	"--celnight": "_celnight_harness", "--startshot": "_startshot_harness", "--prepshot": "_prepshot_harness", "--legshot": "_legshot_harness", "--rallylabel": "_rallylabel_harness", 
+	"--celnight": "_celnight_harness", "--startshot": "_startshot_harness", "--prepshot": "_prepshot_harness", "--legshot": "_legshot_harness", "--rallylabel": "_rallylabel_harness", "--celshot": "_celshot_harness", 
 	"--v31shots": "_v31shots", 
 }
 
@@ -1313,15 +1313,44 @@ func _rallylabel_harness(args: Array) -> void :
 	var out: String = args[i + 1] if i + 1 < args.size() else "/tmp/rl.png"
 	m.menus.visible = false
 	m.match_view = MatchView.new()
-	m.match_view.set_meta("surface", "hard")
+	m.match_view.set_meta("surface", ("clay" if args.has("--clay") else "hard"))
 	m.match_view.set_meta("tod", 1)
 	m.match_view.set_meta("cpu_look", 2)
 	m.match_view.set_meta("my_name", "TU")
 	m.match_view.set_meta("cpu_label", "CPU")
-	m.match_view.setup({"demo": true, "surface": "hard", "AIP": m.DIFF_PARAMS[1], "sets_to_win": 1})
+	m.match_view.setup({"demo": true, "surface": ("clay" if args.has("--clay") else "hard"), "AIP": m.DIFF_PARAMS[1], "sets_to_win": 1})
 	add_child(m.match_view)
 	var ok: = await _wait_until( func(): return m.match_view.sim.rally_hits >= 5 and m.match_view.sim.state == "play", 90.0)
 	print("ok ", ok)
 	await get_tree().process_frame
 	await _grab(out)
+	get_tree().quit()
+
+
+func _celshot_harness(args: Array) -> void :
+	var i: = args.find("--celshot")
+	var out: String = args[i + 1] if i + 1 < args.size() else "/tmp/cs"
+	DirAccess.make_dir_recursive_absolute(out)
+	m.menus.visible = false
+	m.match_view = MatchView.new()
+	m.match_view.set_meta("surface", "hard")
+	m.match_view.set_meta("tod", 1)
+	m.match_view.set_meta("cpu_look", 2)
+	m.match_view.set_meta("my_name", "TU")
+	m.match_view.set_meta("cpu_label", "CPU")
+	m.match_view.setup({"AIP": m.DIFF_PARAMS[0], "sets_to_win": 1})
+	add_child(m.match_view)
+	var jc: = Camera3D.new()
+	add_child(jc)
+	jc.fov = 35.0
+	jc.current = true
+	for nm in ["Wave", "Punch_Right", "HitRecieve"]:
+		var rg = m.match_view.rigs[1]
+		rg.celebrate(nm, 3.0)
+		for k in 14:
+			await get_tree().process_frame
+		var p0: Vector3 = rg.global_position
+		jc.position = p0 + Vector3(0.0, 1.5, -3.2)
+		jc.look_at(p0 + Vector3(0, 1.2, 0))
+		await _grab(out + "/" + nm + ".png")
 	get_tree().quit()

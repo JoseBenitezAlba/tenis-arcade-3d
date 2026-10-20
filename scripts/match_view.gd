@@ -49,7 +49,7 @@ var ring_pool: = []
 static func ring_params(spd: float) -> Vector2:
 
 	var f: = clampf(spd / 45.0, 0.0, 1.0)
-	return Vector2(0.55 + 0.95 * f, 0.7 + 0.3 * f)
+	return Vector2(0.6 + 1.0 * f, 0.8 + 0.2 * f)
 
 func _make_ring_tex() -> ImageTexture:
 	var img: = Image.create(64, 64, false, Image.FORMAT_RGBA8)
@@ -64,8 +64,8 @@ func spawn_ring(pos: Vector3, spd: float) -> void :
 	var rp: = ring_params(spd)
 	for r in ring_pool:
 		if r.life <= 0.0:
-			r.life = 0.2
-			r.max = 0.2
+			r.life = RING_LIFE
+			r.max = RING_LIFE
 			r.rad = rp.x
 			r.a0 = rp.y
 			r.m.position = pos
@@ -110,15 +110,28 @@ var rally_label: Label
 var rally_best: = 0
 var rally_change_t: = 0.0
 var mark_pool: = []
+var ball_vis_scale: = 1.0
 var banner_t: = 0.0
 const SERVE_KMH_K: = 8.4
 const HELD_BALL_K: = 0.3
+const TOSS_BALL_K: = 0.42
+
+# v0.148: el aro del golpe dura un poco mas (se lee el impacto)
+const RING_LIFE: = 0.28
+
+# v0.147: la sombra de la bola sigue visible en el aire (se lee donde va a botar)
+static func ball_shadow_alpha(y: float) -> float:
+	return clampf(0.85 - y * 0.045, 0.3, 0.85)
+
+# v0.146: la bola lejana crece un poco para no perderse (legibilidad)
+static func far_ball_k(d: float) -> float:
+	return clampf(1.0 + (d - 20.0) * 0.025, 1.0, 1.5)
 
 static func held_ball_scale(held: bool, toss: bool, toss_t: float) -> float:
 	if held:
 		return HELD_BALL_K
 	if toss:
-		return lerpf(HELD_BALL_K, 0.6, clampf(toss_t / 0.35, 0.0, 1.0))
+		return lerpf(HELD_BALL_K, TOSS_BALL_K, clampf(toss_t / 0.35, 0.0, 1.0))
 	return 1.0
 const HIT_KMH_K: = 4.0  # v0.138: golpes de fondo (la gravedad arcade fija una velocidad minima alta; el factor de saque inflaba los peloteos)
 var banner_dur: = 0.0
@@ -675,12 +688,19 @@ func _physics_process(dt: float) -> void :
 	ball_seam.visible = not blank
 	# v0.138: la bola en la mano / botando antes del saque se ve mas pequena (antes: pelota gigante junto al sacador)
 	var bk: float = held_ball_scale(sim.ball.held, sim.ball.toss, sim.ball.toss_t)
+	# v0.145: la escala sube suave tras el golpe (sin salto) y baja de golpe
+	if bk < ball_vis_scale:
+		ball_vis_scale = bk
+	else:
+		ball_vis_scale = lerpf(ball_vis_scale, bk, minf(1.0, dt * 18.0))
+	var far_k: float = far_ball_k(cam.global_position.distance_to(ball_mesh.global_position))
+	var vis_k: float = ball_vis_scale * far_k
 	if ball_squash > 0.0:
 		ball_squash = maxf(0.0, ball_squash - dt)
 		var sqk: float = ball_squash / 0.09
-		ball_mesh.scale = Vector3(1.0 + 0.45 * sqk, 1.0 - 0.45 * sqk, 1.0 + 0.45 * sqk) * bk
-	elif ball_mesh.scale != Vector3.ONE * bk:
-		ball_mesh.scale = Vector3.ONE * bk
+		ball_mesh.scale = Vector3(1.0 + 0.45 * sqk, 1.0 - 0.45 * sqk, 1.0 + 0.45 * sqk) * vis_k
+	elif ball_mesh.scale != Vector3.ONE * vis_k:
+		ball_mesh.scale = Vector3.ONE * vis_k
 
 
 	var hsp: = Vector2(sim.ball.vx, sim.ball.vz).length()
@@ -692,7 +712,7 @@ func _physics_process(dt: float) -> void :
 	ball_shadow.position.z = sim.ball.z
 	var sh_scale: float = clampf(1.0 + sim.ball.y * 0.12, 1.0, 2.2)
 	ball_shadow.scale = Vector3(sh_scale * 0.4, 1, sh_scale * 0.4)
-	ball_shadow_mat.albedo_color.a = clampf(0.7 - sim.ball.y * 0.06, 0.12, 0.7)
+	ball_shadow_mat.albedo_color.a = ball_shadow_alpha(sim.ball.y)
 	_update_bounce_ring()
 
 	if dust_trail > 0.0:

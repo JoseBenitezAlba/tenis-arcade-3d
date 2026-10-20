@@ -3,7 +3,7 @@ extends RefCounted
 
 const THEMES: = {
 	"clay": {"court": Color("#bd5c26"), "court2": Color("#b4551f"), "surround": Color("#a34e1d"), "out": Color("#2a5741"), "out2": Color("#1e4434"), "line": Color("#f6f1e6")}, 
-	"hard": {"court": Color("#404a60"), "court2": Color("#3c465c"), "surround": Color("#48566e"), "out": Color("#46546e"), "out2": Color("#3e4c64"), "line": Color("#f4f6fa")}, 
+	"hard": {"court": Color("#2a5fae"), "court2": Color("#2656a0"), "surround": Color("#24694a"), "out": Color("#205c42"), "out2": Color("#1b4d37"), "line": Color("#f4f6fa")}, 
 	"grass": {"court": Color("#3f7a36"), "court2": Color("#397131"), "surround": Color("#2f6330"), "out": Color("#2f6330"), "out2": Color("#265122"), "line": Color("#f6f8f2")}, 
 }
 const L: = 23.77
@@ -234,14 +234,16 @@ static func ring_texture() -> ImageTexture:
 	for y in s:
 		for x in s:
 			var d: = Vector2(x - c, y - c).length() / c
-			var a: float = clamp(1.0 - abs(d - 0.78) / 0.22, 0.0, 1.0)
-			if d < 0.56:
-				a = max(a, 0.12)
-			if a > 0.0:
-
-				var edge: float = clamp((d - 0.86) / 0.1, 0.0, 1.0)
-				var shade: float = lerpf(1.0, 0.12, edge)
-				img.set_pixel(x, y, Color(shade, shade, shade, a * 0.95))
+			# v0.145: anillo mas grueso con halo oscuro (legible en tierra y dura)
+			var ring: float = clampf(1.0 - absf(d - 0.7) / 0.16, 0.0, 1.0)
+			var halo: float = clampf(1.0 - absf(d - 0.9) / 0.1, 0.0, 1.0)
+			var fill: float = clampf(1.0 - d / 0.52, 0.0, 1.0) * 0.18
+			var dot: float = clampf(1.0 - d / 0.12, 0.0, 1.0)
+			var a: float = maxf(ring, maxf(halo * 0.75, maxf(fill, dot)))
+			if a <= 0.0:
+				continue
+			var shade: float = 0.06 if halo > ring else 1.0
+			img.set_pixel(x, y, Color(shade, shade, shade, clampf(a, 0.0, 1.0)))
 	return ImageTexture.create_from_image(img)
 
 static func sky_panorama() -> ImageTexture:

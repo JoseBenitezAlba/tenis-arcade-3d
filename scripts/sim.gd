@@ -1889,6 +1889,9 @@ func update_player(e: Player, dt: float) -> void :
 		var _sside: float = signf((1.4 * _sgn) if e.near else (-1.4 * _sgn))
 		e.x = clampf(e.x, 0.25, 4.1) if _sside > 0.0 else clampf(e.x, -4.1, -0.25)
 		e.z = clamp(e.z, -2.2, -0.3) if e.near else clamp(e.z, L + 0.3, L + 2.2)
+	elif state == "serve":
+		e.x = clampf(e.x, -5.2, 5.2)
+		e.z = clamp(e.z, -2.4, NZ - 2.2) if e.near else clamp(e.z, NZ + 2.2, L + 2.4)
 	else:
 		e.x = clamp(e.x, -5.2, 5.2)
 		e.z = clamp(e.z, -2.4, NZ - 2.2) if e.near else clamp(e.z, NZ + 2.2, L + 2.4)
