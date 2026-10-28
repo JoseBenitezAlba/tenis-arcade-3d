@@ -15,14 +15,17 @@ func _ent(spd: float, vx: float) -> Dictionary:
 func _state(spd: float, vx: float) -> String:
 	var f = Fig.new(0, true)
 	root.add_child(f)
-	f.update_from_sim(_ent(spd, vx), 1.0 / 60.0)
+	var ent: = _ent(spd, vx)
+	for i in 30:
+		ent.x += vx / 60.0
+		f.update_from_sim(ent, 1.0 / 60.0)
 	var st: String = f.state
 	f.queue_free()
 	return st
 func _init() -> void :
 	call_deferred("_go")
 func _go() -> void :
-	var run_st: = _state(7.0, 7.0)  # v0.142: el shuffle lateral llega hasta 5.5 m/s; por encima es sprint
+	var run_st: = _state(7.0, 7.0)
 	var shuf_st: = _state(2.4, 2.4)
 	var set_st: = _state(1.0, 0.5)
 	var idle_st: = _state(0.0, 0.0)

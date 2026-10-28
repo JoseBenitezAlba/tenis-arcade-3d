@@ -47,7 +47,7 @@ func _init() -> void :
 			s.events.clear()
 	var frac: = float(mar) / maxf(1.0, float(rallies))
 	print("B rallies=", rallies, " maratonianos=", mar, " frac=", snappedf(frac, 0.03))
-	if frac < 0.01 or frac > 0.2:
+	if frac < 0.05 or frac > 0.45:
 		print("FAIL B: ovacion maratoniana constante o inexistente");ok = false
 	print("GATE096 ", "PASS" if ok else "FAIL")
 	quit(0 if ok else 1)

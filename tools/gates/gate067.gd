@@ -42,9 +42,8 @@ func _init():
 	if float(flat.nets + flat.cords) / 1.5 > 1.5: ok = false;print("FAIL plano comodo debe ser seguro")
 	var st: = _measure(1.1, "drive", 250, 0.0, 2.5, 0.0)
 	print("C2 estirada: red=", st.nets, " pelusa=", st.cords, " /250  spd=", snappedf(st.spd, 0.1), " cruce=", snappedf(st.cy, 0.01))
-	var spct: float = float(st.nets + st.cords) / 2.5
-	if spct < 0.5 or spct > 4.0: ok = false;print("FAIL estirada fuera de banda (0.5-4%)")
-	if st.nets < 1: ok = false;print("FAIL ni una red seca en 250 estiradas")
+	if st.cy < 1.5 or st.cy >= 3.0 or st.spd < 20.0 or st.spd > 30.0: ok = false;print("FAIL estirada debe ser drive debil con cruce comodo, NO globo (v0.177: usuario 23/10, A=siempre drive; globo solo X/Z)")
+	if float(st.nets) / 250.0 > 0.06: ok = false;print("FAIL la estirada no debe acabar en la red mas del 6% (v0.177; medido 1.2-2.0%, umbral con margen sobre varianza aleatoria)")
 	var dig: = _measure(0.5, "drive", 200, 0.0, 0.0, 0.0)
 	print("C3 escarbada: red=", dig.nets, " pelusa=", dig.cords, " /200  cruce=", snappedf(dig.cy, 0.01))
 	if float(dig.nets + dig.cords) / 2.0 > 15.0: ok = false;print("FAIL escarbada no jugable")

@@ -35,11 +35,11 @@ func _mean(a: Array) -> float:
 	for v in a: m += v
 	return m / a.size()
 func _init():
-	randomize()
+	seed(63063)
 	var ok: = true
-	var plant: = _hit_with_speed(0.0, 300)
-	var walk: = _hit_with_speed(2.0, 300)
-	var sprint: = _hit_with_speed(6.5, 300)
+	var plant: = _hit_with_speed(0.0, 600)
+	var walk: = _hit_with_speed(2.0, 600)
+	var sprint: = _hit_with_speed(6.5, 600)
 	var sd_plant: = _sd(plant.vx); var sd_walk: = _sd(walk.vx); var sd_sprint: = _sd(sprint.vx)
 	var v_plant: = _mean(plant.vz); var v_sprint: = _mean(sprint.vz)
 	print("C1 sd_plant=", snappedf(sd_plant, 0.01), " sd_walk=", snappedf(sd_walk, 0.01), " sd_sprint=", snappedf(sd_sprint, 0.01))

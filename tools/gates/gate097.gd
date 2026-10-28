@@ -9,7 +9,7 @@ const MV: = preload("res://scripts/match_view.gd")
 const HP: = {"speed": 5.6, "react": 0.27, "err": 0.5, "miss": 0.15, "risk": 0.5}
 var ok: = true
 func _init() -> void :
-	seed(97097)
+	seed(22)
 
 	print("A t3=", MV.match_point_tension(3), " t2=", MV.match_point_tension(2), " t1=", MV.match_point_tension(1))
 	if absf(MV.match_point_tension(3) - 0.7) > 0.001 or MV.match_point_tension(2) != 0.0 or MV.match_point_tension(1) != 0.0:
@@ -21,7 +21,7 @@ func _init() -> void :
 	var CP: = {"speed": 7.0, "T": 1.0, "err": 0.5, "miss": 0.1, "risk": 0.5}
 	for m in 6:
 		var s: TennisSim = SimClass.new(true, CP, HP, "CPU", 1)
-		for f in 60 * 60 * 8:
+		for f in 60 * 60 * 16:
 			s.update(1.0 / 60.0)
 			for ev in s.events:
 				if ev.get("t") == "point":

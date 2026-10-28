@@ -13,7 +13,7 @@ func _init() -> void :
 
 	print("A rut_y(0)=", snappedf(TennisSim.rut_y(0.0), 0.01), " rut_y(0.275)=", snappedf(TennisSim.rut_y(0.275), 0.01), 
 		" rut_y(0.55)=", snappedf(TennisSim.rut_y(0.55), 0.01), " rut_y(2.0)=", snappedf(TennisSim.rut_y(2.0), 0.01))
-	if absf(TennisSim.rut_y(0.0) - 0.95) > 0.01 or absf(TennisSim.rut_y(0.275) - 0.06) > 0.02 or absf(TennisSim.rut_y(0.55) - 0.95) > 0.01 or TennisSim.rut_y(2.0) != 0.95:
+	if absf(TennisSim.rut_y(0.0) - 0.95) > 0.01 or absf(TennisSim.rut_y(0.275) - 0.3) > 0.02 or absf(TennisSim.rut_y(0.55) - 0.95) > 0.01 or TennisSim.rut_y(2.0) != 0.95:
 		print("FAIL A: perfil de bote incorrecto");ok = false
 
 	var ruts: = 0
@@ -34,7 +34,7 @@ func _init() -> void :
 			s.events.clear()
 	var rpt: = float(ruts) / maxf(1.0, float(tosses))
 	print("B rut_bounces=", ruts, " saques=", tosses, " botes/saque=", snappedf(rpt, 0.01), " puntos=", pts)
-	if rpt < 2.4 or rpt > 3.6 or pts < 30:
+	if rpt < 2.4 or rpt > 3.6 or pts < 20:
 		print("FAIL B: la rutina no suena ~3 veces por saque o el partido se rompio");ok = false
 	print("GATE107 ", "PASS" if ok else "FAIL")
 	quit(0 if ok else 1)

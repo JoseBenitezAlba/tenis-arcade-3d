@@ -1,10 +1,14 @@
 class_name TexGen
 extends RefCounted
 
+
+const LINE_W_BASE: = 0.16
+const LINE_W_SIDE: = 0.11
+
 const THEMES: = {
 	"clay": {"court": Color("#bd5c26"), "court2": Color("#b4551f"), "surround": Color("#a34e1d"), "out": Color("#2a5741"), "out2": Color("#1e4434"), "line": Color("#f6f1e6")}, 
 	"hard": {"court": Color("#2a5fae"), "court2": Color("#2656a0"), "surround": Color("#24694a"), "out": Color("#205c42"), "out2": Color("#1b4d37"), "line": Color("#f4f6fa")}, 
-	"grass": {"court": Color("#3f7a36"), "court2": Color("#397131"), "surround": Color("#2f6330"), "out": Color("#2f6330"), "out2": Color("#265122"), "line": Color("#f6f8f2")}, 
+	"grass": {"court": Color("#31582c"), "court2": Color("#2d5029"), "surround": Color("#294a28"), "out": Color("#2f6330"), "out2": Color("#265122"), "line": Color("#f6f8f2")}, 
 }
 const L: = 23.77
 const NZ: = L / 2.0
@@ -42,10 +46,10 @@ static func court_texture(surface: String) -> ImageTexture:
 
 	var rng: = RandomNumberGenerator.new()
 	rng.seed = 7
-	for n in 26000:
+	for n in 9000:
 		var x: = rng.randi() % w
 		var y: = rng.randi() % h
-		var c: = Color(1, 1, 1, rng.randf_range(0.02, 0.06)) if rng.randf() < 0.5 else Color(0, 0, 0, rng.randf_range(0.02, 0.06))
+		var c: = Color(1, 1, 1, rng.randf_range(0.015, 0.035)) if rng.randf() < 0.5 else Color(0, 0, 0, rng.randf_range(0.015, 0.035))
 		img.set_pixel(x, y, img.get_pixel(x, y).blend(c))
 
 	for n in 2400:
@@ -57,9 +61,9 @@ static func court_texture(surface: String) -> ImageTexture:
 
 
 	if surface == "grass":
-		var dry: = Color("#7d8446")
+		var dry: = Color("#6b693f")
 		for zone in [[0.0, 0.05, 2.9, 1.1], [0.0, L - 0.05, 2.9, 1.1], [0.0, NZ - 6.4, 2.2, 0.8], [0.0, NZ + 6.4, 2.2, 0.8]]:
-			for n2 in 5200:
+			for n2 in 3000:
 				var a: = rng.randf() * TAU
 				var rr: = sqrt(rng.randf())
 				var zx2: float = zone[1] + sin(a) * rr * zone[3]
@@ -67,12 +71,7 @@ static func court_texture(surface: String) -> ImageTexture:
 				var x2: = int(px_of.call(xx2))
 				var y2: = int(py_of.call(zx2))
 				if x2 >= 0 and x2 < w and y2 >= 0 and y2 < h:
-					img.set_pixel(x2, y2, img.get_pixel(x2, y2).blend(dry).lerp(dry, rng.randf_range(0.04, 0.13)))
-		for cx in range(0, w, 3):
-			var f: = 1.0 + 0.03 * sin(cx * 0.13) + rng.randf_range(-0.012, 0.012)
-			for yy in range(0, h, 2):
-				var p2: = img.get_pixel(cx, yy)
-				img.set_pixel(cx, yy, Color(minf(p2.r * f, 1.0), minf(p2.g * f, 1.0), minf(p2.b * f, 1.0), p2.a))
+					img.set_pixel(x2, y2, img.get_pixel(x2, y2).lerp(dry, rng.randf_range(0.05, 0.14)))
 
 	var line_c: Color = T.line
 	var line: = func(x1: float, z1: float, x2: float, z2: float, w_m: float) -> void :
@@ -89,17 +88,18 @@ static func court_texture(surface: String) -> ImageTexture:
 			var px: = int(cx1 + dx * t)
 			var py: = int(cy1 + dy * t)
 			img.fill_rect(Rect2i(px - hw, py - hw, hw * 2, hw * 2), line_c)
-	line.call(-5.485, 0, 5.485, 0, 0.14)
-	line.call(-5.485, L, 5.485, L, 0.14)
-	line.call(-4.115, 0, -4.115, L, 0.09)
-	line.call(4.115, 0, 4.115, L, 0.09)
-	line.call(-5.485, 0, -5.485, L, 0.09)
-	line.call(5.485, 0, 5.485, L, 0.09)
-	line.call(-4.115, NZ - 6.4, 4.115, NZ - 6.4, 0.09)
-	line.call(-4.115, NZ + 6.4, 4.115, NZ + 6.4, 0.09)
-	line.call(0, NZ - 6.4, 0, NZ + 6.4, 0.09)
-	line.call(0, 0, 0, 0.1, 0.09)
-	line.call(0, L, 0, L - 0.1, 0.09)
+	line.call(-5.485, 0, 5.485, 0, LINE_W_BASE)
+	line.call(-5.485, L, 5.485, L, LINE_W_BASE)
+	line.call(-4.115, 0, -4.115, L, LINE_W_SIDE)
+	line.call(4.115, 0, 4.115, L, LINE_W_SIDE)
+	line.call(-5.485, 0, -5.485, L, LINE_W_SIDE)
+	line.call(5.485, 0, 5.485, L, LINE_W_SIDE)
+	line.call(-4.115, NZ - 6.4, 4.115, NZ - 6.4, LINE_W_SIDE)
+	line.call(-4.115, NZ + 6.4, 4.115, NZ + 6.4, LINE_W_SIDE)
+	line.call(0, NZ - 6.4, 0, NZ + 6.4, LINE_W_SIDE)
+	line.call(0, 0, 0, 0.1, LINE_W_SIDE)
+	line.call(0, L, 0, L - 0.1, LINE_W_SIDE)
+	img.generate_mipmaps()
 	return ImageTexture.create_from_image(img)
 
 static func ground_texture(surface: String) -> ImageTexture:
@@ -112,11 +112,12 @@ static func ground_texture(surface: String) -> ImageTexture:
 		img.fill_rect(Rect2i(0, y, w, 1), T.out2.lerp(T.out, t))
 	var rng: = RandomNumberGenerator.new()
 	rng.seed = 3
-	for n in 2500:
+	for n in 1400:
 		var x: = rng.randi() % w
 		var y: = rng.randi() % h
 		var c: = Color(1, 1, 1, rng.randf_range(0.02, 0.05)) if rng.randf() < 0.5 else Color(0, 0, 0, rng.randf_range(0.02, 0.06))
 		img.set_pixel(x, y, img.get_pixel(x, y).blend(c))
+	img.generate_mipmaps()
 	return ImageTexture.create_from_image(img)
 
 static func net_texture() -> ImageTexture:
@@ -134,6 +135,7 @@ static func net_texture() -> ImageTexture:
 
 	img.fill_rect(Rect2i(0, 0, w, 9), Color("#f2f2f2"))
 	img.fill_rect(Rect2i(0, 9, w, 2), Color(0.75, 0.75, 0.78, 1.0))
+	img.generate_mipmaps()
 	return ImageTexture.create_from_image(img)
 
 static func string_texture() -> ImageTexture:
@@ -158,6 +160,7 @@ static func string_texture() -> ImageTexture:
 		var dyn: = (y + 1.0 - cy) / ry
 		var hx: = rx * sqrt(maxf(0.0, 1.0 - dyn * dyn))
 		img.fill_rect(Rect2i(int(cx - hx), y, int(hx * 2.0), 3), cross_c)
+	img.generate_mipmaps()
 	return ImageTexture.create_from_image(img)
 
 static func crowd_texture() -> ImageTexture:
@@ -175,6 +178,7 @@ static func crowd_texture() -> ImageTexture:
 				var c: Color = pal[rng.randi() % pal.size()]
 				c.a = 0.25 + rng.randf() * 0.6 * depth
 				img.fill_rect(Rect2i(x + rng.randi() % 2, row + rng.randi() % 4, 3, 4), img.get_pixel(x, row).blend(c))
+	img.generate_mipmaps()
 	return ImageTexture.create_from_image(img)
 
 static func tier_texture() -> ImageTexture:
@@ -195,6 +199,7 @@ static func tier_texture() -> ImageTexture:
 			if rng.randf() < 0.75:
 				var c: Color = seat_pal[rng.randi() % seat_pal.size()]
 				img.fill_rect(Rect2i(x, row + 7, 5, 7), c)
+	img.generate_mipmaps()
 	return ImageTexture.create_from_image(img)
 
 static func ball_texture() -> ImageTexture:
@@ -211,6 +216,7 @@ static func ball_texture() -> ImageTexture:
 		for dy in [-1, 0, 1]:
 			img.set_pixel(x, (int(y1) + dy + h) % h, Color("#f7ffe0"))
 			img.set_pixel(x, (int(y2) + dy + h) % h, Color("#f7ffe0"))
+	img.generate_mipmaps()
 	return ImageTexture.create_from_image(img)
 
 static func shadow_texture() -> ImageTexture:
@@ -224,6 +230,7 @@ static func shadow_texture() -> ImageTexture:
 			if d < 1.0:
 				var a: float = clamp(1.0 - d, 0.0, 1.0)
 				img.set_pixel(x, y, Color(0, 0, 0, a * a * 0.85))
+	img.generate_mipmaps()
 	return ImageTexture.create_from_image(img)
 
 static func ring_texture() -> ImageTexture:
@@ -234,7 +241,7 @@ static func ring_texture() -> ImageTexture:
 	for y in s:
 		for x in s:
 			var d: = Vector2(x - c, y - c).length() / c
-			# v0.145: anillo mas grueso con halo oscuro (legible en tierra y dura)
+
 			var ring: float = clampf(1.0 - absf(d - 0.7) / 0.16, 0.0, 1.0)
 			var halo: float = clampf(1.0 - absf(d - 0.9) / 0.1, 0.0, 1.0)
 			var fill: float = clampf(1.0 - d / 0.52, 0.0, 1.0) * 0.18
@@ -242,8 +249,9 @@ static func ring_texture() -> ImageTexture:
 			var a: float = maxf(ring, maxf(halo * 0.75, maxf(fill, dot)))
 			if a <= 0.0:
 				continue
-			var shade: float = 0.06 if halo > ring else 1.0
+			var shade: float = 0.85 if halo > ring else 1.0
 			img.set_pixel(x, y, Color(shade, shade, shade, clampf(a, 0.0, 1.0)))
+	img.generate_mipmaps()
 	return ImageTexture.create_from_image(img)
 
 static func sky_panorama() -> ImageTexture:
@@ -279,4 +287,5 @@ static func sky_panorama() -> ImageTexture:
 					var a: = (1.0 - d) * (1.0 - d) * base_a
 					var old: = img.get_pixel(px, py)
 					img.set_pixel(px, py, old.lerp(Color(1, 1, 1, 1), a))
+	img.generate_mipmaps()
 	return ImageTexture.create_from_image(img)

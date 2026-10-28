@@ -13,7 +13,7 @@ func _init() -> void :
 	var wp: Array = MV.winner_celebration_plan("PARTIDO", 0)
 	var ws: Array = MV.winner_celebration_plan("SET", 0)
 	print("A partido=", wp, " set=", ws)
-	if wp[0] != "Punch_Right" or ws[0] != "Wave":
+	if wp[0] != "Wave" or ws[0] != "Punch_Left":
 		print("FAIL A: plan de celebracion incorrecto");ok = false
 
 	var s = SimClass.new(true, CP, HP, "CPU", 1)

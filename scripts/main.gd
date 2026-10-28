@@ -280,7 +280,7 @@ func _sim_cpu(a: Dictionary, b: Dictionary) -> Dictionary:
 	var pa: float = a.r / (a.r + b.r)
 	return a if randf() < pa else b
 
-func _tourney_resolve(win: bool, M: Dictionary) -> void :
+func _tourney_resolve(win: bool, M) -> void :
 	var alive: Array = tourney.alive.duplicate()
 	var rname: String = ["Cuartos", "Semifinal", "Final"][tourney.round]
 	var winners: = []
@@ -318,8 +318,12 @@ func _tourney_resolve(win: bool, M: Dictionary) -> void :
 		var r: int = tourney.round + 1
 		while rest.size() > 1:
 			var nw: = []
+			var rname2: String = ["Cuartos", "Semifinal", "Final"][r]
 			for i in range(0, rest.size(), 2):
-				nw.append(_sim_cpu(rest[i], rest[i + 1]))
+				var w3: Dictionary = _sim_cpu(rest[i], rest[i + 1])
+				var l3: Dictionary = rest[i + 1] if w3 == rest[i] else rest[i]
+				nw.append(w3)
+				tourney.results.append(rname2 + ": " + w3.n + " 1-0 " + l3.n)
 			rest = nw
 			r += 1
 		tourney.done = true
@@ -376,10 +380,12 @@ func _on_match_finished(win: bool) -> void :
 	var res: = {}
 	if in_career_match:
 		res = career.on_career_end(win)
+	var mstats: Array = match_view.sim.stats
+	var rally_max: int = match_view.sim.rally_max
 	match_view.queue_free()
 	match_view = null
 	menus.visible = true
-	menus.show_over(win, M.sets[0], M.sets[1], cpu_label, res, in_career_match)
+	menus.show_over(win, M.sets[0], M.sets[1], cpu_label, res, in_career_match, mstats, rally_max)
 
 func _to_menu() -> void :
 	if match_view:

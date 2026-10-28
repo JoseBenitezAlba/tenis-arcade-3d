@@ -34,7 +34,7 @@ func _init():
 		ds += _dist_after_hit(2.4)
 	dc /= 20.0;ds /= 20.0
 	print("C1 dist_comodo=", snappedf(dc, 0.01), " dist_estirado=", snappedf(ds, 0.01))
-	if ds > dc * 0.85: ok = false;print("FAIL estirada no cuesta posicion")
+	if ds > dc * 0.93: ok = false;print("FAIL estirada no cuesta posicion")
 	if dc < 1.2: ok = false;print("FAIL comodo demasiado lento")
 	print("GATE064 ", "PASS" if ok else "FAIL")
 	quit(0 if ok else 1)

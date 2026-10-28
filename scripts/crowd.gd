@@ -19,6 +19,7 @@ var mm_cap: MultiMeshInstance3D
 var cap_ok: Array[bool] = []
 var cap_cols: Array[Color] = []
 var stand_up: Array[bool] = []
+var builds: Array[Vector2] = []
 var ova_t: = 0.0
 var sil_t: = 0.0
 var time: = 0.0
@@ -43,10 +44,12 @@ func build() -> void :
 
 	var stands: Array = []
 
-	stands.append([Vector3(-19.0, 3.05, 28.9), Vector3(1, 0, 0), Vector3(0, 0.78, -0.5), 39, 8, Basis(Vector3.UP, PI), Vector3(0, 0, 1), [13, 26]])
+	stands.append([Vector3(-19.0, 3.05, 28.9), Vector3(1, 0, 0), Vector3(0, 0.78, 0.5), 39, 8, Basis(Vector3.UP, PI), Vector3(0, 0, 1), [13, 26]])
 
-	stands.append([Vector3(14.3, 3.05, -2.0), Vector3(0, 0, 1), Vector3(-0.5, 0.78, 0), 29, 7, Basis(Vector3.UP, - PI * 0.5), Vector3(1, 0, 0), [14]])
-	stands.append([Vector3(-14.3, 3.05, -2.0), Vector3(0, 0, 1), Vector3(0.5, 0.78, 0), 29, 7, Basis(Vector3.UP, PI * 0.5), Vector3(-1, 0, 0), [14]])
+	stands.append([Vector3(14.3, 3.05, -2.0), Vector3(0, 0, 1), Vector3(0.5, 0.78, 0), 29, 7, Basis(Vector3.UP, - PI * 0.5), Vector3(1, 0, 0), [14]])
+	stands.append([Vector3(-14.3, 3.05, -2.0), Vector3(0, 0, 1), Vector3(-0.5, 0.78, 0), 29, 7, Basis(Vector3.UP, PI * 0.5), Vector3(-1, 0, 0), [14]])
+	stands.append([Vector3(-19.0, 3.05, -10.0), Vector3(1, 0, 0), Vector3(0, 0.78, -0.5), 39, 4, Basis(), Vector3(0, 0, -1), [13, 26]])
+
 	var step_mat: = StandardMaterial3D.new()
 	step_mat.albedo_color = Color("#39405a")
 	step_mat.roughness = 1.0
@@ -121,6 +124,7 @@ func build() -> void :
 				cap_ok.append(prng.randf() < 0.24 and not empty[empty.size() - 1])
 				cap_cols.append(Color(CAPS[prng.randi_range(0, CAPS.size() - 1)]))
 				stand_up.append(prng.randf() < 0.45)
+				builds.append(Vector2(prng.randf_range(0.82, 1.2), prng.randf_range(0.86, 1.14)))
 	n = base_pos.size()
 
 
@@ -313,10 +317,10 @@ func update(dt: float, rally_exc: float) -> void :
 			var frq: float = 1.3 + 4.5 * exc
 			y = sin(time * frq * jitters[i] + ph) * amp
 
-		var body_sy: = 0.92
+		var body_sy: = 0.92 * builds[i].y
 		if ova and stand_up[i]:
-			body_sy = 1.16
-		var t: = Transform3D(face_rot[i].scaled(Vector3(1.32, body_sy, 1.32)), p + Vector3(0, y + 0.28, 0))
+			body_sy = 1.16 * builds[i].y
+		var t: = Transform3D(face_rot[i].scaled(Vector3(1.32 * builds[i].x, body_sy, 1.18 * builds[i].x)), p + Vector3(0, y + 0.28, 0))
 		mm_body.multimesh.set_instance_transform(i, t)
 
 		var ty: float = atan2(p.x - ball_pos.x, p.z - ball_pos.z) + PI
@@ -325,7 +329,7 @@ func update(dt: float, rally_exc: float) -> void :
 		var bt: float = fmod(time * 0.31 * jitters[i] + phases[i] * 3.0, 6.5)
 		if bt < 0.1:
 			sy = 0.35
-		var head_base: = y + 0.82
+		var head_base: = y + 0.28 + 0.54 * builds[i].y
 		if ova and stand_up[i]:
 			head_base += 0.19
 		t = Transform3D(Basis(Vector3.UP, head_yaw[i]).scaled(Vector3(1.18, sy * 1.18, 1.18)), p + Vector3(0, head_base, 0))

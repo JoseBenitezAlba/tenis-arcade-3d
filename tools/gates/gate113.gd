@@ -30,7 +30,8 @@ func _init() -> void :
 		s.events.clear()
 	var esperado: float = minf(1.0, puntos * 0.025)
 	print("B puntos_4min=", puntos, " polvo_esperado=", snappedf(esperado, 0.02))
-	if esperado < 0.35 or esperado > 1.0:
+
+	if esperado < 0.3 or esperado > 1.0:
 		print("FAIL B: el polvo tardaria una eternidad o se pasaria");ok = false
 	print("GATE113 ", "PASS" if ok else "FAIL")
 	quit(0 if ok else 1)

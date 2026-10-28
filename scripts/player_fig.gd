@@ -15,7 +15,7 @@ const SHORTS_MODEL: = "res://models/Casual_Hoodie.glb"
 const LOOKS: = [
 	{"shirt": "#2b7cd3", "shorts": "#1c2833", "skin": "#b07850", "hair": "#3a2a18"}, 
 	{"shirt": "#f2f2f2", "shorts": "#3d5a80", "skin": "#a06b42", "hair": "#141414"}, 
-	{"shirt": "#39b54a", "shorts": "#f2f2f2", "skin": "#8d5524", "hair": "#0d0d0d"}, 
+	{"shirt": "#f5f0e6", "shorts": "#22303c", "skin": "#8d5524", "hair": "#0d0d0d"}, 
 	{"shirt": "#f2a13c", "shorts": "#22303c", "skin": "#c98d62", "hair": "#7a4a1e"}, 
 ]
 const P0: = {"shirt": "#e23b3b", "shorts": "#f2f2f2", "skin": "#b07850", "hair": "#3a2a18"}
@@ -88,7 +88,7 @@ func _init(look: int, is_player0: bool) -> void :
 var ankle_bones: Array = []
 
 func _build_ankles(_skin_col: Color) -> void :
-	# v0.140: el hueso LowerLeg de los clips no apunta al pie (IK sin retarget): la espinilla colgaba lejos de la zapatilla
+
 	for side in ["L", "R"]:
 		var kb: int = skel.find_bone("LowerLeg." + side)
 		var fb: int = skel.find_bone("Foot." + side)
@@ -166,7 +166,7 @@ func _transplant_shorts() -> void :
 	legs.name = "Shorts_Legs"
 	legs.mesh = _shorts_tapered(src.mesh)
 	legs.skin = src.skin
-	legs.skeleton = NodePath("..")  # v0.140: sin esto la malla de piernas no se deformaba con el esqueleto (espinillas/tobillos desconectados de la zapatilla)
+	legs.skeleton = NodePath("..")
 	legs.cast_shadow = old.cast_shadow
 	skel.add_child(legs)
 	old.queue_free()
@@ -576,8 +576,11 @@ func _play_seek(name: String, tau: float) -> void :
 const LOB_ARM: = -1.1
 const FOOT_LIFT: = 0.05
 const RK_OPEN: = 0.9
-const TOSS_ARM: = -2.0  # v1.37
-const SERVE_ARM: = -0.8  # v1.37
+const RK_REST_A: = 2.5
+const RK_REST_Z: = 0.45
+var rk_rest_k: = 0.0
+const TOSS_ARM: = -2.0
+const SERVE_ARM: = -0.8
 
 
 func _raise_arm(ang: float, bone: String = "UpperArm.R") -> void :
@@ -596,12 +599,21 @@ func _bend_torso(k: float) -> void :
 
 var celeb_t: = 0.0
 var celeb_name: = ""
+var rk_show_delay: = 0
+const CELEB_ANIMS: = ["Wave", "Punch_Right", "Punch_Left", "Sword_Slash", "HitRecieve", "HitRecieve_2"]
 var had_windup: = false
+
+var eff_sp: = 0.0
+var _last_px: = 0.0
+var _last_pz: = 0.0
+var _last_init: = false
 
 
 
 const WINDUP: = 0.3
 const CONTACT_K: = 0.47
+
+
 
 static func _swing_clip(kind: String, hit_side: String) -> Array:
 
@@ -635,8 +647,12 @@ func update_from_sim(e, dt: float) -> void :
 	ap.advance(dt)
 	if racket_node != null:
 		racket_node.rotation = Vector3(PI, 0.0, 0.0)
-		# v0.143: en la reaccion de punto perdido la raqueta atravesaba la cabeza
-		racket_node.visible = not (celeb_t > 0.0 and (celeb_name == "HitRecieve" or celeb_name == "Punch_Right"))
+
+		if state in CELEB_ANIMS:
+			rk_show_delay = 0
+		elif rk_show_delay > 0:
+			rk_show_delay -= 1
+		racket_node.visible = rk_show_delay <= 0
 	swing_now = e.swing
 	var _fatk: float = e.get("fat") if e.get("fat") != null else 0.0
 
@@ -646,7 +662,18 @@ func update_from_sim(e, dt: float) -> void :
 	skel.force_update_all_bone_transforms()
 	if e.swing <= 0.0 and e.want_t <= 0.0:
 		had_windup = false
-	position = Vector3(e.x, FOOT_LIFT, e.z)  # v0.138: la pista esta a y=0.06 (court_builder); con los pies a 0 las suelas quedaban 6 cm bajo la superficie
+
+
+	if not _last_init:
+		_last_init = true
+		_last_px = e.x
+		_last_pz = e.z
+	var mvd: float = Vector2(e.x - _last_px, e.z - _last_pz).length()
+	_last_px = e.x
+	_last_pz = e.z
+
+	eff_sp = minf(e.speed, mvd / maxf(dt, 0.0001) * 1.15 + 0.35)
+	position = Vector3(e.x, FOOT_LIFT, e.z)
 
 
 
@@ -665,7 +692,7 @@ func update_from_sim(e, dt: float) -> void :
 		if hop_age >= HOP_DUR:
 			hop_landed = true
 
-	# v0.140: las suelas nunca por debajo de la pista (clips con pie bajo el suelo al celebrar / levantarse)
+
 	if foot_bones.is_empty():
 		for fbn in ["Foot.L", "Foot.R"]:
 			var fbi: = skel.find_bone(fbn)
@@ -682,10 +709,15 @@ func update_from_sim(e, dt: float) -> void :
 
 
 	var facing: = 0.0 if e.near else PI
-	if e.speed > 3.5 and absf(e.vx) > absf(e.vz):
+
+
+	if eff_sp > 5.6 and absf(e.vx) > absf(e.vz):
 		facing = atan2(e.vx, e.vz)
 
-	var _sw: bool = e.swing > 0.0
+	# Visual recovery only: simulation swing and hit windows stay unchanged.
+	var _visual_elapsed: float = (0.4 if e.kind == "serve" else 0.34) - e.swing
+	var _moving_recovery: bool = e.kind != "serve" and _visual_elapsed >= 0.1 and eff_sp > 0.4
+	var _sw: bool = e.swing > 0.0 and not _moving_recovery
 	if not _sw:
 		rotation.y = lerp_angle(rotation.y, facing, minf(1.0, dt * 9.0))
 
@@ -728,7 +760,7 @@ func update_from_sim(e, dt: float) -> void :
 
 
 	var elapsed: float = swing_dur - e.swing if e.swing > 0.0 else 99.0
-	var hold_swing: bool = e.swing > 0.0 and (elapsed < 0.15 or e.speed <= 0.4)
+	var hold_swing: bool = e.swing > 0.0 and (not _moving_recovery if e.kind != "serve" else (elapsed < 0.15 or e.speed <= 0.4))
 
 	if e.get("dive_t") != null and e.dive_t > 0.0:
 
@@ -756,12 +788,12 @@ func update_from_sim(e, dt: float) -> void :
 	if serve_toss >= 0.0 and e.swing <= 0.0:
 
 		_play_seek("mocap/Servicio", lerpf(0.1, 0.55, clampf(serve_toss, 0.0, 1.0)))
-		_raise_arm(TOSS_ARM * _ease_out_cubic(clampf(serve_toss / 0.55, 0.0, 1.0)), "UpperArm.L")  # v1.37: el brazo del lanzamiento sube
+		_raise_arm(TOSS_ARM * _ease_out_cubic(clampf(serve_toss / 0.55, 0.0, 1.0)), "UpperArm.L")
 		return
 	if hold_swing and e.kind == "serve":
 
 		_play_seek("mocap/Servicio", lerpf(0.55, 1.3, clampf(k, 0.0, 1.0)))
-		# v1.37: brazo del lanzamiento arriba hasta el contacto y luego cae; brazo de golpe extendido arriba en el contacto
+
 		_raise_arm(TOSS_ARM * (1.0 - _ease_in_cubic(clampf((k - 0.2) / 0.5, 0.0, 1.0))), "UpperArm.L")
 		_raise_arm(SERVE_ARM * clampf(1.0 - absf(k - 0.55) / 0.3, 0.0, 1.0))
 	elif hold_swing:
@@ -769,17 +801,10 @@ func update_from_sim(e, dt: float) -> void :
 		var sc: = _swing_clip(e.kind, hs)
 		var kk: = clampf(k, 0.0, 1.0)
 		var tau: float
-		if had_windup:
 
 
 
-			tau = sc[1] + _ease_out_cubic(kk) * (sc[2] - sc[1])
-		elif kk < 0.3:
-
-
-			tau = _ease_in_cubic(kk / 0.3) * sc[1]
-		else:
-			tau = sc[1] + _ease_out_cubic((kk - 0.3) / 0.7) * (sc[2] - sc[1])
+		tau = sc[1] + _ease_out_cubic(kk) * (sc[2] - sc[1])
 		_play_seek(sc[0], tau)
 
 
@@ -820,7 +845,7 @@ func update_from_sim(e, dt: float) -> void :
 				wk = maxf(wk, 0.5 + 0.4 * float(e.get("charge")))
 		var hsw: String = e.hit_side if "hit_side" in e else "fore"
 		var scw: = _swing_clip(e.want, hsw)
-		_play_seek(scw[0], wk * scw[1])
+		_play_seek(scw[0], minf(0.18 + wk * 0.45, 0.48) * scw[1])
 		had_windup = true
 
 
@@ -832,26 +857,57 @@ func update_from_sim(e, dt: float) -> void :
 		_play(celeb_name)
 	elif e.want_t > 0.0 and e.speed <= 2.2:
 		_play("Idle_Sword")
-	elif e.speed > 0.9 and e.speed <= 5.5 and absf(e.vx) > absf(e.vz) * 1.15:
-		# v0.142: desplazamiento lateral con paso lateral (antes corria de frente de lado y los pies patinaban)
-		_play("Run_Left" if e.vx > 0.0 else "Run_Right", clampf(e.speed / 3.2, 0.65, 1.5))
-	elif e.speed > 1.6 and ((e.vz < 0.0) if e.near else (e.vz > 0.0)) and absf(e.vz) > absf(e.vx) * 0.7:
+	elif eff_sp > 0.9 and eff_sp <= 5.5 and absf(e.vx) > absf(e.vz) * 1.15:
 
-		_play("Run_Back", clampf(e.speed / 5.0, 0.7, 1.4))
-	elif e.speed > 6.5:
-		_play("Run", clampf(e.speed / 4.0, 1.0, 1.6) * (1.0 - 0.18 * _fatk))
-	elif e.speed > 2.8:
-		_play("Run", clampf(e.speed / 5.0, 0.6, 1.2) * (1.0 - 0.18 * _fatk))
-	elif e.speed > 1.6 and absf(e.vx) > absf(e.vz) * 1.2:
+		_play("Run_Left" if e.vx > 0.0 else "Run_Right", clampf(eff_sp / 3.9, 0.65, 1.5))
+	elif eff_sp > 1.6 and ((e.vz < 0.0) if e.near else (e.vz > 0.0)) and absf(e.vz) > absf(e.vx) * 0.7:
+
+		_play("Run_Back", clampf(eff_sp / 5.0, 0.7, 1.4))
+	elif eff_sp > 6.5:
+		_play("Run", clampf(eff_sp / 4.4, 1.0, 1.6) * (1.0 - 0.18 * _fatk))
+	elif eff_sp > 2.8:
+		_play("Run", clampf(eff_sp / 4.6, 0.6, 1.35) * (1.0 - 0.18 * _fatk))
+	elif eff_sp > 1.6 and absf(e.vx) > absf(e.vz) * 1.2:
 
 
-		_play("Run_Left" if e.vx > 0.0 else "Run_Right", clampf(e.speed / 3.2, 0.7, 1.3))
-	elif e.speed > 0.4:
+		_play("Run_Left" if e.vx > 0.0 else "Run_Right", clampf(eff_sp / 3.9, 0.7, 1.3))
+	elif eff_sp > 0.4:
 
-		_play("Walk", clampf(e.speed / 2.2, 0.8, 1.6))
+		_play("Walk", clampf(eff_sp / 2.2, 0.8, 1.6))
 	else:
 		_play("Idle_Sword")
 
 	if _fatk > 0.55:
 		_bend_torso(0.5 * clampf((_fatk - 0.55) / 0.45, 0.0, 1.0))
 	_apply_gaze()
+	_rk_rest(dt)
+	if state in CELEB_ANIMS:
+		_celebration_grip()
+
+
+func _celebration_grip() -> void :
+	if racket_node == null:
+		return
+	var wi: = skel.find_bone("Wrist.R")
+	var ei: = skel.find_bone("LowerArm.R")
+	if wi < 0 or ei < 0:
+		return
+	var wrist: = skel.get_bone_global_pose(wi).origin
+	var elbow: = skel.get_bone_global_pose(ei).origin
+	var direction: = skel.global_basis * (wrist - elbow).normalized()
+	var local_dir: Vector3 = (racket_node.get_parent() as Node3D).global_basis.inverse() * direction
+	racket_node.quaternion = Quaternion(Vector3.DOWN, local_dir.normalized())
+
+
+func _rk_rest(dt: float) -> void :
+	if racket_node == null:
+		return
+	var rest: bool = state in ["Idle_Sword", "Walk", "Run", "Run_Left", "Run_Right", "Run_Back", "Punch_Right", "HitRecieve", "HitRecieve_2", "Wave", "Idle", "Idle_Neutral"]
+	var tgt: float = 1.0 if rest else 0.0
+	rk_rest_k = move_toward(rk_rest_k, tgt, dt * 14.0)
+	if rk_rest_k > 0.0:
+		var kk: float = rk_rest_k * rk_rest_k * (3.0 - 2.0 * rk_rest_k)
+		racket_node.rotation = Vector3(PI - RK_REST_A * kk, 0.0, RK_REST_Z * kk)
+
+func racket_hidden_now() -> bool:
+	return racket_node != null and not racket_node.visible

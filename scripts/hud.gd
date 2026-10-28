@@ -146,7 +146,7 @@ func _ready() -> void :
 	side_popup.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	side_popup.position = Vector2(1280 - 320, 340)
 	side_popup.size = Vector2(290, 40)
-	side_popup.add_theme_font_size_override("font_size", 22)
+	side_popup.add_theme_font_size_override("font_size", 26)
 	side_popup.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
 	side_popup.add_theme_constant_override("outline_size", 8)
 	side_popup.visible = false
@@ -154,8 +154,8 @@ func _ready() -> void :
 
 	for i in 4:
 		var p: = Label.new()
-		p.add_theme_font_size_override("font_size", 17)
-		p.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.55))
+		p.add_theme_font_size_override("font_size", 26)
+		p.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.95))
 		p.add_theme_constant_override("outline_size", 4)
 		p.visible = false
 		add_child(p)
@@ -214,6 +214,12 @@ func _ready() -> void :
 	speed_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.75))
 	speed_label.add_theme_constant_override("outline_size", 6)
 	speed_label.visible = false
+	var sp_bg: = StyleBoxFlat.new()
+	sp_bg.bg_color = Color(0, 0, 0, 0.5)
+	sp_bg.set_corner_radius_all(8)
+	sp_bg.content_margin_left = 10
+	sp_bg.content_margin_right = 10
+	speed_label.add_theme_stylebox_override("normal", sp_bg)
 	add_child(speed_label)
 
 func set_names(n0: String, n1: String) -> void :
@@ -332,6 +338,7 @@ func popup(txt: String, wp: Vector3, color: Color) -> void :
 		if not p.active:
 			p.active = true
 			p.age = 0.0
+			p.l.modulate.a = 1.0
 			p.wp = wp
 			p.l.text = txt
 			p.l.add_theme_color_override("font_color", color)
@@ -479,7 +486,7 @@ func _process(dt: float) -> void :
 				p.active = false
 				p.l.visible = false
 			else:
-				p.l.modulate.a = 1.0 - p.age / 0.6
+				p.l.modulate.a = 1.0 if p.age < 0.42 else (0.6 - p.age) / 0.18
 				if cam:
 					var sp: = cam.unproject_position(p.wp + Vector3(0, 1.5 + p.age * 0.35, 0))
 					p.l.position = sp - Vector2(26, 0)

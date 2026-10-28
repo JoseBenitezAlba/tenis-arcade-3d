@@ -108,24 +108,36 @@ var step_t: = [0.0, 0.0]
 var burst_prev: = [0.0, 0.0]
 var rally_label: Label
 var rally_best: = 0
+var _meter_hold: = 0.0
 var rally_change_t: = 0.0
 var mark_pool: = []
 var ball_vis_scale: = 1.0
+
+var _pb_active: = false
+var _pb_pos: = Vector3.ZERO
+var _pb_vel: = Vector3.ZERO
+var _pb_fark: = 1.0
 var banner_t: = 0.0
 const SERVE_KMH_K: = 8.4
 const HELD_BALL_K: = 0.3
-const TOSS_BALL_K: = 0.42
+const TOSS_BALL_K: = 0.55
 
-# v0.148: el aro del golpe dura un poco mas (se lee el impacto)
+
+const BOUNCE_RING_FAR_A: = 0.75
+
+
+const PLAYER_SHADOW_K: = 1.3
+
+
 const RING_LIFE: = 0.28
 
-# v0.147: la sombra de la bola sigue visible en el aire (se lee donde va a botar)
+
 static func ball_shadow_alpha(y: float) -> float:
 	return clampf(0.85 - y * 0.045, 0.3, 0.85)
 
-# v0.146: la bola lejana crece un poco para no perderse (legibilidad)
+
 static func far_ball_k(d: float) -> float:
-	return clampf(1.0 + (d - 20.0) * 0.025, 1.0, 1.5)
+	return clampf(1.0 + (d - 20.0) * 0.018, 1.0, 1.3)
 
 static func held_ball_scale(held: bool, toss: bool, toss_t: float) -> float:
 	if held:
@@ -133,7 +145,7 @@ static func held_ball_scale(held: bool, toss: bool, toss_t: float) -> float:
 	if toss:
 		return lerpf(HELD_BALL_K, TOSS_BALL_K, clampf(toss_t / 0.35, 0.0, 1.0))
 	return 1.0
-const HIT_KMH_K: = 4.0  # v0.138: golpes de fondo (la gravedad arcade fija una velocidad minima alta; el factor de saque inflaba los peloteos)
+const HIT_KMH_K: = 4.0
 var banner_dur: = 0.0
 var hint_t: = 9.0
 var demo: = false
@@ -147,8 +159,15 @@ var shake: = 0.0
 var hitstop_t: = 0.0
 var ball_squash: = 0.0
 var _point_winner: = -1
+var _closeup_ok: = false
+var _was_closeup: = false
+var _tut_n: = 0
+var _idle_ball_t: = 0.0
+var _tut_seen: = false
 var _prev_sim_state: = ""
 var _serve_blank: = 0.0
+var _srv_bounce: = Vector3.ZERO
+var _srv_bounce_ok: = false
 var _prev_state: = ""
 var point_hot: = 0
 var cam_look: = Vector3(0, 1.0, 11.885)
@@ -259,6 +278,7 @@ func _ready() -> void :
 		q.position.y = 0.07
 		add_child(q)
 		if i < 2:
+			q.scale = Vector3(PLAYER_SHADOW_K, PLAYER_SHADOW_K, 1.0)
 			shadows.append(q)
 		else:
 			ball_shadow = q
@@ -288,13 +308,13 @@ func _ready() -> void :
 	for i in 9:
 		var t: = MeshInstance3D.new()
 		var ts: = SphereMesh.new()
-		ts.radius = 0.105
-		ts.height = 0.21
+		ts.radius = 0.038
+		ts.height = 0.076
 		var tm: = StandardMaterial3D.new()
-		tm.albedo_color = Color(0.88, 1.0, 0.35, 0.42)
+		tm.albedo_color = Color(0.88, 1.0, 0.35, 0.58)
 		tm.emission_enabled = true
 		tm.emission = Color(0.88, 1.0, 0.35)
-		tm.emission_energy_multiplier = 0.85
+		tm.emission_energy_multiplier = 1.1
 		tm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		tm.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 		ts.material = tm
@@ -377,12 +397,25 @@ func _ready() -> void :
 		mark_pool.append({"m": mk, "mat": mm, "life": 0.0, "max": 1.3})
 
 
+	var skid_grad: = Gradient.new()
+	skid_grad.set_color(0, Color(1, 1, 1, 0))
+	skid_grad.add_point(0.2, Color(1, 1, 1, 1))
+	skid_grad.add_point(0.8, Color(1, 1, 1, 1))
+	skid_grad.set_color(1, Color(1, 1, 1, 0))
+	var skid_tex: = GradientTexture2D.new()
+	skid_tex.gradient = skid_grad
+	skid_tex.width = 16
+	skid_tex.height = 64
+	skid_tex.fill = GradientTexture2D.FILL_LINEAR
+	skid_tex.fill_from = Vector2(0.5, 0.0)
+	skid_tex.fill_to = Vector2(0.5, 1.0)
 	for i in 16:
 		var sk: = MeshInstance3D.new()
 		var sb: = BoxMesh.new()
-		sb.size = Vector3(0.12, 0.005, 1.7)
+		sb.size = Vector3(0.07, 0.005, 1.25)
 		var skm: = StandardMaterial3D.new()
-		skm.albedo_color = Color(0.3, 0.2, 0.15, 0.0)
+		skm.albedo_color = Color(0.45, 0.24, 0.1, 0.0)
+		skm.albedo_texture = skid_tex
 		skm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		sb.material = skm
 		sk.mesh = sb
@@ -470,9 +503,11 @@ func _ready() -> void :
 
 
 func dust_color(a: float) -> Color:
+	if surface != "clay":
+		a *= 0.45
 	if surface == "clay":
 
-		return Color(0.92, 0.78, 0.64, a)
+		return Color(0.78, 0.45, 0.2, a)
 	if surface == "grass":
 		return Color(0.5, 0.62, 0.38, a)
 	return Color(0.62, 0.63, 0.66, a)
@@ -587,8 +622,7 @@ func _physics_process(dt: float) -> void :
 		sim.inp.x = Input.get_axis("move_left", "move_right")
 		sim.inp.y = Input.get_axis("move_down", "move_up")
 		if Input.is_action_just_pressed("drop"):
-			sim.inp.y = -1.0
-			sim.inp.hit = true
+			sim.inp.drop = true
 		elif Input.is_action_just_pressed("hit"):
 			sim.inp.hit = true
 		elif Input.is_action_just_pressed("lob"):
@@ -641,7 +675,7 @@ func _physics_process(dt: float) -> void :
 		shadows[i].position.z = sim.pl[i].z
 		brake_cd[i] = maxf(0.0, brake_cd[i] - dt)
 		var pv = sim.pl[i]
-		if pv.speed > 3.0 and randf() < dt * 9.0:
+		if pv.speed > 3.0 and randf() < dt * (9.0 if surface == "clay" else 2.0):
 			spawn_dust(Vector3(pv.x, 0, pv.z), 1, dust_color(0.25))
 
 
@@ -670,35 +704,80 @@ func _physics_process(dt: float) -> void :
 
 
 		step_t[i] = maxf(0.0, step_t[i] - dt)
-		if pv.speed > 2.2 and pv.recov <= 0.0 and step_t[i] <= 0.0:
+		if (rigs[i].eff_sp if i < rigs.size() else pv.speed) > 2.2 and pv.recov <= 0.0 and step_t[i] <= 0.0:
 			sfx.play(sfx.surf_name("step", surface), 0.22 if i == 0 else 0.15)
 			step_t[i] = step_interval(pv.speed)
 		elif pv.speed <= 2.2:
 			step_t[i] = 0.0
-	ball_mesh.position = Vector3(sim.ball.x, sim.ball.y, sim.ball.z)
-	# v0.142: al pasar de punto a saque la camara aun vuelve desde el primer plano; la pelota
-	# (y su rastro) se oculta unos instantes para que no cruce la camara enorme y lenta.
+
+	if sim.state == "play" or sim.state == "serve":
+		if _pb_active:
+			_pb_active = false
+	else:
+		if not _pb_active and _prev_sim_state == "play" and not sim.ball.held:
+			_pb_active = true
+			_pb_pos = Vector3(sim.ball.x, sim.ball.y, sim.ball.z)
+			_pb_vel = Vector3(sim.ball.vx, sim.ball.vy, sim.ball.vz)
+
+			var _pb_sp: = _pb_vel.length()
+			if _pb_sp > 11.0:
+				_pb_vel *= 11.0 / _pb_sp
+			_pb_fark = far_ball_k(cam.global_position.distance_to(ball_mesh.global_position))
+		if _pb_active:
+			_pb_vel.y -= 21.0 * dt
+			_pb_pos += _pb_vel * dt
+			if _pb_pos.y < 0.17:
+				_pb_pos.y = 0.17
+				if absf(_pb_vel.y) > 0.6:
+					_pb_vel.y = - _pb_vel.y * 0.55
+					_pb_vel.x *= 0.86
+					_pb_vel.z *= 0.86
+				else:
+					_pb_vel.y = 0.0
+					_pb_vel.x = move_toward(_pb_vel.x, 0.0, dt * 2.8)
+					_pb_vel.z = move_toward(_pb_vel.z, 0.0, dt * 2.8)
+			ball_mesh.position = _pb_pos
+	if not _pb_active:
+		ball_mesh.position = Vector3(sim.ball.x, sim.ball.y, sim.ball.z)
+
+
 	if sim.state == "serve" and (_prev_sim_state == "point" or _prev_sim_state == "over"):
 		_serve_blank = 0.75
 	_prev_sim_state = sim.state
 	_serve_blank = maxf(0.0, _serve_blank - dt)
-	var blank: bool = _serve_blank > 0.0 and not replaying
+	if sim.state == "play" or sim.state == "serve":
+		_idle_ball_t = 0.0
+	else:
+		_idle_ball_t += dt
+	var blank: bool = (_serve_blank > 0.0 or _idle_ball_t > 1.3 or (_closeup_ok and sim.state in ["point", "over"])) and not replaying
 	ball_mesh.visible = not blank
 	ball_shadow.visible = not blank
 	ball_seam.visible = not blank
-	# v0.138: la bola en la mano / botando antes del saque se ve mas pequena (antes: pelota gigante junto al sacador)
+
 	var bk: float = held_ball_scale(sim.ball.held, sim.ball.toss, sim.ball.toss_t)
-	# v0.145: la escala sube suave tras el golpe (sin salto) y baja de golpe
+
+
+	if sim.state == "serve" and not sim.ball.held:
+		bk = minf(bk, 0.72)
+
 	if bk < ball_vis_scale:
 		ball_vis_scale = bk
 	else:
-		ball_vis_scale = lerpf(ball_vis_scale, bk, minf(1.0, dt * 18.0))
-	var far_k: float = far_ball_k(cam.global_position.distance_to(ball_mesh.global_position))
+
+		ball_vis_scale = lerpf(ball_vis_scale, bk, minf(1.0, dt * 4.5))
+	var far_k: float = _pb_fark if _pb_active else far_ball_k(cam.global_position.distance_to(ball_mesh.global_position))
 	var vis_k: float = ball_vis_scale * far_k
+	if _pb_active:
+		var bd: float = cam.global_position.distance_to(ball_mesh.global_position)
+		vis_k *= clampf(bd / 24.0, 0.0, 1.0)
+		if bd < 1.0:
+			ball_mesh.visible = false
+			ball_seam.visible = false
+			ball_shadow.visible = false
 	if ball_squash > 0.0:
 		ball_squash = maxf(0.0, ball_squash - dt)
 		var sqk: float = ball_squash / 0.09
-		ball_mesh.scale = Vector3(1.0 + 0.45 * sqk, 1.0 - 0.45 * sqk, 1.0 + 0.45 * sqk) * vis_k
+		ball_mesh.scale = Vector3(1.0 + 0.28 * sqk, 1.0 - 0.28 * sqk, 1.0 + 0.28 * sqk) * vis_k
 	elif ball_mesh.scale != Vector3.ONE * vis_k:
 		ball_mesh.scale = Vector3.ONE * vis_k
 
@@ -708,11 +787,12 @@ func _physics_process(dt: float) -> void :
 		var w: float = spin_rate(sim.ball.spin, hsp)
 		var axis: = spin_axis(sim.ball.vx, sim.ball.vz)
 		ball_seam.rotate(axis, w * dt)
-	ball_shadow.position.x = sim.ball.x
-	ball_shadow.position.z = sim.ball.z
-	var sh_scale: float = clampf(1.0 + sim.ball.y * 0.12, 1.0, 2.2)
-	ball_shadow.scale = Vector3(sh_scale * 0.4, 1, sh_scale * 0.4)
-	ball_shadow_mat.albedo_color.a = ball_shadow_alpha(sim.ball.y)
+	var shadow_ball: Vector3 = _pb_pos if _pb_active else Vector3(sim.ball.x, sim.ball.y, sim.ball.z)
+	ball_shadow.position.x = shadow_ball.x
+	ball_shadow.position.z = shadow_ball.z
+	var sh_scale: float = clampf(1.0 + shadow_ball.y * 0.09, 1.0, 1.8)
+	ball_shadow.scale = Vector3(sh_scale * 0.28, 1, sh_scale * 0.28)
+	ball_shadow_mat.albedo_color.a = ball_shadow_alpha(shadow_ball.y) * (0.4 if sim.ball.held else 1.0)
 	_update_bounce_ring()
 
 	if dust_trail > 0.0:
@@ -730,7 +810,7 @@ func _physics_process(dt: float) -> void :
 	var hb: float = hot_trail_boost(_hot_level())
 	for i in trail.size():
 		var t = trail[i]
-		if i < sim.ball.trail.size() and not blank:
+		if i < sim.ball.trail.size() and not blank and not _pb_active:
 			t.m.visible = true
 			t.m.position = sim.ball.trail[i]
 			var f: float = float(i) / trail.size()
@@ -739,8 +819,8 @@ func _physics_process(dt: float) -> void :
 			t.mat.albedo_color = Color(0.88, 1.0, 0.35).lerp(Color(1, 1, 1), heat).lerp(Color(1.0, 0.82, 0.25), hb * 0.55)
 			t.mat.albedo_color.a = (0.07 + (0.26 + 0.42 * heat) * f) * (1.0 + 0.6 * hb)
 			t.mat.emission = t.mat.albedo_color
-			t.mat.emission_energy_multiplier = 0.4 + 1.6 * heat + 1.4 * hb
-			var tsc: float = 1.0 + (0.8 * heat + 0.3 * hb) * f
+			t.mat.emission_energy_multiplier = 0.3 + 0.7 * heat + 0.5 * hb
+			var tsc: float = (0.25 + 0.75 * f) * (1.0 + (0.35 * heat + 0.15 * hb) * f)
 			t.m.scale = Vector3(tsc, tsc, tsc)
 		else:
 			t.m.visible = false
@@ -772,7 +852,7 @@ func _physics_process(dt: float) -> void :
 			else:
 				sk.mat.albedo_color.a = clampf(sk.life / sk.max, 0.0, 1.0) * 0.7
 
-	var closeup: bool = (sim.state == "point" or sim.state == "over") and _point_winner >= 0 and _point_winner <= 1
+	var closeup: bool = (sim.state == "point" or sim.state == "over") and _point_winner >= 0 and _point_winner <= 1 and (_closeup_ok or sim.state == "over")
 	var goal_pos: Vector3
 	var goal_fov: float
 	var goal_look: Vector3
@@ -798,6 +878,12 @@ func _physics_process(dt: float) -> void :
 		if push > 0.0:
 			goal_pos = goal_pos.lerp(Vector3(goal_pos.x, goal_pos.y - 0.18, NZ), 0.06 * push)
 			goal_fov -= 2.5 * push
+	# Cut directly to the established celebration shot, never sweep through the court.
+	if closeup and not _was_closeup:
+		cam.position = goal_pos
+		cam.fov = goal_fov
+		cam_look = goal_look
+	_was_closeup = closeup
 	var cam_k: float = 3.2 if closeup else 2.2
 	cam.position = cam.position.lerp(goal_pos, minf(1.0, dt * cam_k))
 	cam.fov = lerpf(cam.fov, goal_fov, minf(1.0, dt * cam_k))
@@ -838,14 +924,18 @@ func _physics_process(dt: float) -> void :
 		hint_t -= dt
 		if hint_t <= 0.0:
 			hud.set_hint("")
-	elif not demo and sim.state == "serve" and sim.M.server == 0 and sim.serve_stage != "hit":
+	elif not demo and _tut_n < 2 and sim.state == "serve" and sim.M.server == 0 and sim.serve_stage != "hit":
+		_tut_seen = true
 		if touch_ui:
-			hud.set_hint("GOLPE: lanzar la bola · otra vez para golpear" if sim.serve_stage == "ready" else "¡Golpea cuando la bola esté arriba!")
+			hud.set_hint("GOLPE: lanzar la bola · sale solo" if sim.serve_stage == "ready" else "Otro toque en el ápice = más potencia · si no, sale solo")
 		else:
-			hud.set_hint("A / ESPACIO: lanzar la bola · otra vez para golpear" if sim.serve_stage == "ready" else "¡Golpea cuando la bola esté arriba!")
+			hud.set_hint("A / ESPACIO: lanzar la bola · sale solo" if sim.serve_stage == "ready" else "Otro toque en el ápice = más potencia · si no, sale solo")
 	elif not demo and hint_t <= 0.0:
+		if _tut_seen and sim.state != "serve":
+			_tut_seen = false
+			_tut_n += 1
 
-		if hud.hint.text == "¡Golpea cuando la bola esté arriba!" or hud.hint.text.begins_with("A / ESPACIO"):
+		if hud.hint.text.begins_with("Otro toque") or hud.hint.text.begins_with("A / ESPACIO") or hud.hint.text.begins_with("GOLPE"):
 			hud.set_hint("")
 
 
@@ -853,10 +943,18 @@ func _physics_process(dt: float) -> void :
 
 
 		var sq: float = 1.0 - clampf(absf(sim.ball.toss_t - 0.5) / 0.45, 0.0, 1.0)
+		hud.serve_meter.position = Vector2(1236, 230)
+		hud.serve_meter.scale = Vector2.ONE
 		hud.set_meter_label("SAQUE")
 		hud.serve_meter_update(sq if sim.serve_stage == "toss" else 0.0)
-	elif not demo and sim.pl[0].charging and sim.pl[0].charge > 0.12:
-
+	elif not demo and sim.state == "play" and ((sim.pl[0].charging and sim.pl[0].charge > 0.12) or _meter_hold > 0.0):
+		if sim.pl[0].charging and sim.pl[0].charge > 0.12:
+			_meter_hold = 0.3
+		else:
+			_meter_hold = maxf(0.0, _meter_hold - dt)
+		var mp: Vector2 = cam.unproject_position(Vector3(sim.pl[0].x, 1.6, sim.pl[0].z))
+		hud.serve_meter.position = Vector2(clampf(mp.x + 72.0, 20.0, 1240.0), clampf(mp.y - 30.0, 40.0, 580.0))
+		hud.serve_meter.scale = Vector2(0.65, 0.45)
 		hud.set_meter_label("FUERZA")
 		hud.serve_meter_update(sim.pl[0].charge)
 	elif not demo:
@@ -884,10 +982,10 @@ func _update_bounce_ring() -> void :
 	var sc: float = lerpf(0.35, 1.0, k)
 	bounce_ring.scale = Vector3(sc, 1, sc)
 	if surface == "clay":
-		# v0.143: en tierra el aro se perdia; blanco puro y casi opaco
+
 		bounce_ring_mat.albedo_color = Color(1.0, 1.0, 1.0, lerpf(1.0, 0.85, k))
 	else:
-		bounce_ring_mat.albedo_color.a = lerpf(0.95, 0.55, k)
+		bounce_ring_mat.albedo_color.a = lerpf(0.95, BOUNCE_RING_FAR_A, k)
 
 func _start_replay() -> void :
 	if rec.size() < 10:
@@ -1032,15 +1130,19 @@ static func grunt_hit_vol(charge: float, kind: String) -> float:
 		return 0.6
 	return clampf(0.15 + (charge - 1.3) * 1.2, 0.0, 0.6) if charge >= 1.3 else 0.0
 
-static func winner_celebration_plan(txt: String, hot: int) -> Array:
+
+static func winner_celebration_plan(txt: String, hot: int, games: int = 0) -> Array:
+
 	if txt == "PARTIDO":
-		return ["Punch_Right", 3.0]
+
+		return ["Wave", 3.0]
 	if txt == "SET":
-		return ["Wave", 2.5]
+
+		return ["Punch_Left", 2.0]
 	if txt == "JUEGO":
 		return ["Wave", 1.6]
 	if txt == "PUNTO" and hot >= 2:
-		return ["Wave", 1.4]
+		return ["Punch_Left", 1.2]
 	return []
 
 static func crowd_point_plan(txt: String, rally_hits: int) -> Array:
@@ -1089,7 +1191,10 @@ static func rally_count_txt(rally_hits: int) -> String:
 
 
 static func skid_alpha(surf: String) -> float:
-	return 0.7 if surf == "clay" else 0.0
+	return 0.42 if surf == "clay" else 0.0
+
+func skid_color() -> Color:
+	return Color(0.45, 0.24, 0.1) if surface == "clay" else mark_color()
 
 static func skid_angle(vx: float, vz: float) -> float:
 	return atan2(vx, vz)
@@ -1107,8 +1212,9 @@ func spawn_skid(pos: Vector3, vx: float, vz: float) -> void :
 			sk.max = 4.5
 			sk.m.visible = true
 			sk.m.position = Vector3(pos.x, DECAL_Y, pos.z) + lat * (0.14 if n == 0 else -0.14) - Vector3(vx, 0.0, vz).normalized() * 0.85
-			sk.m.rotation.y = ang
-			sk.mat.albedo_color = mark_color()
+			sk.m.rotation.y = ang + randf_range(-0.07, 0.07)
+			sk.m.scale.z = randf_range(0.8, 1.15)
+			sk.mat.albedo_color = skid_color()
 			sk.mat.albedo_color.a = sa
 			n += 1
 			if n >= 2:
@@ -1254,7 +1360,6 @@ func drain_events() -> void :
 				if ev.kind == "smash":
 					shake = 0.34
 					sfx.play("grunt", grunt_hit_vol(0.0, ev.kind), 0.94 + 0.08 * float(ev.id))
-				spawn_dust(Vector3(ev.x, ev.y, ev.z), 3, Color(1, 0.96, 0.7, 0.4))
 
 				if sim.state == "play" and sim.rally_hits >= 4:
 					var stp: = int(sim.rally_hits / 4)
@@ -1281,23 +1386,24 @@ func drain_events() -> void :
 						"smash":
 							hud.popup("¡SMASH!", pwp, Color("#ffd23f"))
 						"lob":
-							hud.popup("GLOBO", pwp, Color("#7ac7ff"))
+							hud.popup("GLOBO", pwp, Color("#fff19a"))
 						"drop":
 							hud.popup("DEJADA", pwp, Color("#c8ffb0"))
 						"slice":
-							hud.popup("SLICE", pwp, Color("#ffd9a0"))
+							hud.popup("SLICE", pwp, Color("#fff19a"))
 						"volley":
 							hud.popup("VOLEA", pwp, Color("#a0e8ff"))
 						"toplob":
-							hud.popup("GLOBO LIFTADO", pwp, Color("#ffb0d9"))
+							hud.popup("GLOBO LIFTADO", pwp, Color("#fff19a"))
 				if ev.get("rise", false) and ev.id == 0 and not demo:
-					hud.popup("¡AL BOTE!", pwp, Color("#a0ffe0"))
+					hud.popup("¡AL BOTE!", pwp, Color("#ffe14d"))
 				if ev.kind == "volley" and ev.get("stretch", 0.0) >= 1.3:
 					sfx.play("swish", 1.0)
 
 				if ev.kind == "smash" or ev.get("stretch", 0.0) >= 1.3 or charged >= 1.3:
 					sfx.play("grunt", 0.55 if ev.id == 0 else 0.35, randf_range(0.9, 1.12))
 			"serve":
+				_srv_bounce_ok = false
 				if _hot_level() >= 1 and not _serve_armed:
 					sfx.play("murmur", 0.8)
 					var tns: float = match_point_tension(_hot_level())
@@ -1322,6 +1428,9 @@ func drain_events() -> void :
 					hud.popup_side("¡SAQUE PERFECTO!", Color("#ffe27a"))
 			"retoss":
 				sfx.play("catch", 0.7)
+				hud.show_banner("RESAQUE", "pulsa A de nuevo tras el lanzamiento", Color("#ffffff"))
+				banner_dur = 1.6
+				banner_t = banner_dur
 			"toss":
 
 				sfx.hush()
@@ -1330,8 +1439,16 @@ func drain_events() -> void :
 			"rut_bounce":
 				sfx.play(sfx.surf_name("bounce", surface), 0.3)
 			"bounce":
+				if not _srv_bounce_ok:
+					_srv_bounce_ok = true
+					_srv_bounce = Vector3(ev.x, 0.0, ev.z)
 				if not demo or randf() < 0.3:
 					sfx.play(sfx.surf_name("bounce", surface), ev.v)
+
+				if surface == "clay":
+					spawn_dust(Vector3(ev.x, 0.05, ev.z), 5, dust_color(0.5), 2.2)
+				elif ev.v > 0.7:
+					spawn_dust(Vector3(ev.x, 0.05, ev.z), 2, dust_color(0.3), 1.4)
 				var nt: float = clay_tint_next(clay_tint, surface)
 				if nt != clay_tint:
 					clay_tint = nt
@@ -1346,15 +1463,21 @@ func drain_events() -> void :
 					var near_side: bool = absf(ev.x) >= 3.75 and absf(ev.x) <= 4.115
 					var near_base: bool = absf(ev.z - base_z) <= 0.435
 					if opp_half and sim.state == "play" and (near_side or near_base):
-						hud.popup("¡A LA LÍNEA!", Vector3(ev.x, 0.0, ev.z), Color("#ffe27a"))
+						hud.popup_side("¡A LA LÍNEA!", Color("#ffe27a"))
 						sfx.play("crowd_ooh", 0.4)
 
-				spawn_dust(Vector3(ev.x, 0.05, ev.z), 5 + int(ev.v * 4.0), dust_color(0.55), 2.0 + ev.v * 2.0)
+				spawn_dust(Vector3(ev.x, 0.05, ev.z), 5 + int(ev.v * 4.0), dust_color(0.65), 2.0 + ev.v * 2.0)
 				var sd_n: int = spin_dust_count(ev.get("sp", 0.0))
 				if sd_n > 0:
 					spawn_dust_dir(Vector3(ev.x, 0.05, ev.z), sd_n, dust_color(0.6), 1.6, spin_dust_bias(ev.get("sp", 0.0), ev.get("vz", 1.0)))
 				dust_trail = dust_trail_time(surface, ev.v)
 				spawn_mark(Vector3(ev.x, 0.0, ev.z))
+			"let":
+				hud.popup("LET", Vector3(sim.ball.x, 0.0, sim.ball.z), Color("#ffffff"))
+				hud.show_banner("LET", "se repite el saque", Color("#ffffff"))
+				banner_dur = 1.2
+				banner_t = banner_dur
+				sfx.play("tape")
 			"netcord":
 
 				sfx.play("tape")
@@ -1375,6 +1498,7 @@ func drain_events() -> void :
 			"point":
 				hud.hide_speed()
 				_point_winner = ev.get("w", -1)
+				_closeup_ok = ev.txt in ["JUEGO", "SET", "PARTIDO"]
 				_fatigue = fatigue_from_rally(sim.rally_hits)
 				var is_err: bool = ev.txt in ["FUERA", "RED", "DOBLE FALTA"]
 				crowd.react(is_err)
@@ -1395,7 +1519,9 @@ func drain_events() -> void :
 				if sim.rally_hits == 1 and ev.txt == "PUNTO":
 					sfx.play("ovation", 0.9)
 					if ev.w == 0 and not demo:
-						hud.popup("¡ACE!", Vector3(sim.pl[0].x, 0.0, sim.pl[0].z), Color("#ffe27a"))
+
+						var _ace_pos: Vector3 = _srv_bounce if _srv_bounce_ok else Vector3(sim.pl[0].x, 0.0, sim.pl[0].z)
+						hud.popup("¡ACE!", _ace_pos + Vector3(0.0, 1.2, 0.0), Color("#ffe27a"))
 				if _hot_level() >= 1:
 					sfx.play("ovation", 0.85)
 
@@ -1408,9 +1534,11 @@ func drain_events() -> void :
 						sfx.play(rx[0], rx[1])
 
 
-				rigs[1 - ev.w].celebrate("HitRecieve" if is_err else "Wave", 1.3 if is_err else 2.0)
+				if is_err:
 
-				var wp: Array = winner_celebration_plan(ev.txt, point_hot)
+					rigs[1 - ev.w].celebrate("HitRecieve_2" if sim.rally_hits >= 8 else "HitRecieve", 1.3)
+
+				var wp: Array = winner_celebration_plan(ev.txt, point_hot, sim.M.games[0] + sim.M.games[1])
 				if not wp.is_empty():
 					rigs[ev.w].celebrate(wp[0], wp[1])
 				hud.update_score(sim.M)
@@ -1441,6 +1569,8 @@ func drain_events() -> void :
 					for r in rigs:
 						r.set_leg_dust(leg_dust)
 
+				if ev.txt == "JUEGO" and (sim.M.games[0] + sim.M.games[1]) % 2 == 1 and not balls_change(sim.M.games[0] + sim.M.games[1]):
+					hud.popup_side("CAMBIO DE LADOS", Color("#9ecfff"))
 				if ev.txt == "JUEGO" and balls_change(sim.M.games[0] + sim.M.games[1]):
 					clay_tint = 0.0
 					ball_mat.albedo_color = BALL_YEL

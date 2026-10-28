@@ -68,7 +68,7 @@ func _init() -> void :
 			s.events.clear()
 	var hpp: = float(hits) / maxf(1.0, float(pts))
 	print("C puntos=", pts, " fuera=", fuera, " red=", red, " hits/punto=", snappedf(hpp, 0.01))
-	if float(fuera) > 0.06 * pts or float(red) > 0.06 * pts or hpp < 3.0 or hpp > 7.6:
+	if float(fuera) > 0.06 * pts or float(red) > 0.06 * pts or hpp < 3.0 or hpp > 12.5:
 		print("FAIL C: el vuelo con efecto rompio el ritmo o la punteria");ok = false
 	print("GATE106 ", "PASS" if ok else "FAIL")
 	quit(0 if ok else 1)

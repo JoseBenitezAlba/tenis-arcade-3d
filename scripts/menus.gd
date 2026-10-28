@@ -1,7 +1,7 @@
 class_name GameMenus
 extends Control
 
-const VERSION: = "v0.148"
+const VERSION: = "v0.189"
 
 signal quick_match(surface: String, diff: int, sets: int, tod: int, style: int)
 signal play_career_match
@@ -136,6 +136,38 @@ func _row(controls: Array) -> HBoxContainer:
 		h.add_child(c)
 	return h
 
+func _stat_row(a: String, b: String, c: String, head: bool = false) -> HBoxContainer:
+	var col: = Color("#ffd23f") if head else Color("#e8eefc")
+	var l1: = _sub(a, 15 if not head else 14, col)
+	l1.custom_minimum_size = Vector2(260, 0)
+	l1.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	var l2: = _sub(b, 15 if not head else 14, col)
+	l2.custom_minimum_size = Vector2(90, 0)
+	var l3: = _sub(c, 15 if not head else 14, col)
+	l3.custom_minimum_size = Vector2(90, 0)
+	return _row([l1, l2, l3])
+
+func _stats_panel(mstats: Array, rally_max: int, cpu_label: String) -> PanelContainer:
+	var p: = _panel()
+	var v: = VBoxContainer.new()
+	v.add_theme_constant_override("separation", 2)
+	var a: Dictionary = mstats[0]
+	var b: Dictionary = mstats[1]
+	var f0: = str(int(round(100.0 * a.first_in / maxf(1.0, a.first_total)))) + "%"
+	var f1: = str(int(round(100.0 * b.first_in / maxf(1.0, b.first_total)))) + "%"
+	v.add_child(_stat_row("ESTADÍSTICAS", "TÚ", cpu_label.left(10).to_upper(), true))
+	v.add_child(_stat_row("Aces", str(a.aces), str(b.aces)))
+	v.add_child(_stat_row("Winners", str(a.winners), str(b.winners)))
+	v.add_child(_stat_row("Errores no forzados", str(a.errors), str(b.errors)))
+	v.add_child(_stat_row("Dobles faltas", str(a.df), str(b.df)))
+	v.add_child(_stat_row("Primer saque", f0, f1))
+	v.add_child(_stat_row("Saque más rápido", str(a.max_serve) + " km/h", str(b.max_serve) + " km/h"))
+	v.add_child(_stat_row("Puntos ganados", str(a.points), str(b.points)))
+	var r: = _sub("Rally más largo: " + str(rally_max) + " golpes", 14, Color("#9fb3e8"))
+	v.add_child(_row([r]))
+	p.add_child(v)
+	return p
+
 func _clear() -> void :
 	for c in root_box.get_children():
 		c.queue_free()
@@ -201,7 +233,7 @@ func show_menu(p_career: Career) -> void :
 		pad_invert.emit(false, i == 1))]))
 	root_box.add_child(_row([_sub("Eje X", 14), _opt_group(["NORMAL", "INVERTIDO"], 1 if pad_inv_x else 0, func(i):
 		pad_invert.emit(true, i == 1))]))
-	root_box.add_child(_sub("Mando: stick mover · A golpe · X globo · B dejada · START pausa\nTeclado: WASD/flechas · ESPACIO golpe · Z globo · SHIFT dejada · P pausa", 13, Color("#8ea2d8")))
+	root_box.add_child(_sub("Mando: stick mover · A golpe (mantén para cargar) · X globo · B dejada · START pausa\nTeclado: WASD/flechas · ESPACIO golpe (mantén para cargar) · Z globo · SHIFT dejada · P pausa", 13, Color("#8ea2d8")))
 	wt.grab_focus()
 
 
@@ -548,10 +580,12 @@ func _stats_table() -> VBoxContainer:
 	return v
 
 
-func show_over(win: bool, sets0: int, sets1: int, cpu_label: String, career_result: Dictionary, is_career: bool) -> void :
+func show_over(win: bool, sets0: int, sets1: int, cpu_label: String, career_result: Dictionary, is_career: bool, mstats: Array = [], rally_max: int = 0) -> void :
 	_clear()
 	root_box.add_child(_title("¡VICTORIA!" if win else "DERROTA", 60, Color("#7dffa8") if win else Color("#ff9c9c")))
 	root_box.add_child(_sub(("Ganas " if win else "Pierdes ") + ("contra " + cpu_label + " " if is_career else "") + "· " + str(sets0) + "-" + str(sets1) + " en sets", 20, Color.WHITE))
+	if mstats.size() == 2:
+		root_box.add_child(_stats_panel(mstats, rally_max, cpu_label))
 	if is_career and career_result.has("msg"):
 		var mp: = _panel()
 		var ml: = _sub(career_result.msg, 16, Color("#cfffc9") if career_result.ok else Color("#ffd0d0"))

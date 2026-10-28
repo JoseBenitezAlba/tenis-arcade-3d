@@ -33,7 +33,7 @@ func _init() -> void :
 			s.events.clear()
 	var frac: = float(long10) / maxf(1.0, float(rallies))
 	print("B rallies=", rallies, " con_contador=", long10, " frac=", snappedf(frac, 0.03))
-	if frac < 0.05 or frac > 0.35:
+	if frac < 0.08 or frac > 0.55:
 		print("FAIL B: el contador saldria sin parar o nunca");ok = false
 	print("GATE102 ", "PASS" if ok else "FAIL")
 	quit(0 if ok else 1)

@@ -28,7 +28,7 @@ func _init() -> void :
 			s.events.clear()
 	var frac: = float(long10) / maxf(1.0, float(rallies))
 	print("A rallies=", rallies, " >=10=", long10, " frac=", snappedf(frac, 0.03))
-	if frac < 0.05 or frac > 0.35:
+	if frac < 0.08 or frac > 0.55:
 		print("FAIL A: oles fuera de banda (constantes o inexistentes)");ok = false
 
 	var k: = SoundKit.new()

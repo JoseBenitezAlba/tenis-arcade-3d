@@ -15,7 +15,7 @@ func _init() -> void :
 		" ang(+z)=", snappedf(MV.skid_angle(0.0, 3.0), 0.01), " ang(+x)=", snappedf(MV.skid_angle(3.0, 0.0), 0.01))
 	if MV.DECAL_Y <= 0.06:
 		print("FAIL A: las calcas quedan bajo el plano de la pista (y=0.06)");ok = false
-	if MV.skid_alpha("clay") != 0.7 or MV.skid_alpha("grass") != 0.0 or MV.skid_alpha("hard") != 0.0:
+	if MV.skid_alpha("clay") != 0.42 or MV.skid_alpha("grass") != 0.0 or MV.skid_alpha("hard") != 0.0:
 		print("FAIL A: solo la arcilla guarda surcos");ok = false
 	if absf(MV.skid_angle(0.0, 3.0)) > 0.01 or absf(MV.skid_angle(3.0, 0.0) - PI / 2.0) > 0.01:
 		print("FAIL A: el surco no sigue la direccion del arrastre");ok = false

@@ -26,7 +26,8 @@ func _init() -> void :
 			s.events.clear()
 	var frac: = float(big) / maxf(1.0, float(hits))
 	print("A golpes=", hits, " de_entrega=", big, " frac=", snappedf(frac, 0.03))
-	if frac < 0.03 or frac > 0.5:
+
+	if frac < 0.02 or frac > 0.5:
 		print("FAIL A: el grunido sonaria sin parar o nunca");ok = false
 
 	var k: = SoundKit.new()

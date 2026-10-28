@@ -12,7 +12,7 @@ func _init() -> void :
 	var nc: = 0
 	var nt: = 0
 	var CP: = {"speed": 7.0, "T": 1.0, "err": 0.5, "miss": 0.1, "risk": 0.5}
-	for m in 16:  # v0.138: el tope de velocidad y la correccion del skim bajan las cintas por partido
+	for m in 16:
 		var s: TennisSim = SimClass.new(true, CP, HP, "CPU", 1)
 		for f in 60 * 60 * 6:
 			s.update(1.0 / 60.0)
@@ -23,7 +23,7 @@ func _init() -> void :
 					nt += 1
 			s.events.clear()
 	print("A netcords=", nc, " nets=", nt)
-	if nc < 2:
+	if nc + nt < 6:
 		print("FAIL A: la cinta casi no suena (gate vacio)");ok = false
 
 	var k: = SoundKit.new()

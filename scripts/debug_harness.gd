@@ -11,14 +11,14 @@ const LATE: = {
 	"--racketshot": "_racketshot_harness", "--swingshot": "_swingshot_harness", 
 	"--judgetest": "_judgetest_harness", "--v29shots": "_v29shots_harness", 
 	"--v30shots": "_v30shots_harness", "--trailshot": "_trailshot_harness", 
-	"--rallyshots": "_rallyshots_harness", "--courtshot": "_courtshot_harness", 
+	"--rallyshots": "_rallyshots_harness", "--courtshot": "_courtshot_harness", "--arcshot": "_arcshot_harness", "--movietest": "_movietest_harness", 
 	"--watchtest": "_watchtest_harness", "--boardcheck": "_boardcheck_harness", 
 	"--closeup": "_closeup_harness", "--replayshots": "_replayshots_harness", 
 	"--looktest": "_looktest_harness", "--careershot": "_careershot_harness", 
 	"--faceshots": "_faceshots_harness", "--matchprobe": "_matchprobe_harness", 
 	"--shots": "_shots_harness", 
-	"--celnight": "_celnight_harness", "--startshot": "_startshot_harness", "--prepshot": "_prepshot_harness", "--legshot": "_legshot_harness", "--rallylabel": "_rallylabel_harness", "--celshot": "_celshot_harness", 
-	"--v31shots": "_v31shots", 
+	"--latshot": "_latshot_harness", "--ballshot": "_ballshot_harness", "--topshot": "_topshot_harness", "--celnight": "_celnight_harness", "--startshot": "_startshot_harness", "--prepshot": "_prepshot_harness", "--legshot": "_legshot_harness", "--rallylabel": "_rallylabel_harness", "--celshot": "_celshot_harness", "--rkshot": "_rkshot_harness", "--jshot": "_jshot_harness", "--seqshot": "_seqshot_harness", "--ppshot": "_ppshot_harness", "--cpuserve": "_cpuserve_harness", "--audit169": "_audit169_harness", "--cap171": "_cap171_harness", "--gday": "_gday_harness", "--matchmovie": "_matchmovie_harness", "--windupchk": "_windupchk_harness", "--prepcheck": "_prepcheck_harness", "--pose178": "_pose178_harness", "--net178": "_net178_harness", "--full178": "_full178_harness", 
+	"--v31shots": "_v31shots", "--audit173": "_audit173_harness", 
 }
 
 
@@ -723,6 +723,55 @@ func _rallyshots_harness(args: Array) -> void :
 	get_tree().quit(0)
 
 
+func _arcshot_harness(args: Array) -> void :
+	var out: = "/home/sandbox/godot/shots/arc"
+	var i: = args.find("--arcshot")
+	if i + 1 < args.size():
+		out = args[i + 1]
+	DirAccess.make_dir_recursive_absolute(out)
+	m.menus.visible = false
+	m.match_view = MatchView.new()
+	m.match_view.set_meta("surface", "hard")
+	m.match_view.set_meta("day", true)
+	m.match_view.set_meta("cpu_look", 2)
+	m.match_view.set_meta("my_name", "TU")
+	m.match_view.set_meta("cpu_label", "CPU · NORMAL")
+	m.match_view.setup({"demo": true, "surface": "hard", "AIP": m.DIFF_PARAMS[1], "sets_to_win": 1})
+	add_child(m.match_view)
+	var ok: = await _wait_until( func(): return m.match_view.sim.rally_hits >= 2, 40.0)
+	print("arcshot rally ok: ", ok)
+	var sim = m.match_view.sim
+	var z0: float = sim.ball.z
+	var f: = 0
+	var cap: = 0
+	while cap < 18 and f < 240:
+		await _wait_sim(1.0 / 30.0)
+		f += 1
+		var crossed: bool = (z0 - sim.NZ) * (sim.ball.z - sim.NZ) < 0.0
+		if f >= 3 or crossed:
+			await _grab(out + "/a" + str(cap) + ".png")
+			cap += 1
+			print("arc a", cap, " by=", snappedf(sim.ball.y, 0.02), " bz=", snappedf(sim.ball.z, 0.1))
+	get_tree().quit(0)
+
+
+func _movietest_harness(args: Array) -> void :
+	m.menus.visible = false
+	m.match_view = MatchView.new()
+	m.match_view.set_meta("surface", "hard")
+	m.match_view.set_meta("day", true)
+	m.match_view.set_meta("cpu_look", 2)
+	m.match_view.set_meta("my_name", "TU")
+	m.match_view.set_meta("cpu_label", "CPU · NORMAL")
+	m.match_view.setup({"demo": true, "surface": "hard", "AIP": m.DIFF_PARAMS[1], "sets_to_win": 1})
+	add_child(m.match_view)
+	var ok: = await _wait_until( func(): return m.match_view.sim.rally_hits >= 1, 40.0)
+	print("movie rally ok: ", ok)
+	await _wait_sim(40.0)
+	print("movie done hits=", m.match_view.sim.rally_hits)
+	get_tree().quit(0)
+
+
 func _trailshot_harness(args: Array) -> void :
 	var out: = "/home/sandbox/godot/shots/trail"
 	var i: = args.find("--trailshot")
@@ -1344,7 +1393,7 @@ func _celshot_harness(args: Array) -> void :
 	add_child(jc)
 	jc.fov = 35.0
 	jc.current = true
-	for nm in ["Wave", "Punch_Right", "HitRecieve"]:
+	for nm in ["Wave", "Punch_Right", "Punch_Left", "Sword_Slash", "HitRecieve", "HitRecieve_2"]:
 		var rg = m.match_view.rigs[1]
 		rg.celebrate(nm, 3.0)
 		for k in 14:
@@ -1353,4 +1402,864 @@ func _celshot_harness(args: Array) -> void :
 		jc.position = p0 + Vector3(0.0, 1.5, -3.2)
 		jc.look_at(p0 + Vector3(0, 1.2, 0))
 		await _grab(out + "/" + nm + ".png")
+	get_tree().quit()
+
+
+func _rkshot_harness(args: Array) -> void :
+	var i: = args.find("--rkshot")
+	var out: String = args[i + 1] if i + 1 < args.size() else "/tmp/rk"
+	DirAccess.make_dir_recursive_absolute(out)
+	m.menus.visible = false
+	m.match_view = MatchView.new()
+	m.match_view.set_meta("surface", "hard")
+	m.match_view.set_meta("tod", 0)
+	m.match_view.set_meta("cpu_look", 2)
+	m.match_view.set_meta("my_name", "TU")
+	m.match_view.set_meta("cpu_label", "CPU")
+	m.match_view.setup({"AIP": m.DIFF_PARAMS[0], "sets_to_win": 1})
+	add_child(m.match_view)
+	var jc: = Camera3D.new()
+	add_child(jc)
+	jc.fov = 30.0
+	jc.current = true
+	var rg = m.match_view.rigs[0]
+	m.match_view.process_mode = Node.PROCESS_MODE_DISABLED
+	m.match_view.rigs[1].visible = false
+	rg.reparent(self)
+	rg.process_mode = Node.PROCESS_MODE_INHERIT
+	print("RK ", rg.get_class(), " ", rg.ap.get_animation_list(), " act=", rg.ap.active, " spd=", rg.ap.speed_scale)
+	var cases: = [["Punch_Right", 0.2, 0.0, 0.0], ["Punch_Right", 0.6, 0.0, 0.0], ["Punch_Right", 1.0, 0.0, 0.0], ["HitRecieve", 0.2, 0.0, 0.0], ["HitRecieve", 0.6, 0.0, 0.0], ["HitRecieve", 1.0, 0.0, 0.0], ["Wave", 0.3, 0.0, 0.0], ["Wave", 0.8, 0.0, 0.0], ["Wave", 1.4, 0.0, 0.0], ["Idle_Sword", 0.0, 0.0, 0.0], ["Idle", 0.0, 0.0, 0.0], ["Idle_Neutral", 0.0, 0.0, 0.0]]
+	var n: = 0
+	for c in cases:
+		rg.state = ""
+		rg._play_seek(c[0], c[1])
+		rg.ap.advance(0.3)
+		for k in 3:
+			rg.ap.pause()
+			rg.ap.seek(c[1], true)
+			rg.skel.force_update_all_bone_transforms()
+			var wi: int = rg.skel.find_bone("Wrist.R")
+			rg.racket_node.get_parent().transform = rg.skel.get_bone_global_pose(wi)
+			if c[2] == 99.0:
+				rg.racket_node.rotation = Vector3(PI, 0.0, 0.0)
+			else:
+				rg.rk_rest_k = 1.0
+				rg.state = c[0]
+				rg._rk_rest(0.2)
+			await get_tree().process_frame
+		var p0: Vector3 = rg.global_position
+		jc.position = p0 + Vector3(-4.0, 1.3, -1.8)
+		jc.look_at(p0 + Vector3(0, 1.0, 0))
+		var wi2: int = rg.skel.find_bone("Wrist.R")
+		print("RK wrist ", wi2, " ", (rg.skel.global_transform * rg.skel.get_bone_global_pose(wi2)).origin, " racket ", rg.racket_node.global_position, " ba ", rg.racket_node.get_parent().get_class(), " ", rg.racket_node.get_parent().bone_name)
+		print("RK cur ", rg.ap.current_animation, " pos ", rg.ap.current_animation_position)
+		await _grab(out + "/%02d_%s_%s.png" % [n, str(c[0]).replace("/", "_"), str(c[1])])
+		n += 1
+	get_tree().quit()
+
+
+func _jshot_harness(args: Array) -> void :
+	var i: = args.find("--jshot")
+	var out: String = args[i + 1] if i + 1 < args.size() else "/tmp/js"
+	DirAccess.make_dir_recursive_absolute(out)
+	m.menus.visible = false
+	m.match_view = MatchView.new()
+	m.match_view.set_meta("surface", "hard")
+	m.match_view.set_meta("tod", 0)
+	m.match_view.set_meta("cpu_look", 2)
+	m.match_view.set_meta("my_name", "TU")
+	m.match_view.set_meta("cpu_label", "CPU")
+	m.match_view.setup({"AIP": m.DIFF_PARAMS[0], "sets_to_win": 1})
+	add_child(m.match_view)
+	var jc: = Camera3D.new()
+	add_child(jc)
+	jc.fov = 40.0
+	jc.current = true
+	var NZ: = 11.885
+	var shots: = [["umpire", Vector3(-7.0, 2.6, NZ), Vector3(-4.0, 3.2, NZ + 3.0)], ["j0", Vector3(-8.0, 0.8, -2.9), Vector3(-6.0, 1.5, -5.0)], ["j2", Vector3(-5.6, 0.8, 26.7), Vector3(-3.5, 1.5, 24.5)]]
+	for sh in shots:
+		for k in 3:
+			await get_tree().process_frame
+		jc.position = sh[2]
+		jc.look_at(sh[1])
+		await _grab(out + "/" + sh[0] + ".png")
+	get_tree().quit()
+
+
+func _seqshot_harness(args: Array) -> void :
+	var i: = args.find("--seqshot")
+	var out: String = args[i + 1] if i + 1 < args.size() else "/tmp/sq"
+	DirAccess.make_dir_recursive_absolute(out)
+	m.menus.visible = false
+	m.match_view = MatchView.new()
+	m.match_view.set_meta("surface", "hard")
+	m.match_view.set_meta("tod", 0)
+	m.match_view.set_meta("cpu_look", 2)
+	m.match_view.set_meta("my_name", "TU")
+	m.match_view.set_meta("cpu_label", "CPU")
+	m.match_view.setup({"demo": true, "surface": "hard", "AIP": m.DIFF_PARAMS[0], "sets_to_win": 1})
+	add_child(m.match_view)
+	await _wait_until( func(): return m.match_view.sim.state == "play", 60.0)
+	for n in 14:
+		var t0: = Time.get_ticks_msec()
+		while Time.get_ticks_msec() - t0 < 600:
+			await get_tree().process_frame
+		var r0 = m.match_view.rigs[0]
+		print("RKS ", n, " st=", r0.state, " celeb=", r0.celeb_name, " ", r0.celeb_t, " vis=", r0.racket_node.visible, " k=", r0.rk_rest_k, " rot=", r0.racket_node.rotation, " sim=", m.match_view.sim.state)
+		await _grab(out + "/s%02d.png" % n)
+		if n == 13:
+			var r1 = m.match_view.rigs[0]
+			var wi: int = r1.skel.find_bone("Wrist.R")
+			print("RKW wrist ", (r1.skel.global_transform * r1.skel.get_bone_global_pose(wi)).origin, " racket ", r1.racket_node.global_position, " fig ", r1.global_position, " rotY ", r1.rotation.y)
+			var jc: = Camera3D.new()
+			add_child(jc)
+			jc.fov = 35.0
+			jc.current = true
+			for v in [Vector3(0, 1.4, -3.0), Vector3(3.0, 1.4, 0.0), Vector3(-3.0, 1.4, 0.0), Vector3(0, 1.4, 3.0)]:
+				jc.position = r1.global_position + v
+				jc.look_at(r1.global_position + Vector3(0, 1.0, 0))
+				await get_tree().process_frame
+				await _grab(out + "/z%d.png" % int(v.x + v.z * 2 + 10))
+	get_tree().quit()
+
+
+func _ppshot_harness(args: Array) -> void :
+	var i: = args.find("--ppshot")
+	var out: String = args[i + 1] if i + 1 < args.size() else "/tmp/pp"
+	DirAccess.make_dir_recursive_absolute(out)
+	m.menus.visible = false
+	m.match_view = MatchView.new()
+	m.match_view.set_meta("surface", "hard")
+	m.match_view.set_meta("tod", 0)
+	m.match_view.set_meta("cpu_look", 2)
+	m.match_view.set_meta("my_name", "TU")
+	m.match_view.set_meta("cpu_label", "CPU")
+	m.match_view.setup({"demo": true, "surface": "hard", "AIP": m.DIFF_PARAMS[0], "sets_to_win": 1})
+	add_child(m.match_view)
+	await _wait_until( func(): return m.match_view.sim.state == "point", 90.0)
+	print("PP point reached, ball=", m.match_view.sim.ball.x, " ", m.match_view.sim.ball.y, " ", m.match_view.sim.ball.z, " held=", m.match_view.sim.ball.held)
+	for n in 6:
+		var t0: = Time.get_ticks_msec()
+		while Time.get_ticks_msec() - t0 < 350:
+			await get_tree().process_frame
+		print("PP ", n, " sim=", m.match_view.sim.state, " ball=", m.match_view.sim.ball.x, " ", m.match_view.sim.ball.y, " ", m.match_view.sim.ball.z, " vis=", m.match_view.ball_mesh.visible, " scale=", m.match_view.ball_mesh.scale, " pb=", m.match_view._pb_active)
+		await _grab(out + "/p%d.png" % n)
+	get_tree().quit()
+
+func _cpuserve_harness(args: Array) -> void :
+	var i: = args.find("--cpuserve")
+	var out: String = args[i + 1] if i + 1 < args.size() else "/tmp/cs2"
+	DirAccess.make_dir_recursive_absolute(out)
+	m.menus.visible = false
+	m.match_view = MatchView.new()
+	m.match_view.set_meta("surface", "hard")
+	m.match_view.set_meta("tod", 0)
+	m.match_view.set_meta("cpu_look", 2)
+	m.match_view.set_meta("my_name", "TU")
+	m.match_view.set_meta("cpu_label", "CPU")
+	m.match_view.setup({"AIP": m.DIFF_PARAMS[0], "sets_to_win": 1})
+	add_child(m.match_view)
+	m.match_view.sim.M.server = 1
+	m.match_view.sim.prep_serve()
+	for n in 6:
+		var t0: = Time.get_ticks_msec()
+		while Time.get_ticks_msec() - t0 < 500:
+			await get_tree().process_frame
+		print("CS ", m.match_view.sim.state, " ", m.match_view.sim.pl[0].x, " ", m.match_view.sim.pl[1].x, " ball ", m.match_view.sim.ball.x, " ", m.match_view.sim.ball.y, " ", m.match_view.sim.ball.z)
+		await _grab(out + "/c%d.png" % n)
+	get_tree().quit()
+
+func _latshot_harness(args: Array) -> void :
+	var i: = args.find("--latshot")
+	var out: String = args[i + 1] if i + 1 < args.size() else "/tmp/lat"
+	DirAccess.make_dir_recursive_absolute(out)
+	m.menus.visible = false
+	m.match_view = MatchView.new()
+	m.match_view.set_meta("surface", "hard")
+	m.match_view.set_meta("tod", 1)
+	m.match_view.set_meta("cpu_look", 2)
+	m.match_view.set_meta("my_name", "TU")
+	m.match_view.set_meta("cpu_label", "CPU")
+	m.match_view.setup({"AIP": m.DIFF_PARAMS[0], "sets_to_win": 1})
+	add_child(m.match_view)
+	var sim = m.match_view.sim
+	sim.demo = false
+	sim.state = "play"
+	sim.ball.in_play = true
+	sim.ball.serving = false
+	sim.ball.x = 3.0;sim.ball.y = 1.0;sim.ball.z = 20.0
+	sim.ball.vx = 0.0;sim.ball.vy = 0.0;sim.ball.vz = 3.0
+	sim.ball.last = 0;sim.ball.bounces = 1
+	var jc: = Camera3D.new()
+	add_child(jc)
+	jc.fov = 28.0
+	jc.current = true
+	var shots: = [0.25, 0.45, 0.65, 0.85, 1.05, 1.3, 1.5, 1.7, 1.85, 2.0, 2.2, 2.5]
+	var si: = 0
+	var t: = 0.0
+	var dt: = 1.0 / 60.0
+	while t < 2.6:
+
+		Input.action_release("move_left");Input.action_release("move_right")
+		if t < 1.3:
+			Input.action_press("move_right")
+		elif t >= 1.7:
+			Input.action_press("move_left")
+		sim.demo = false
+		if sim.state != "play":
+			sim.state = "play"
+			sim.ball.in_play = true
+			sim.ball.serving = false
+			sim.ball.x = 3.0;sim.ball.y = 1.0;sim.ball.z = 20.0
+			sim.ball.vx = 0.0;sim.ball.vy = 0.0;sim.ball.vz = 3.0
+			sim.ball.last = 0;sim.ball.bounces = 1
+		await get_tree().process_frame
+		t += dt
+		var e = sim.pl[0]
+		var rg = m.match_view.rigs[0]
+		var p0: Vector3 = rg.global_position
+		jc.position = Vector3(p0.x, 1.6, p0.z - 4.2)
+		jc.look_at(p0 + Vector3(0, 1.0, 0))
+		print("LAT t=%.2f x=%.2f vx=%.2f vz=%.2f sp=%.2f rotY=%.2f anim=%s" % [t, e.x, e.vx, e.vz, e.speed, rg.rotation.y, rg.get("state")])
+		if si < shots.size() and t >= shots[si]:
+			await _grab(out + ("/f%02d_t%.2f.png" % [si, t]))
+			si += 1
+	get_tree().quit()
+
+func _ballshot_harness(args: Array) -> void :
+	var i: = args.find("--ballshot")
+	var out: String = args[i + 1] if i + 1 < args.size() else "/tmp/bs"
+	DirAccess.make_dir_recursive_absolute(out)
+	m.menus.visible = false
+	m.match_view = MatchView.new()
+	m.match_view.set_meta("surface", "hard")
+	m.match_view.set_meta("tod", 0)
+	m.match_view.set_meta("cpu_look", 2)
+	m.match_view.set_meta("my_name", "TU")
+	m.match_view.set_meta("cpu_label", "CPU")
+	m.match_view.setup({"AIP": m.DIFF_PARAMS[0], "sets_to_win": 1})
+	add_child(m.match_view)
+	var sim = m.match_view.sim
+	sim.M.server = 1
+	sim.prep_serve()
+	var jc: = Camera3D.new()
+	add_child(jc)
+	jc.fov = 35.0
+	jc.current = true
+	var NZ: = 11.885
+	jc.position = Vector3(2.5, 2.2, NZ + 13.8 + 3.5)
+	jc.look_at(Vector3(0.0, 1.6, NZ + 11.0))
+	var t0: = Time.get_ticks_msec()
+	var n: = 0
+	while n < 16:
+		while Time.get_ticks_msec() - t0 < 300 * (n + 1):
+			await get_tree().process_frame
+		var mv = m.match_view
+		print("BS n=%d state=%s held=%s toss=%s by=%.2f vis=%.2f far=%.2f scale=%.2f" % [n, sim.state, sim.ball.held, sim.ball.toss, sim.ball.y, mv.ball_vis_scale, mv.far_ball_k(jc.global_position.distance_to(mv.ball_mesh.global_position)), mv.ball_mesh.scale.x])
+		await _grab(out + "/b%d.png" % n)
+		n += 1
+	get_tree().quit()
+
+func _topshot_harness(args: Array) -> void :
+	var i: = args.find("--topshot")
+	var out: String = args[i + 1] if i + 1 < args.size() else "/tmp/ts"
+	DirAccess.make_dir_recursive_absolute(out)
+	m.menus.visible = false
+	m.match_view = MatchView.new()
+	m.match_view.set_meta("surface", "hard")
+	m.match_view.set_meta("tod", 0)
+	m.match_view.set_meta("cpu_look", 2)
+	m.match_view.set_meta("my_name", "TU")
+	m.match_view.set_meta("cpu_label", "CPU")
+	m.match_view.setup({"AIP": m.DIFF_PARAMS[0], "sets_to_win": 1})
+	add_child(m.match_view)
+	var sim = m.match_view.sim
+	sim.M.server = 1
+	sim.prep_serve()
+	var jc: = Camera3D.new()
+	add_child(jc)
+	jc.fov = 22.0
+	jc.current = true
+	var NZ: = 11.885
+	jc.position = Vector3(0.0, 20.0, -0.5)
+	jc.look_at(Vector3(0.0, 0.0, -0.55))
+	var t0: = Time.get_ticks_msec()
+	while Time.get_ticks_msec() - t0 < 700:
+		await get_tree().process_frame
+	print("TS rec x=", sim.pl[0].x, " z=", sim.pl[0].z)
+	await _grab(out + "/top.png")
+	get_tree().quit()
+
+func _audit169_harness(args: Array) -> void :
+	var i: = args.find("--audit169")
+	var out: String = args[i + 1] if i + 1 < args.size() else "/tmp/a169"
+	DirAccess.make_dir_recursive_absolute(out)
+	m.menus.visible = false
+	m.match_view = MatchView.new()
+	m.match_view.set_meta("surface", "hard")
+	m.match_view.set_meta("tod", 0)
+	m.match_view.set_meta("cpu_look", 2)
+	m.match_view.set_meta("my_name", "TU")
+	m.match_view.set_meta("cpu_label", "CPU")
+	m.match_view.setup({"AIP": m.DIFF_PARAMS[1], "sets_to_win": 1})
+	add_child(m.match_view)
+	var sim = m.match_view.sim
+	var t0: = Time.get_ticks_msec()
+	while Time.get_ticks_msec() - t0 < 900:
+		await get_tree().process_frame
+
+	sim.state = "serve";sim.state_t = 0.0;sim.M.server = 0;sim.prep_serve()
+	t0 = Time.get_ticks_msec()
+	while Time.get_ticks_msec() - t0 < 400:
+		await get_tree().process_frame
+	sim.inp.hit = true
+	t0 = Time.get_ticks_msec()
+	while not (sim.serve_stage == "toss" and sim.ball.toss_t >= 0.32) and Time.get_ticks_msec() - t0 < 4000:
+		await get_tree().process_frame
+	await _grab(out + "/a1_toss.png")
+	t0 = Time.get_ticks_msec()
+	while sim.serve_stage != "hit" and Time.get_ticks_msec() - t0 < 4000:
+		await get_tree().process_frame
+	t0 = Time.get_ticks_msec()
+	while Time.get_ticks_msec() - t0 < 120:
+		await get_tree().process_frame
+	await _grab(out + "/a2_strike.png")
+
+	for attempt in 4:
+		sim.state = "serve";sim.state_t = 0.0;sim.M.server = 1;sim.prep_serve()
+		sim.inp.hit = false
+		var ts0: float = sim.time
+		while sim.ball.last != 1 and sim.state == "serve" and sim.time - ts0 < 6.0:
+			var tx0: float = - sim.pl[1].x
+			if tx0 - sim.pl[0].x < -0.5:
+				Input.action_release("move_right")
+				Input.action_press("move_left")
+			elif tx0 - sim.pl[0].x > 0.5:
+				Input.action_release("move_left")
+				Input.action_press("move_right")
+			else:
+				Input.action_release("move_left")
+				Input.action_release("move_right")
+			await get_tree().process_frame
+		Input.action_press("hit")
+		var ts1: float = sim.time
+		while sim.ball.last != 0 and (sim.state == "serve" or sim.state == "play") and sim.time - ts1 < 4.0:
+			var dx2: float = sim.ball.x - sim.pl[0].x
+			if dx2 < -0.4:
+				Input.action_release("move_right")
+				Input.action_press("move_left")
+			elif dx2 > 0.4:
+				Input.action_release("move_left")
+				Input.action_press("move_right")
+			else:
+				Input.action_release("move_left")
+				Input.action_release("move_right")
+			await get_tree().process_frame
+		Input.action_release("hit")
+		Input.action_release("move_left")
+		Input.action_release("move_right")
+		if sim.ball.last == 0:
+			break
+		print("RET attempt ", attempt, " missed (state=", sim.state, " last=", sim.ball.last, ")")
+		await get_tree().process_frame
+	await _grab(out + "/b1_return_contact.png")
+	t0 = Time.get_ticks_msec()
+	while Time.get_ticks_msec() - t0 < 350:
+		await get_tree().process_frame
+	await _grab(out + "/b2_return_flight.png")
+	print("RET last=", sim.ball.last, " state=", sim.state, " rally_hits=", sim.rally_hits)
+
+	sim.state = "serve";sim.state_t = 0.0;sim.M.server = 0;sim.prep_serve()
+	t0 = Time.get_ticks_msec()
+	while Time.get_ticks_msec() - t0 < 400:
+		await get_tree().process_frame
+	var abx: float = 2.2
+	var abz: float = sim.L - 6.0
+	sim.events.append({"t": "serve", "id": 0, "q": 0.95, "spd": 53.0})
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	sim.events.append({"t": "bounce", "x": abx, "z": abz, "v": 0.9})
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	sim.rally_hits = 1
+	sim.events.append({"t": "point", "w": 0, "txt": "PUNTO"})
+	t0 = Time.get_ticks_msec()
+	while Time.get_ticks_msec() - t0 < 450:
+		await get_tree().process_frame
+	await _grab(out + "/c1_ace.png")
+	print("ACE srv_bounce_ok=", m.match_view._srv_bounce_ok, " pos=", m.match_view._srv_bounce)
+
+	sim.state = "serve";sim.state_t = 0.0;sim.M.server = 1;sim.prep_serve()
+	sim.pl[0].x = 4.6;sim.pl[0].z = 0.5
+	sim.serve_fault = 0
+	sim.fault("Fuera del cuadro")
+	t0 = Time.get_ticks_msec()
+	while Time.get_ticks_msec() - t0 < 2200:
+		await get_tree().process_frame
+	await _grab(out + "/d1_second_serve.png")
+	print("2ND rec x=", snappedf(sim.pl[0].x, 2), " z=", snappedf(sim.pl[0].z, 2), " fault=", sim.serve_fault)
+	get_tree().quit()
+
+func _cap171_harness(args: Array) -> void :
+	var i: = args.find("--cap171")
+	var out: String = args[i + 1] if i + 1 < args.size() else "/tmp/cap171"
+	DirAccess.make_dir_recursive_absolute(out)
+	m.menus.visible = false
+	m.match_view = MatchView.new()
+	m.match_view.set_meta("surface", "clay")
+	m.match_view.set_meta("tod", 0)
+	m.match_view.set_meta("cpu_look", 2)
+	m.match_view.set_meta("my_name", "TU")
+	m.match_view.set_meta("cpu_label", "CPU")
+	m.match_view.setup({"AIP": m.DIFF_PARAMS[1], "sets_to_win": 1})
+	add_child(m.match_view)
+	var mv = m.match_view
+	var sim = mv.sim
+	var t0: = Time.get_ticks_msec()
+	while Time.get_ticks_msec() - t0 < 900:
+		await get_tree().process_frame
+	var jc: = Camera3D.new()
+	add_child(jc)
+	jc.fov = 35.0
+	jc.current = true
+	var rg = mv.rigs[1]
+	sim.state = "point";sim.state_t = 0.0
+	rg.celebrate("Wave", 1.6)
+	for k in 84:
+		await get_tree().process_frame
+	var p0: Vector3 = rg.global_position
+	jc.position = p0 + Vector3(-1.2, 1.6, -3.0)
+	jc.look_at(p0 + Vector3(0, 1.1, 0))
+	await _grab(out + "/b2_wave_mid.png")
+	for k in 18:
+		await get_tree().process_frame
+	await _grab(out + "/b2_wave_tail.png")
+	rg.celebrate("HitRecieve_2", 1.3)
+	for k in 30:
+		await get_tree().process_frame
+	jc.position = p0 + Vector3(1.2, 1.5, -3.0)
+	jc.look_at(p0 + Vector3(0, 1.0, 0))
+	await _grab(out + "/b2_fric_mid.png")
+	for k in 51:
+		await get_tree().process_frame
+	await _grab(out + "/b2_fric_tail.png")
+	jc.queue_free()
+	sim.state = "point";sim.state_t = 0.0;rg.celeb_t = 0.0
+	mv.spawn_skid(Vector3(1.5, 0.0, 3.0), 2.0, -3.0)
+	mv.spawn_skid(Vector3(-2.0, 0.0, 5.0), -2.5, -2.0)
+	for k in 20:
+		await get_tree().process_frame
+	await _grab(out + "/b5_skid.png")
+	sim.M.pts = [0, 0]
+	sim.state = "serve";sim.state_t = 0.0;sim.M.server = 1;sim.prep_serve();sim.cpu_serve_at = sim.time + 0.1
+	t0 = Time.get_ticks_msec()
+	while sim.serve_stage != "hit" and Time.get_ticks_msec() - t0 < 5000:
+		await get_tree().process_frame
+	await _grab(out + "/b6_rec_deuce.png")
+	sim.M.pts = [0, 1]
+	sim.state = "serve";sim.state_t = 0.0;sim.M.server = 1;sim.prep_serve();sim.cpu_serve_at = sim.time + 0.1
+	t0 = Time.get_ticks_msec()
+	while sim.serve_stage != "hit" and Time.get_ticks_msec() - t0 < 5000:
+		await get_tree().process_frame
+	await _grab(out + "/b6_rec_ad.png")
+	print("CAP171_DONE rec.x deuce=", sim.pl[0].x)
+	get_tree().quit()
+
+func _audit173_harness(args: Array) -> void :
+	var out: = "/tmp/audit173"
+	var i: = args.find("--audit173")
+	if i + 1 < args.size():
+		out = args[i + 1]
+	DirAccess.make_dir_recursive_absolute(out)
+	Engine.max_physics_steps_per_frame = 480
+	m.menus.visible = false
+	m.match_view = MatchView.new()
+	m.match_view.set_meta("surface", "hard")
+	m.match_view.set_meta("day", true)
+	m.match_view.set_meta("cpu_look", 2)
+	m.match_view.set_meta("my_name", "TÚ")
+	m.match_view.set_meta("cpu_label", "CPU · NORMAL")
+	m.match_view.setup({"AIP": m.DIFF_PARAMS[1], "sets_to_win": 1})
+	add_child(m.match_view)
+	var sim = m.match_view.sim
+	var hud = m.match_view.hud
+	var tick: = 0
+	sim.M.server = 1
+	sim.prep_serve()
+	var contact_tick: = -1
+	var f1_shot: = 0
+	var retries: = 0
+	var f1_done: = false
+	while not f1_done and retries < 8:
+		await get_tree().physics_frame
+		tick += 1
+		var b = sim.ball
+		var pl = sim.pl[0]
+		if b.in_play and b.last == 1 and b.vz < 0.0:
+			if b.x - pl.x > 0.3:
+				Input.action_press("move_right")
+			elif b.x - pl.x < -0.3:
+				Input.action_press("move_left")
+			else:
+				Input.action_release("move_right")
+				Input.action_release("move_left")
+			if b.z < 5.0 and b.z > -1.0 and absf(b.x - pl.x) < 0.8 and pl.swing <= 0.0:
+				Input.action_press("hit")
+				await get_tree().physics_frame
+				tick += 1
+				Input.action_release("hit")
+		if b.in_play and b.last == 0 and contact_tick < 0:
+			contact_tick = tick
+			Input.action_release("move_right")
+			Input.action_release("move_left")
+			print("CONTACTO A: vx=", snappedf(b.vx, 0.1), " vy=", snappedf(b.vy, 0.1), " vz=", snappedf(b.vz, 0.1))
+		if contact_tick >= 0 and tick - contact_tick == 8 and f1_shot == 0:
+			f1_shot = 1
+			m.match_view.set_physics_process(false)
+			await get_tree().process_frame
+			await get_tree().process_frame
+			await _grab(out + "/01_retorno_A_vuelo.png")
+			m.match_view.set_physics_process(true)
+		if contact_tick >= 0 and tick - contact_tick >= 34 and f1_shot == 1:
+			f1_shot = 2
+			m.match_view.set_physics_process(false)
+			await get_tree().process_frame
+			await get_tree().process_frame
+			await _grab(out + "/02_retorno_A_tras_bote.png")
+			m.match_view.set_physics_process(true)
+			f1_done = true
+		if sim.state == "point" and contact_tick < 0:
+			retries += 1
+			sim.M.server = 1
+			sim.prep_serve()
+		if tick > 6000 and contact_tick < 0:
+			retries += 1
+			sim.M.server = 1
+			sim.prep_serve()
+			tick = 0
+	Input.action_release("move_right")
+	Input.action_release("move_left")
+	print("FASE1 ", "OK" if f1_done else "FALLO", " retries=", retries)
+	if FileAccess.file_exists(out + "/04_let_banner_oculto.png"):
+		print("FASE2 ya capturada, fin")
+		get_tree().quit(0)
+		return
+	sim.M.server = 0
+	sim.prep_serve()
+	var serves: = 0
+	var let_injected: = false
+	var toss_armed: = false
+	var banner_grabbed: = false
+	var hide_tick: = -1
+	var ticks2: = 0
+	while true:
+		await get_tree().physics_frame
+		ticks2 += 1
+		var b2 = sim.ball
+		if sim.state != "serve" and sim.state != "over":
+			sim.M.server = 0
+			sim.prep_serve()
+			sim.state = "serve"
+		if sim.state == "serve" and sim.M.server != 0:
+			sim.M.server = 0
+			sim.prep_serve()
+		if ticks2 % 300 == 0:
+			print("WD2 t=", ticks2, " state=", sim.state, " stage=", sim.serve_stage, " held=", b2.held, " toss=", b2.toss, " serves=", serves)
+		if sim.state == "serve" and sim.M.server == 0:
+			if b2.held and not toss_armed:
+				Input.action_press("hit")
+				await get_tree().physics_frame
+				ticks2 += 1
+				Input.action_release("hit")
+				toss_armed = true
+			elif b2.toss and toss_armed and b2.toss_t >= 0.45 and not let_injected:
+				Input.action_press("hit")
+				await get_tree().physics_frame
+				ticks2 += 1
+				Input.action_release("hit")
+				let_injected = true
+				serves += 1
+
+				sim.events.append({"t": "let"})
+			elif b2.in_play and b2.last == 0 and toss_armed:
+				toss_armed = false
+				serves += 1
+				print("SAQUE ", serves, " vz=", snappedf(b2.vz, 0.1), " vy=", snappedf(b2.vy, 0.1))
+		if sim.state == "serve" and not b2.held and not b2.toss and not b2.in_play:
+			toss_armed = false
+		if not banner_grabbed and hud.banner.text == "LET" and hud.banner.modulate.a > 0.9:
+			m.match_view.set_physics_process(false)
+			await get_tree().process_frame
+			await get_tree().process_frame
+			await _grab(out + "/03_let_banner.png")
+			m.match_view.set_physics_process(true)
+			banner_grabbed = true
+			hide_tick = ticks2
+			print("LET (evento inyectado) visto")
+		if banner_grabbed and hide_tick >= 0 and ticks2 - hide_tick >= 110:
+			await _grab(out + "/04_let_banner_oculto.png")
+			print("LET AUTO-OCULTO OK")
+			get_tree().quit(0)
+			return
+		if ticks2 > 3000 and not banner_grabbed:
+			print("NO RESAQUE en ", ticks2, " ticks")
+			get_tree().quit(1)
+			return
+		if ticks2 > 120000:
+			print("TIMEOUT fase2 serves=", serves, " let=", banner_grabbed)
+			get_tree().quit(1)
+			return
+
+func _gday_harness(args: Array) -> void :
+	print("GDAY: enter")
+	var out: = "/tmp/gday177"
+	var i: = args.find("--gday")
+	if i + 1 < args.size():
+		out = args[i + 1]
+	DirAccess.make_dir_recursive_absolute(out)
+	var m = get_parent()
+	print("GDAY: parent=", m.name)
+	m.menus.visible = false
+	m.match_view = MatchView.new()
+	m.match_view.set_meta("surface", "grass")
+	m.match_view.set_meta("day", true)
+	m.match_view.set_meta("cpu_look", 2)
+	m.match_view.set_meta("my_name", "TÚ")
+	m.match_view.set_meta("cpu_label", "CPU · NORMAL")
+	m.match_view.setup({"demo": true, "surface": "grass", "AIP": m.DIFF_PARAMS[1], "sets_to_win": 1})
+	m.add_child(m.match_view)
+	print("GDAY: match added, waiting sim")
+	await _wait_sim(2.2)
+	print("GDAY: sim waited, grabbing")
+	await _grab(out + "/01_saque_hierba_dia.png")
+	print("GDAY: grab1 done")
+	var ok: = await _wait_until( func(): return m.match_view.sim.rally_hits >= 3, 25.0)
+	print("gday rally ok: ", ok, " hits=", m.match_view.sim.rally_hits)
+	await _grab(out + "/02_rally_hierba_dia.png")
+	get_tree().quit(0 if ok else 1)
+
+func _matchmovie_harness(args: Array) -> void :
+	var dur: = 100.0
+	var i: = args.find("--matchmovie")
+	if i + 1 < args.size():
+		dur = float(args[i + 1])
+	m.menus.visible = false
+	m.match_view = MatchView.new()
+	m.match_view.set_meta("surface", "grass")
+	m.match_view.set_meta("day", true)
+	m.match_view.set_meta("cpu_look", 2)
+	m.match_view.set_meta("my_name", "TU")
+	m.match_view.set_meta("cpu_label", "CPU · NORMAL")
+	m.match_view.setup({"demo": true, "surface": "grass", "AIP": m.DIFF_PARAMS[1], "sets_to_win": 1})
+	add_child(m.match_view)
+	var t: = 0.0
+	while t < dur:
+		await get_tree().physics_frame
+		t += get_physics_process_delta_time()
+	print("matchmovie done hits=", m.match_view.sim.rally_hits, " state=", m.match_view.sim.state)
+	get_tree().quit(0)
+
+func _windupchk_harness(args: Array) -> void :
+	var out: = "/tmp/windupchk"
+	var i: = args.find("--windupchk")
+	if i + 1 < args.size():
+		out = args[i + 1]
+	DirAccess.make_dir_recursive_absolute(out)
+	Engine.max_physics_steps_per_frame = 480
+	m.menus.visible = false
+	m.match_view = MatchView.new()
+	m.match_view.set_meta("surface", "hard")
+	m.match_view.set_meta("day", true)
+	m.match_view.set_meta("cpu_look", 2)
+	m.match_view.set_meta("my_name", "TU")
+	m.match_view.set_meta("cpu_label", "CPU")
+	m.match_view.setup({"AIP": m.DIFF_PARAMS[1], "sets_to_win": 1})
+	add_child(m.match_view)
+	var sim = m.match_view.sim
+	sim.M.server = 1
+	sim.prep_serve()
+	var jc: = Camera3D.new()
+	add_child(jc)
+	jc.fov = 40.0
+	jc.current = true
+	var phase: = 0
+	var hold_t: = 0
+	var ticks: = 0
+	while phase < 2 and ticks < 4000:
+		await get_tree().physics_frame
+		ticks += 1
+		var b = sim.ball
+		var pl = sim.pl[0]
+		if b.in_play and b.last == 1 and b.vz < 0.0:
+			if b.x - pl.x > 0.3:
+				Input.action_press("move_right")
+			elif b.x - pl.x < -0.3:
+				Input.action_press("move_left")
+			else:
+				Input.action_release("move_right")
+				Input.action_release("move_left")
+		if phase == 0 and b.in_play and b.last == 1 and b.vz < 0.0 and b.z < 4.0 and b.z > 1.8:
+			var p0: Vector3 = m.match_view.rigs[0].global_position
+			jc.position = p0 + Vector3(1.4, 1.5, -2.6)
+			jc.look_at(p0 + Vector3(0, 1.0, 0))
+			m.match_view.set_physics_process(false)
+			await get_tree().process_frame
+			await get_tree().process_frame
+			await _grab(out + "/01_sin_input.png")
+			m.match_view.set_physics_process(true)
+			Input.action_release("move_right")
+			Input.action_release("move_left")
+			Input.action_press("hit")
+			phase = 1
+			print("WINDUPCHK fase1 ok z=", snappedf(b.z, 0.1))
+		elif phase == 1:
+			hold_t += 1
+			if hold_t >= 14:
+				var p1: Vector3 = m.match_view.rigs[0].global_position
+				jc.position = p1 + Vector3(1.4, 1.5, -2.6)
+				jc.look_at(p1 + Vector3(0, 1.0, 0))
+				m.match_view.set_physics_process(false)
+				await get_tree().process_frame
+				await get_tree().process_frame
+				await _grab(out + "/02_con_carga.png")
+				Input.action_release("hit")
+				phase = 2
+				print("WINDUPCHK fase2 ok charging=", pl.charging, " charge=", snappedf(pl.charge, 0.01))
+	Input.action_release("hit")
+	Input.action_release("move_right")
+	Input.action_release("move_left")
+	get_tree().quit(0 if phase == 2 else 1)
+
+func _prepcheck_harness(args: Array) -> void :
+	var out: = "/tmp/prepcheck"
+	var i: = args.find("--prepcheck")
+	if i + 1 < args.size():
+		out = args[i + 1]
+	DirAccess.make_dir_recursive_absolute(out)
+	Engine.max_physics_steps_per_frame = 480
+	m.menus.visible = false
+	m.match_view = MatchView.new()
+	m.match_view.set_meta("surface", "grass")
+	m.match_view.set_meta("day", true)
+	m.match_view.set_meta("cpu_look", 2)
+	m.match_view.setup({"demo": true, "surface": "grass", "AIP": m.DIFF_PARAMS[1], "sets_to_win": 1})
+	add_child(m.match_view)
+	var sim = m.match_view.sim
+	var jc: = Camera3D.new()
+	add_child(jc)
+	jc.fov = 42.0
+	jc.current = true
+	var got: = 0
+	var ticks: = 0
+	while got < 2 and ticks < 9000:
+		await get_tree().physics_frame
+		ticks += 1
+		var b = sim.ball
+		var cpu = sim.pl[1]
+		if got == 0 and b.in_play and b.last == 0 and b.vz > 0.0 and cpu.prep_k > 0.45 and cpu.speed <= 2.2 and cpu.swing <= 0.0:
+			var p0: Vector3 = m.match_view.rigs[1].global_position
+			jc.position = p0 + Vector3(-3.0, 1.3, 0.4)
+			jc.look_at(p0 + Vector3(0, 1.0, 0))
+			m.match_view.set_physics_process(false)
+			await get_tree().process_frame
+			await get_tree().process_frame
+			await _grab(out + "/01_cpu_prep.png")
+			m.match_view.set_physics_process(true)
+			got = 1
+			print("PREPCHECK cpu prep_k=", snappedf(cpu.prep_k, 0.01), " speed=", snappedf(cpu.speed, 0.1))
+		elif got == 1 and b.in_play and b.last == 1 and b.vz < 0.0 and sim.pl[0].prep_k > 0.45 and sim.pl[0].speed <= 2.2 and sim.pl[0].swing <= 0.0:
+			var p1: Vector3 = m.match_view.rigs[0].global_position
+			jc.position = p1 + Vector3(1.5, 1.5, -2.8)
+			jc.look_at(p1 + Vector3(0, 1.0, 0))
+			m.match_view.set_physics_process(false)
+			await get_tree().process_frame
+			await get_tree().process_frame
+			await _grab(out + "/02_near_prep.png")
+			m.match_view.set_physics_process(true)
+			got = 2
+			print("PREPCHECK near prep_k=", snappedf(sim.pl[0].prep_k, 0.01))
+	get_tree().quit(0 if got == 2 else 1)
+
+func _pose178_harness(args: Array) -> void :
+	m.menus.visible = false
+	m.match_view = MatchView.new()
+	m.match_view.set_meta("surface", "grass")
+	m.match_view.set_meta("day", true)
+	m.match_view.setup({"demo": true, "AIP": m.DIFF_PARAMS[1]})
+	add_child(m.match_view)
+	m.match_view.set_physics_process(false)
+	var rig = m.match_view.rigs[1]
+	var sim = m.match_view.sim
+	var e = sim.pl[1]
+	e.x = 0.0;e.z = 22.0;e.speed = 0.0;e.swing = 0.0
+	e.prep_t = 0.25;e.prep_k = 0.7;e.want = "drive"
+	rig.update_from_sim(e, 0.1)
+	var cam = Camera3D.new()
+	add_child(cam)
+	cam.position = Vector3(-3.0, 1.4, 22.4)
+	cam.look_at(Vector3(0, 1.0, 22.0));cam.current = true
+	DirAccess.make_dir_recursive_absolute("/tmp/poses178")
+	for t in [0.18, 0.28, 0.38, 0.48]:
+		rig.ap.play("mocap/Derecha", 0.0)
+		rig.ap.seek(t, true)
+		await _grab("/tmp/poses178/t" + str(t) + ".png")
+	get_tree().quit()
+
+func _net178_harness(args: Array) -> void :
+	m.menus.visible = false
+	m.match_view = MatchView.new()
+	m.match_view.set_meta("surface", "grass")
+	m.match_view.set_meta("day", true)
+	m.match_view.setup({"demo": true, "AIP": m.DIFF_PARAMS[1]})
+	add_child(m.match_view)
+	m.match_view.set_physics_process(false)
+	var sim = m.match_view.sim
+	var b = sim.ball
+	sim.state = "play";sim.serve_unreturned = false
+	b.held = false;b.toss = false;b.in_play = true;b.serving = false
+	b.x = 0.8;b.z = sim.NZ - 0.1;b.y = 0.7;b.vx = 0.4;b.vy = 0.0;b.vz = 15.0;b.last = 0
+	var cam = Camera3D.new()
+	add_child(cam)
+	cam.position = Vector3(4.0, 2.1, sim.NZ - 4.0)
+	cam.look_at(Vector3(0.8, 0.3, sim.NZ));cam.current = true
+	DirAccess.make_dir_recursive_absolute("/tmp/net178")
+	for f in 90:
+		sim.step_ball(1.0 / 60.0)
+		b.hot = 0.0
+		m.match_view.ball_mesh.position = Vector3(b.x, b.y, b.z)
+		if f in [0, 30, 60, 89]:
+			print("NET178 f=", f, " y=", b.y, " z=", b.z, " state=", sim.state, " pts=", sim.M.pts)
+			await _grab("/tmp/net178/f" + str(f) + ".png")
+	get_tree().quit()
+
+func _full178_harness(args: Array) -> void :
+	m.menus.visible = false
+	m.match_view = MatchView.new()
+	m.match_view.set_meta("surface", "grass")
+	m.match_view.set_meta("day", true)
+	m.match_view.setup({"demo": true, "surface": "grass", "AIP": m.DIFF_PARAMS[1], "sets_to_win": 1})
+	add_child(m.match_view)
+	m.match_view.set_physics_process(false)
+	seed(178178)
+	var sim = m.match_view.sim
+	var pts = 0
+	var ticks = 0
+	var last_sample = -1
+	var was_point = false
+	DirAccess.make_dir_recursive_absolute("/tmp/full178")
+	while ticks < 240000 and not sim.match_over:
+		ticks += 1
+		m.match_view._physics_process(1.0 / 60.0)
+		if sim.state == "point" and not was_point:
+			pts += 1
+			print("FULL178 POINT ", pts, " hits=", sim.rally_hits, " games=", sim.M.games, " pts=", sim.M.pts)
+		was_point = sim.state == "point"
+
+		if pts in [0, 3, 7, 12, 18, 25, 35, 45, 55] and sim.state == "play" and sim.rally_hits >= 4 and pts != last_sample:
+			last_sample = pts
+			for j in 4:
+				await _grab("/tmp/full178/p" + str(pts) + "_f" + str(j) + ".png")
+				for f in 6: m.match_view._physics_process(1.0 / 60.0)
+
+	print("FULL178 DONE match_over=", sim.match_over, " ticks=", ticks, " points=", pts, " sets=", sim.M.sets, " games=", sim.M.games)
 	get_tree().quit()

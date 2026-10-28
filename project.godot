@@ -13,6 +13,9 @@ config_version=5
 config/name="Tenis Arcade 3D"
 run/main_scene="res://scenes/main.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
+boot_splash/bg_color=Color(0.039, 0.063, 0.149, 1)
+boot_splash/stretch_mode=0
+boot_splash/image="res://splash.png"
 
 [display]
 
@@ -30,3 +33,4 @@ text_editor/behavior/indent/size=4
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
 textures/vram_compression/import_etc2_astc=true
+rendering/lights_and_shadows/directional_shadow/16_bits=false
