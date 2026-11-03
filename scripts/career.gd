@@ -295,6 +295,7 @@ func on_career_end(win: bool) -> Dictionary:
 		data.tour.round += 1
 		if data.tour.round >= T.rounds:
 			msg = finish_tournament(T.rounds)
+			msg += " · +" + str(gain) + " puntos de mejora"
 			ok = true
 		else:
 			msg = "¡Victoria! Pasas a " + round_name(T, data.tour.round) + " (" + def.n + "). +" + str(gain) + " puntos de mejora."

@@ -39,8 +39,14 @@ static func _fbx_figure(model: String, shirt: Color, pants: Color, skin: Color, 
 				for ti in an_res.get_track_count():
 					var tp: = str(an_res.track_get_path(ti))
 					var bone: String = tp.get_slice(":", 1) if ":" in tp else ""
-					if bone == "Body" and sk0.find_bone("Body") < 0 and sk0.find_bone("Body_2") >= 0:
-						bone = "Body_2"
+					if bone != "" and sk0.find_bone(bone) < 0:
+						var alt: String = bone.replace(".", "_")
+						if alt.begins_with("Fist"):
+							alt = "Wrist" + alt.trim_prefix("Fist")
+						if bone == "Body" and sk0.find_bone("Body_2") >= 0:
+							alt = "Body_2"
+						if sk0.find_bone(alt) >= 0:
+							bone = alt
 					if bone != "":
 						an_res.track_set_path(ti, NodePath(skp + ":" + bone))
 			fixed.add_animation(an, an_res)
@@ -466,9 +472,9 @@ static func build(surface: String, day_v = false) -> Node3D:
 	var umpire_model: String = "res://models/OldClassy_Male.fbx"
 	if not ResourceLoader.exists(umpire_model):
 		umpire_model = "res://models/Casual_Hoodie.glb"
-	var umpire: = _fbx_figure(umpire_model, Color("#2a3a6a"), Color("#f0f0f0"), Color("#d9a37a"), "tennis/Sitting_Idle", Color("#8a8078"), 0.42)
-	umpire.scale = Vector3.ONE * 0.66
-	umpire.position = Vector3(0, 2.02, 0)
+	var umpire: = _fbx_figure(umpire_model, Color("#4a5f9e"), Color("#f0f0f0"), Color("#d9a37a"), "tennis/Sitting_Idle", Color("#8a8078"), 1.0)
+	umpire.scale = Vector3.ONE * 0.95
+	umpire.position = Vector3(0, 2.08, 0)
 	umpire.rotation.y = PI / 2.0
 	chair.add_child(umpire)
 	var _watchers: = []
@@ -494,9 +500,9 @@ static func build(surface: String, day_v = false) -> Node3D:
 		var jback: = _box(0.5, 0.4, 0.06, green)
 		jback.position = Vector3(0, 0.62, -0.22)
 		jchair.add_child(jback)
-		var judge: = _fbx_figure("res://models/Suit_Male.fbx", judge_cols[ji], Color("#222a40"), Color("#c98d62"), "tennis/Sitting_Idle", Color("#3a3230"), 0.42)
-		judge.scale = Vector3.ONE * 0.66
-		judge.position = Vector3(0, 0.34, 0.02)
+		var judge: = _fbx_figure("res://models/Suit_Male.fbx", judge_cols[ji], Color("#222a40"), Color("#c98d62"), "tennis/Sitting_Idle", Color("#3a3230"), 0.85)
+		judge.scale = Vector3.ONE * 0.9
+		judge.position = Vector3(0, 0.39, 0.02)
 		jchair.add_child(judge)
 		_watchers.append({"fig": judge, "yaw": jchair.rotation.y, "body": 0.35})
 

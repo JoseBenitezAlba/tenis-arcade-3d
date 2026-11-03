@@ -18,6 +18,11 @@ class FakeEnt:
 	var kind: = "serve"
 	var swing: = 0.0
 	var want_t: = 0.0
+	var wait_serve: = false
+	var want: = "serve"
+	var prep_t: = 0.0
+	var vx: = 0.0
+	var vz: = 0.0
 
 var fig: PlayerFig
 var crowd: CrowdFX

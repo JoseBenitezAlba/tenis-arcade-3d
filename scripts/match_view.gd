@@ -118,7 +118,7 @@ var _pb_pos: = Vector3.ZERO
 var _pb_vel: = Vector3.ZERO
 var _pb_fark: = 1.0
 var banner_t: = 0.0
-const SERVE_KMH_K: = 8.4
+const SERVE_KMH_K: = 3.6
 const HELD_BALL_K: = 0.3
 const TOSS_BALL_K: = 0.55
 
@@ -145,7 +145,7 @@ static func held_ball_scale(held: bool, toss: bool, toss_t: float) -> float:
 	if toss:
 		return lerpf(HELD_BALL_K, TOSS_BALL_K, clampf(toss_t / 0.35, 0.0, 1.0))
 	return 1.0
-const HIT_KMH_K: = 4.0
+const HIT_KMH_K: = 3.6
 var banner_dur: = 0.0
 var hint_t: = 9.0
 var demo: = false
@@ -927,9 +927,9 @@ func _physics_process(dt: float) -> void :
 	elif not demo and _tut_n < 2 and sim.state == "serve" and sim.M.server == 0 and sim.serve_stage != "hit":
 		_tut_seen = true
 		if touch_ui:
-			hud.set_hint("GOLPE: lanzar la bola · sale solo" if sim.serve_stage == "ready" else "Otro toque en el ápice = más potencia · si no, sale solo")
+			hud.set_hint("GOLPE: lanzar la bola" if sim.serve_stage == "ready" else "Otro toque en el ápice · golpear fuera de tiempo es falta · si no golpeas, repites el lanzamiento")
 		else:
-			hud.set_hint("A / ESPACIO: lanzar la bola · sale solo" if sim.serve_stage == "ready" else "Otro toque en el ápice = más potencia · si no, sale solo")
+			hud.set_hint("A / ESPACIO: lanzar la bola" if sim.serve_stage == "ready" else "Otro toque en el ápice · golpear fuera de tiempo es falta · si no golpeas, repites el lanzamiento")
 	elif not demo and hint_t <= 0.0:
 		if _tut_seen and sim.state != "serve":
 			_tut_seen = false

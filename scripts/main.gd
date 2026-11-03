@@ -337,9 +337,8 @@ func _on_training() -> void :
 		return
 	menus.visible = false
 	training_view = TrainingView.new()
-	var surf: = "grass"
-	if career.data.tour != null:
-		surf = Career.CAL[career.data.tour.idx].s
+	var tidx: int = career.data.tour.idx if career.data.tour != null else int(career.data.tIdx)
+	var surf: String = Career.CAL[tidx].s
 	training_view.setup({"surface": surf, "look": 0})
 	add_child(training_view)
 	training_view.quit_to_menu.connect(_on_training_quit)

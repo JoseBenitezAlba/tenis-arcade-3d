@@ -1,7 +1,7 @@
 class_name GameMenus
 extends Control
 
-const VERSION: = "v0.189"
+const VERSION: = "v0.193"
 
 signal quick_match(surface: String, diff: int, sets: int, tod: int, style: int)
 signal play_career_match
@@ -408,7 +408,7 @@ func show_hub(msg: String, ok: = true) -> void :
 		var vb: = VBoxContainer.new()
 		vb.add_theme_constant_override("separation", 6)
 		card.add_child(vb)
-		vb.add_child(_sub(T.n + " · " + ("Arcilla" if def.s == "clay" else "Pista dura") + " · " + str(int(pow(2, T.rounds))) + " jugadores", 13))
+		vb.add_child(_sub(T.n + " · " + ({"clay": "Arcilla", "grass": "Césped", "hard": "Pista dura"}[def.s]) + " · " + str(int(pow(2, T.rounds))) + " jugadores", 13))
 		var rd: String
 		var opp = null
 		if d.tour:

@@ -76,6 +76,7 @@ class Player extends RefCounted:
 	var charge: = 0.0
 	var charging: = false
 	var charge_pow: = 1.0
+	var aim_lx: = 0.0  # latch de dirección de golpe (29-oct): última dir. no nula desde carga/disparo hasta contacto
 	var buffered_hit_t: = 0.0
 
 	var hit_side: = "fore"
@@ -89,6 +90,7 @@ class Player extends RefCounted:
 
 
 	var getup_t: = 0.0
+	var contact_recovery: bool = false
 
 
 	var recov_bonus: = 0.0
@@ -214,6 +216,7 @@ var stats: = []
 var rally_max: = 0
 var v112_walk: = false
 var over_sent: = false
+var _physics_dt: float = 0.0
 var inp: = {"x": 0.0, "y": 0.0, "hit": false, "lob": false, "hit_rel": false, "drop": false}
 var events: Array = []
 
@@ -279,6 +282,8 @@ func prep_serve() -> void :
 		p.plan = ""
 		p.plan_left = 0
 		p.intent_side = 0.0
+	for _pl in pl:
+		_pl.aim_lx = 0.0
 
 
 
@@ -332,6 +337,8 @@ func award_point(w: int, why: String, sub: String) -> void :
 	state = "point"
 	state_t = 0.0
 	last_winner = w
+	for _pl in pl:
+		_pl.aim_lx = 0.0
 	ball.in_play = false
 	var txt: = why
 	var sb: = sub
@@ -567,6 +574,8 @@ func do_hit(e: Player, kind: String, ai: bool) -> void :
 		aim = _ai_aim(e, opp, kind, stretch, move_q)
 	else:
 		aim = _player_aim(e, kind, stretch, move_q)
+	if ai and srv_ret_hit and (aim.T as float) > 0.0:
+		aim.T *= 1.12
 	if move_q > 1.0:
 		aim.T *= 1.0 + 0.12 * (move_q - 1.0)
 	elif move_q < 1.0:
@@ -612,6 +621,11 @@ func do_hit(e: Player, kind: String, ai: bool) -> void :
 	ball.spin = {"drop": -1.0, "lob": 0.25, "smash": 0.5, "slice": -0.75, "volley": 0.3, "toplob": 1.1}.get(kind, 0.85)
 	ball.kind = kind
 	var tz: = NZ + dir * (2.2 + d * (L / 2.0 - 2.2))
+	if kind == "drive" or kind == "slice":
+		# Ritmo constante por distancia: T escala con la distancia real al objetivo
+		# (18.1m = drive de fondo a bola profunda). Sin esto, un drive a media pista
+		# sale con el mismo T que uno de fondo -> globo lento (65-70 HUD) regalado.
+		T *= clampf(absf(tz - ball.z) / 17.0, 0.55, 1.0)  # cap 1.0 (decisión 29-oct): media pista más rápida, fondo como 0.191
 	if srv_ret_hit:
 
 		e.recov_bonus = clampf((in_spd - 14.0) / 2.0, 0.0, 1.0) * 0.25
@@ -672,6 +686,8 @@ func do_hit(e: Player, kind: String, ai: bool) -> void :
 		launch_magnus(tx, tz, T, max(ball.y, 0.5), nc_floor, _vcap)
 	else:
 		launch(tx, tz, T, max(ball.y, 0.5), nc_floor, _vcap)
+	var before_skim: Vector3 = Vector3(ball.vx, ball.vy, ball.vz)
+	var explicit_skim_risk: bool = false
 	var nc_skim: = 0.0
 	if kind == "drive" and (stretch > 0.35 or move_q > 1.05 or ball.y < 0.8):
 		nc_skim = 1.11
@@ -690,6 +706,7 @@ func do_hit(e: Player, kind: String, ai: bool) -> void :
 
 		if stretch > 0.35 and randf() < 0.035 * (AIP.err if ai else PS.err):
 			nc_skim -= 0.1 + randf() * 0.08
+			explicit_skim_risk = true
 
 
 
@@ -699,6 +716,7 @@ func do_hit(e: Player, kind: String, ai: bool) -> void :
 		var nc_forced: = false
 		if stretch > 0.35 and randf() < 0.035 * (AIP.err if ai else PS.err):
 			nc_skim -= 0.1 + randf() * 0.08
+			explicit_skim_risk = true
 			nc_forced = true
 		var dzs: float = tz - ball.z
 		if dzs != 0.0 and ball.vz != 0.0:
@@ -729,6 +747,19 @@ func do_hit(e: Player, kind: String, ai: bool) -> void :
 								applied = true
 					if not applied and nc_forced:
 						ball.vy -= (yn_cur - nc_skim) / tn0
+	# Do not turn a safe launch into a netcord through analytic skim rounding.
+	# Explicit shot risks and their random draws remain unchanged.
+	if not ai and not demo and e.id == 0 and kind == "drive" and not explicit_skim_risk and nc_skim >= NET_H + 0.08 and not MAGNUS and ball.curve == 0.0 and absf(_physics_dt - 1.0 / 60.0) < 0.0000001:
+		var before_cross: float = _skim_cross_height(before_skim)
+		var after_cross: float = _skim_cross_height(Vector3(ball.vx, ball.vy, ball.vz))
+		if before_cross >= NET_H + 0.08 and after_cross > 0.0 and after_cross < NET_H + 0.08:
+			ball.vx = before_skim.x
+			ball.vy = before_skim.y
+			ball.vz = before_skim.z
+	if not ai and not demo and e.id == 0 and e.dive_t > 0.0:
+		e.dive_t = 0.0
+		e.getup_t = 0.55
+		e.contact_recovery = true
 	ball.last = e.id
 	ball.departing_hitter = e.id
 	ball.bounces = 0
@@ -867,7 +898,14 @@ func _player_aim(e: Player, kind: String, stretch: float, move_q: float = 1.0) -
 	var T: = 1.0
 
 	var tx_lim: = 4.05 if e.charge_pow >= 1.25 else 3.9
-	tx = clamp(inp.x * 3.1 + (ball.x - e.x) * 1.4, - tx_lim, tx_lim)
+	# Acoplamiento diana-contacto atenuado por intención: con dirección plena el
+	# offset pesa 0.35 (antes 1.4 fijo), así el cruzado estirado sale cruzado.
+	# La penalización defensiva se conserva vía dispersión (ruido ∝ stretch) y
+	# menor ritmo; sin dirección (inp.x=0) el comportamiento es el de 0.191.
+	# Sustento: capture-route/aim_matrix.gd (antes/después en LEEME).
+	var ax: float = e.aim_lx
+	var aim_coup: = 1.4 * (1.0 - 0.75 * absf(ax))
+	tx = clamp(ax * 3.1 + (ball.x - e.x) * aim_coup, - tx_lim, tx_lim)
 	var up: bool = inp.y > 0.4
 	if kind == "toplob":
 
@@ -1004,7 +1042,7 @@ func do_serve(e: Player, q: float, stype: String = "") -> void :
 		err *= 1.0 + 1.7 * clampf((absf(tx) - 1.5) / 2.3, 0.0, 1.0)
 		if safe or kick:
 			err *= 0.75
-		serve_T = lerpf(1.06, 0.8, q) if flat else (lerpf(1.25, 1.0, q) if safe else (lerpf(1.3, 1.05, q) if kick else lerpf(1.12, 0.84, q)))
+		serve_T = 0.74 * 0.9 * (lerpf(1.06, 0.8, q) if flat else (lerpf(1.25, 1.0, q) if safe else (lerpf(1.3, 1.05, q) if kick else lerpf(1.12, 0.84, q))))
 		if safe:
 			serve_spin = 0.55
 			serve_curve = box_sign * 1.8
@@ -1110,23 +1148,30 @@ func do_serve(e: Player, q: float, stype: String = "") -> void :
 
 	var sspd: = Vector3(ball.vx, ball.vy, ball.vz).length()
 	if e.id == 1 and serve_fault == 0:
-		var kmh: = sspd * 8.4
-		if kmh < 162.0:
-			var t2: float = clampf(serve_T * kmh / 162.0, 0.7, serve_T)
-			launch(tx, NZ + dir * tzr, t2, max(ball.y, 2.0))
-			sspd = Vector3(ball.vx, ball.vy, ball.vz).length()
+		# Objetivos CPU en m/s reales, desacoplados del factor HUD. 29oct: x1.35 (~+35% velocidad de saque, propuesta de jugabilidad; display honesto x3.6).
+		if sspd < 26.04:
+			# El reescalado lineal de una pasada quedaba corto: al acortar T el pase
+			# por red exige mas altura y launch() alarga T de nuevo (absorcion).
+			# Iterar como el clamp alto hasta alcanzar el suelo de diseno (26.04).
+			var t2: float = serve_T
+			for _icap in 6:
+				t2 = clampf(t2 * sspd / 26.04, 0.7, serve_T)
+				launch(tx, NZ + dir * tzr, t2, max(ball.y, 2.0))
+				sspd = Vector3(ball.vx, ball.vy, ball.vz).length()
+				if sspd >= 25.94:
+					break
 
-		elif kmh > 184.0:
+		elif sspd > 29.57:
 
-			var target: float = 182.6 if (AIP.speed >= 5.0 and AIP.speed < 6.2) else 203.0
+			var target: float = 29.35 if (AIP.speed >= 5.0 and AIP.speed < 6.2) else 32.63
 			if M.pts[e.id] >= 3 and M.pts[1 - e.id] <= 1:
-				target = minf(target, 186.0)
+				target = minf(target, 29.89)
 			var t3: float = serve_T
 			for _icap in 6:
-				t3 = clampf(t3 * (sspd * 8.4) / target, serve_T, 1.6)
+				t3 = clampf(t3 * sspd / target, serve_T, 1.6)
 				launch(tx, NZ + dir * tzr, t3, max(ball.y, 2.0))
 				sspd = Vector3(ball.vx, ball.vy, ball.vz).length()
-				if sspd * 8.4 <= target + 0.8:
+				if sspd <= target + 0.1:
 					break
 	ball.spin = serve_spin
 	ball.curve = serve_curve
@@ -1144,7 +1189,7 @@ func do_serve(e: Player, q: float, stype: String = "") -> void :
 	if serve_fault == 0:
 		stats[e.id].first_in += 1
 		stats[e.id].first_total += 1
-	stats[e.id].max_serve = maxi(stats[e.id].max_serve, int(round(sspd * 8.4)))
+	stats[e.id].max_serve = maxi(stats[e.id].max_serve, int(round(sspd * 3.6)))
 	events.append({"t": "serve", "id": e.id, "q": q, "spd": sspd, "x": ball.x, "y": ball.y, "z": ball.z})
 
 
@@ -1380,7 +1425,13 @@ func step_ball(dt: float) -> void :
 				if toward > 0.0:
 					ball.in_play = false
 					events.append({"t": "body", "who": i, "x": ball.x, "y": ball.y, "z": ball.z})
-					award_point(1 - i, "PUNTO", "Bola al cuerpo")
+					if state == "serve" and ball.serve_net:
+						# ITF 22a: saque roza la red y luego toca al restador antes de botar -> let.
+						events.append({"t": "let"})
+						prep_serve()
+					else:
+						# ITF 24 caso 7: saque limpio que toca al restador antes de botar -> punto del SACADOR.
+						award_point(1 - i, "PUNTO", "Bola al cuerpo")
 					return
 	if ball.in_play and ball.bounces >= 1 and (ball.z < -2.3 or ball.z > L + 2.3 or absf(ball.x) > 6.5) and state == "play":
 		ball.in_play = false
@@ -1925,6 +1976,15 @@ func human_control(e: Player, dt: float) -> void :
 	var want_drop: bool = inp.drop
 	var rel_hit: bool = inp.hit_rel
 	inp.hit = false
+	# Latch de dirección (opción b, 29-oct): captura la última dirección lateral
+	# no nula entre carga/disparo y contacto; soltar el stick conserva la
+	# intención y reorientar sigue funcionando. Se borra al terminar/cancelar el
+	# swing (y en punto/resaque, abajo): sin arrastre entre golpes. Si no hay
+	# dirección en toda la ventana, aim_lx=0 y la diana se comporta como 0.191.
+	if e.swing <= 0.0 and not e.charging and e.dive_t <= 0.0 and e.want_t <= 0.0:
+		e.aim_lx = 0.0
+	elif absf(inp.x) > 0.05:
+		e.aim_lx = inp.x
 	inp.lob = false
 	inp.hit_rel = false
 	inp.drop = false
@@ -1935,13 +1995,15 @@ func human_control(e: Player, dt: float) -> void :
 			elif serve_stage == "toss":
 
 				var _st: = "kick" if want_lob else ("slice" if inp.y < -0.4 else "")
-				do_serve(e, 1.0 - clamp(absf(ball.toss_t - 0.5) / 0.45, 0.0, 1.0), _st)
+				var _q: float = 1.0 - clamp(absf(ball.toss_t - 0.5) / 0.45, 0.0, 1.0)
+				if _q <= 0.0 or ball.y < 2.1:
+					# ITF R19b: intento de swing sin contacto = falta (dejar caer sin golpear sigue siendo resaque)
+					e.swing = 0.3
+					events.append({"t": "swing_miss"})
+					fault("SIN CONTACTO")
+				else:
+					do_serve(e, _q, _st)
 
-		elif serve_stage == "toss" and ball.toss_t >= 0.52:
-
-
-
-			do_serve(e, 0.88, "slice" if inp.y < -0.4 else "")
 		return
 
 
@@ -1954,10 +2016,12 @@ func human_control(e: Player, dt: float) -> void :
 	if want_hit and not e.charging and e.getup_t <= 0.0 and ((state == "play" or state == "serve") and ball.in_play):
 		e.charging = true
 		e.charge = 0.0
+		e.aim_lx = 0.0
 	elif want_hit or want_lob or want_drop:
 
 		if e.swing <= 0.0 and state == "play" and ball.in_play and e.getup_t <= 0.0:
 			e.swing = 0.3
+			e.aim_lx = inp.x
 			var _dk1: = "drop" if absf(e.z - NZ) < 7.0 and e.speed < 2.0 else "slice"
 			var _lb1: = "toplob" if inp.y > 0.4 else "lob"
 			e.kind = _lb1 if want_lob else (_dk1 if want_drop else "drive")
@@ -2022,7 +2086,7 @@ func human_control(e: Player, dt: float) -> void :
 			events.append({"t": "charge_fire", "p": snappedf(e.charge_pow, 0.01), "late": false, "auto": true})
 	if e.want_t > 0.0:
 		e.want_t -= dt
-		if ball.in_play and ball.last != e.id and ball.vz < 0 and e.cool <= 0.0 and state == "play":
+		if ball.in_play and ball.last != e.id and ball.vz < 0 and e.cool <= 0.0 and state == "play" and e.getup_t <= 0.0:
 			_assist(e)
 			var hgx: = 1.65
 			var hgz: = 1.5
@@ -2066,6 +2130,8 @@ func update_player(e: Player, dt: float) -> void :
 	if _prev_dive > 0.0 and e.dive_t <= 0.0:
 		e.getup_t = 0.55
 	e.getup_t = maxf(0.0, e.getup_t - dt)
+	if e.getup_t <= 0.0:
+		e.contact_recovery = false
 
 	if e.split_t > 0.0:
 		var prev_split: float = e.split_t
@@ -2095,7 +2161,7 @@ func update_player(e: Player, dt: float) -> void :
 		e.tvz *= rf
 
 
-	if e.getup_t > 0.0:
+	if e.getup_t > 0.0 and not e.contact_recovery:
 		var gf: float = clampf(1.0 - e.getup_t / 0.55, 0.0, 1.0)
 		e.tvx *= gf * gf
 		e.tvz *= gf * gf
@@ -2173,6 +2239,11 @@ func update_player(e: Player, dt: float) -> void :
 		kvz = 7.5
 	elif signf(e.tvz) != signf(e.vz) and absf(e.vz) > 2.2:
 		kvz = 5.5 if ( not demo and e.id == 0) else 4.2
+	if not demo and e.id == 0 and e.getup_t > 0.0 and e.contact_recovery:
+		if e.vx * inp.x < 0.0:
+			kvx = maxf(kvx, 11.0)
+		if e.vz * inp.y < 0.0:
+			kvz = maxf(kvz, 11.0)
 	if e.split_boost > 0.0:
 		kvx *= 1.6
 		kvz *= 1.6
@@ -2239,6 +2310,7 @@ func update_player(e: Player, dt: float) -> void :
 	e.side += (target - e.side) * minf(1.0, dt * 10.0)
 
 func update(dt: float) -> void :
+	_physics_dt = dt
 	time += dt
 	state_t += dt
 	ball.hot = maxf(0.0, ball.hot - dt * 2.5)
@@ -2269,3 +2341,20 @@ func update(dt: float) -> void :
 			start_point()
 	if demo and state == "play" and state_t > 40.0:
 		start_point()
+
+# Matches step_ball's two substeps under the supported fixed physics contract.
+func _skim_cross_height(v: Vector3) -> float:
+	var y: float = ball.y
+	var z: float = ball.z
+	var vy: float = v.y
+	var dt: float = _physics_dt / 2.0
+	for i in 360:
+		var previous_z: float = z
+		vy -= g_eff(ball.spin) * dt
+		y += vy * dt
+		z += v.z * dt
+		if (previous_z - NZ) * (z - NZ) < 0.0:
+			return y
+		if y <= BR:
+			return -1.0
+	return -1.0

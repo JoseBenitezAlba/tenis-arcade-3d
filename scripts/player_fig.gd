@@ -430,7 +430,7 @@ func set_leg_dust(d: float) -> void :
 
 func _build_racket() -> void :
 	var ba: = BoneAttachment3D.new()
-	ba.bone_name = "Wrist.R"
+	ba.bone_name = "Wrist_R"
 	skel.add_child(ba)
 	var rk: = Node3D.new()
 
@@ -576,8 +576,8 @@ func _play_seek(name: String, tau: float) -> void :
 const LOB_ARM: = -1.1
 const FOOT_LIFT: = 0.05
 const RK_OPEN: = 0.9
-const RK_REST_A: = 2.5
-const RK_REST_Z: = 0.45
+const RK_REST_A: = 0.0
+const RK_REST_Z: = 0.0
 var rk_rest_k: = 0.0
 const TOSS_ARM: = -2.0
 const SERVE_ARM: = -0.8
@@ -775,7 +775,8 @@ func update_from_sim(e, dt: float) -> void :
 
 
 
-	if e.get("getup_t") != null and e.getup_t > 0.0 and e.swing <= 0.0:
+	var contact_can_step: bool = e.get("contact_recovery") == true and e.getup_t <= 0.4 and eff_sp > 0.4
+	if e.get("getup_t") != null and e.getup_t > 0.0 and e.swing <= 0.0 and not contact_can_step:
 		if e.getup_t > 0.4:
 			var roll_len2: float = ap.get_animation("Roll").length if ap.has_animation("Roll") else 1.0
 			_play_seek("Roll", 0.07 * roll_len2)
@@ -888,8 +889,8 @@ func update_from_sim(e, dt: float) -> void :
 func _celebration_grip() -> void :
 	if racket_node == null:
 		return
-	var wi: = skel.find_bone("Wrist.R")
-	var ei: = skel.find_bone("LowerArm.R")
+	var wi: = skel.find_bone("Wrist_R")
+	var ei: = skel.find_bone("LowerArm_R")
 	if wi < 0 or ei < 0:
 		return
 	var wrist: = skel.get_bone_global_pose(wi).origin
