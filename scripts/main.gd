@@ -337,7 +337,8 @@ func _on_training() -> void :
 		return
 	menus.visible = false
 	training_view = TrainingView.new()
-	var tidx: int = career.data.tour.idx if career.data.tour != null else int(career.data.tIdx)
+	var tidx: int = int(career.data.tour.idx) if career.data.tour != null else int(career.data.tIdx)
+	tidx = clampi(tidx, 0, Career.CAL.size() - 1)
 	var surf: String = Career.CAL[tidx].s
 	training_view.setup({"surface": surf, "look": 0})
 	add_child(training_view)

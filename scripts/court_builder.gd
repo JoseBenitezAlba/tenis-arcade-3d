@@ -21,9 +21,13 @@ static func _box(sx: float, sy: float, sz: float, mat: Material) -> MeshInstance
 
 
 static func _fbx_figure(model: String, shirt: Color, pants: Color, skin: Color, anim: String, hair: = Color("#3a2a18"), head_scale: = 1.0) -> Node3D:
-	var ps: = load(model) as PackedScene
+	var ps: PackedScene = null
+	if ResourceLoader.exists(model):
+		ps = load(model) as PackedScene
 	if ps == null and model != "res://models/Casual_Hoodie.glb":
 		return _fbx_figure("res://models/Casual_Hoodie.glb", shirt, pants, skin, anim, hair, head_scale)
+	if ps == null:
+		return Node3D.new()
 	var inst: Node3D = ps.instantiate()
 	inst.scale = Vector3.ONE * 0.806
 	var ap: AnimationPlayer = inst.find_child("AnimationPlayer", true, false)

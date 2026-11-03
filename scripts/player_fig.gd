@@ -66,6 +66,38 @@ static func _mat_kind(color: Color, kind: String) -> StandardMaterial3D:
 			m.metallic_specular = 0.75
 	return m
 
+static func _bone_name(skel: Skeleton3D, name: String) -> String:
+	if skel == null or name == "":
+		return name
+	if skel.find_bone(name) >= 0:
+		return name
+	var alt: String = name.replace(".", "_")
+	if alt.begins_with("Fist"):
+		alt = "Wrist" + alt.trim_prefix("Fist")
+	if name == "Body" and skel.find_bone("Body_2") >= 0:
+		alt = "Body_2"
+	if skel.find_bone(alt) >= 0:
+		return alt
+	return name
+
+static func _remap_library(lib: AnimationLibrary, skel: Skeleton3D) -> AnimationLibrary:
+	if lib == null or skel == null:
+		return lib
+	var out: = AnimationLibrary.new()
+	for an in lib.get_animation_list():
+		var res: Animation = lib.get_animation(an).duplicate()
+		for ti in res.get_track_count():
+			var tp: String = str(res.track_get_path(ti))
+			if ":" not in tp:
+				continue
+			var base: String = tp.get_slice(":", 0)
+			var bone: String = tp.get_slice(":", 1)
+			var fixed: String = _bone_name(skel, bone)
+			if fixed != bone:
+				res.track_set_path(ti, NodePath(base + ":" + fixed))
+		out.add_animation(an, res)
+	return out
+
 func _init(look: int, is_player0: bool) -> void :
 	var pal: Dictionary = P0 if is_player0 else LOOKS[look % LOOKS.size()]
 	inst = (load(MODELS[0]) as PackedScene).instantiate()
@@ -79,7 +111,7 @@ func _init(look: int, is_player0: bool) -> void :
 
 
 	if ResourceLoader.exists("res://models/mocap_anims_mm.tres"):
-		ap.add_animation_library("mocap", load("res://models/mocap_anims_mm.tres"))
+		ap.add_animation_library("mocap", _remap_library(load("res://models/mocap_anims_mm.tres"), skel))
 	_transplant_shorts()
 	_apply_look(pal)
 	_build_racket()
@@ -90,8 +122,8 @@ var ankle_bones: Array = []
 func _build_ankles(_skin_col: Color) -> void :
 
 	for side in ["L", "R"]:
-		var kb: int = skel.find_bone("LowerLeg." + side)
-		var fb: int = skel.find_bone("Foot." + side)
+		var kb: int = skel.find_bone(_bone_name(skel, "LowerLeg." + side))
+		var fb: int = skel.find_bone(_bone_name(skel, "Foot." + side))
 		var sgn: = 1.0
 		if kb >= 0 and fb >= 0:
 			var rk: Transform3D = skel.get_bone_global_rest(kb)
@@ -213,9 +245,9 @@ func _build_accessories() -> void :
 	band.position = Vector3(0, 0.15, 0)
 	ba_h.add_child(band)
 
-	for bone in ["Wrist.L", "Wrist.R"]:
+	for side in ["L", "R"]:
 		var ba: = BoneAttachment3D.new()
-		ba.bone_name = bone
+		ba.bone_name = _bone_name(skel, "Wrist." + side)
 		skel.add_child(ba)
 		var wb: = MeshInstance3D.new()
 		var t2: = TorusMesh.new()
@@ -430,7 +462,7 @@ func set_leg_dust(d: float) -> void :
 
 func _build_racket() -> void :
 	var ba: = BoneAttachment3D.new()
-	ba.bone_name = "Wrist_R"
+	ba.bone_name = _bone_name(skel, "Wrist.R")
 	skel.add_child(ba)
 	var rk: = Node3D.new()
 
@@ -584,7 +616,7 @@ const SERVE_ARM: = -0.8
 
 
 func _raise_arm(ang: float, bone: String = "UpperArm.R") -> void :
-	var bi: = skel.find_bone(bone)
+	var bi: = skel.find_bone(_bone_name(skel, bone))
 	if bi < 0:
 		return
 	var g: = skel.get_bone_global_pose(bi)
@@ -695,7 +727,7 @@ func update_from_sim(e, dt: float) -> void :
 
 	if foot_bones.is_empty():
 		for fbn in ["Foot.L", "Foot.R"]:
-			var fbi: = skel.find_bone(fbn)
+			var fbi: = skel.find_bone(_bone_name(skel, fbn))
 			if fbi >= 0:
 				foot_bones.append(fbi)
 	var fmin: = 99.0
@@ -889,8 +921,8 @@ func update_from_sim(e, dt: float) -> void :
 func _celebration_grip() -> void :
 	if racket_node == null:
 		return
-	var wi: = skel.find_bone("Wrist_R")
-	var ei: = skel.find_bone("LowerArm_R")
+	var wi: = skel.find_bone(_bone_name(skel, "Wrist.R"))
+	var ei: = skel.find_bone(_bone_name(skel, "LowerArm.R"))
 	if wi < 0 or ei < 0:
 		return
 	var wrist: = skel.get_bone_global_pose(wi).origin
