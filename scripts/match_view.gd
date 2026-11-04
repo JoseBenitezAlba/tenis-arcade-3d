@@ -434,13 +434,24 @@ func _ready() -> void :
 	hud.cam = cam
 	add_child(hud)
 	rally_label = Label.new()
-	rally_label.position = Vector2(880, 604)
-	rally_label.size = Vector2(380, 54)
+	rally_label.position = Vector2(930, 592)
+	rally_label.size = Vector2(330, 66)
 	rally_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	rally_label.add_theme_font_size_override("font_size", 23)
+	rally_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	rally_label.add_theme_font_size_override("font_size", 30)
 	rally_label.add_theme_color_override("font_color", Color("#ffe783"))
-	rally_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.82))
-	rally_label.add_theme_constant_override("outline_size", 6)
+	rally_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.86))
+	rally_label.add_theme_constant_override("outline_size", 8)
+	var _rsb: = StyleBoxFlat.new()
+	_rsb.bg_color = Color(0.02, 0.04, 0.1, 0.86)
+	_rsb.border_color = Color(1, 0.82, 0.3, 0.55)
+	_rsb.set_border_width_all(2)
+	_rsb.set_corner_radius_all(9)
+	_rsb.content_margin_left = 14
+	_rsb.content_margin_right = 14
+	_rsb.content_margin_top = 6
+	_rsb.content_margin_bottom = 6
+	rally_label.add_theme_stylebox_override("normal", _rsb)
 	rally_label.visible = false
 	hud.add_child(rally_label)
 	hud.set_names(get_meta("my_name", "TÚ"), get_meta("cpu_label", "CPU"))
@@ -927,9 +938,9 @@ func _physics_process(dt: float) -> void :
 	elif not demo and _tut_n < 2 and sim.state == "serve" and sim.M.server == 0 and sim.serve_stage != "hit":
 		_tut_seen = true
 		if touch_ui:
-			hud.set_hint("GOLPE: lanzar la bola" if sim.serve_stage == "ready" else "Otro toque en el ápice · golpear fuera de tiempo es falta · si no golpeas, repites el lanzamiento")
+			hud.set_hint("GOLPE: lanzar la bola" if sim.serve_stage == "ready" else "Otro toque en el ápice · golpear fuera de tiempo o no golpear es falta")
 		else:
-			hud.set_hint("A / ESPACIO: lanzar la bola" if sim.serve_stage == "ready" else "Otro toque en el ápice · golpear fuera de tiempo es falta · si no golpeas, repites el lanzamiento")
+			hud.set_hint("A / ESPACIO: lanzar la bola" if sim.serve_stage == "ready" else "Otro toque en el ápice · golpear fuera de tiempo o no golpear es falta")
 	elif not demo and hint_t <= 0.0:
 		if _tut_seen and sim.state != "serve":
 			_tut_seen = false
@@ -1171,14 +1182,14 @@ static func slide_time(surf: String, speed: float) -> float:
 
 func _update_rally_label(dt: float) -> void :
 	var live: int = sim.rally_hits if sim.state == "play" else 0
-	if live >= 3:
+	if live >= 2:
 		rally_label.visible = true
-		rally_label.text = "RALLY  %02d   ·   MEJOR %02d" % [live, maxi(rally_best, live)]
+		rally_label.text = "RALLY: %02d" % live
 		rally_label.modulate.a = 1.0
 	elif rally_change_t > 0.0:
 		rally_label.visible = true
 		rally_change_t = maxf(0.0, rally_change_t - dt)
-		rally_label.text = "MEJOR RALLY  %02d" % rally_best
+		rally_label.text = "MEJOR: %02d" % rally_best
 		rally_label.modulate.a = minf(1.0, rally_change_t * 1.7)
 	else:
 		rally_label.visible = false
@@ -1396,7 +1407,7 @@ func drain_events() -> void :
 						"toplob":
 							hud.popup("GLOBO LIFTADO", pwp, Color("#fff19a"))
 				if ev.get("rise", false) and ev.id == 0 and not demo:
-					hud.popup("¡AL BOTE!", pwp, Color("#ffe14d"))
+					hud.popup_callout("¡AL BOTE!", Color("#ffe14d"))
 				if ev.kind == "volley" and ev.get("stretch", 0.0) >= 1.3:
 					sfx.play("swish", 1.0)
 
@@ -1426,11 +1437,6 @@ func drain_events() -> void :
 				if ev.get("q", 0.0) >= 0.88 and ev.get("id", 1) == 0 and not demo:
 					shake = 0.34
 					hud.popup_side("¡SAQUE PERFECTO!", Color("#ffe27a"))
-			"retoss":
-				sfx.play("catch", 0.7)
-				hud.show_banner("RESAQUE", "pulsa A de nuevo tras el lanzamiento", Color("#ffffff"))
-				banner_dur = 1.6
-				banner_t = banner_dur
 			"toss":
 
 				sfx.hush()
@@ -1497,6 +1503,10 @@ func drain_events() -> void :
 					sfx.play("point_win" if ev.w == 0 else "point_lose")
 			"point":
 				hud.hide_speed()
+				bounce_ring.visible = false
+				for r in ring_pool:
+					r.life = 0.0
+					r.m.visible = false
 				_point_winner = ev.get("w", -1)
 				_closeup_ok = ev.txt in ["JUEGO", "SET", "PARTIDO"]
 				_fatigue = fatigue_from_rally(sim.rally_hits)

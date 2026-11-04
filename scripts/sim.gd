@@ -340,6 +340,11 @@ func award_point(w: int, why: String, sub: String) -> void :
 	for _pl in pl:
 		_pl.aim_lx = 0.0
 	ball.in_play = false
+	if not ball.held:
+		ball.dead_roll = true
+		if Vector2(ball.vx, ball.vz).length() < 0.35:
+			ball.vx = clampf(ball.x * 0.2, -1.2, 1.2)
+			ball.vz = (1.0 if ball.z > NZ else -1.0) * 2.0
 	var txt: = why
 	var sb: = sub
 	var brk: = false
@@ -535,7 +540,29 @@ func launch(tx: float, tz: float, T: float, y0: float, clear: float = 1.3, vcap:
 	ball.serve_jam = false
 
 
+func _launch_any(tx: float, tz: float, T: float, y0: float, clear: float, vcap: float) -> void :
+	if MAGNUS:
+		launch_magnus(tx, tz, T, y0, clear, vcap)
+	else:
+		launch(tx, tz, T, y0, clear, vcap)
 
+
+func _clamp_launch_speed(tx: float, tz: float, T: float, y0: float, clear: float, vcap: float, lo: float, hi: float, tmin: float, tmax: float) -> float :
+	var t: float = clampf(T, tmin, tmax)
+	_launch_any(tx, tz, t, y0, clear, vcap)
+	var sp: float = Vector3(ball.vx, ball.vy, ball.vz).length()
+	for _i in 8:
+		if sp >= lo - 0.05 and sp <= hi + 0.05:
+			break
+		var target: float = lo if sp < lo else hi
+		t = clampf(t * sp / maxf(target, 0.01), tmin, tmax)
+		_launch_any(tx, tz, t, y0, clear, vcap)
+		var nsp: float = Vector3(ball.vx, ball.vy, ball.vz).length()
+		if absf(nsp - sp) < 0.05:
+			sp = nsp
+			break
+		sp = nsp
+	return sp
 
 
 func do_hit(e: Player, kind: String, ai: bool) -> void :
@@ -670,7 +697,7 @@ func do_hit(e: Player, kind: String, ai: bool) -> void :
 	if kind == "drive":
 		nc_floor = 1.02
 	elif kind == "slice":
-		nc_floor = 1.2
+		nc_floor = 1.05 if (not ai and e.id == 0) else 1.2
 	elif kind == "drop" or kind == "volley":
 		nc_floor = 1.0
 	elif kind == "smash":
@@ -797,6 +824,11 @@ func do_hit(e: Player, kind: String, ai: bool) -> void :
 				launch(tx, tz, T, max(ball.y, 0.5), nc_floor, STROKE_VCAP)
 			_hkmh = Vector3(ball.vx, ball.vy, ball.vz).length() * 4.0
 			_ic += 1
+	if not ai and not demo and e.id == 0 and kind in ["drive", "slice", "volley"]:
+		var _forced: bool = dx > 1.15 or move_q > 1.05 or ball.y <= 0.85 or on_rise or tq in ["late", "early", "rise"]
+		var _lo: float = 29.2 if _forced else 37.5
+		var _hi: float = 34.7 if _forced else 43.1
+		_clamp_launch_speed(tx, tz, T, max(ball.y, 0.5), nc_floor, _vcap, _lo, _hi, 0.18, 2.2)
 	var spd: = Vector3(ball.vx, ball.vy, ball.vz).length()
 	ball.hot = clampf((spd - 24.0) / 20.0, 0.0, 1.0)
 	events.append({"t": "hit", "id": e.id, "kind": kind, "x": ball.x, "y": ball.y, "z": ball.z, "rise": on_rise, "perfect": perfect, "tper": aim.get("tper", false), "spd": spd, "charge": shot_charge, "tq": tq, "jam": srv_ret_hit and ball.serve_jam, "stretch": snappedf(stretch, 0.01)})
@@ -1176,37 +1208,23 @@ func do_serve(e: Player, q: float, stype: String = "") -> void :
 	tx += randn() * err
 	tzr += randn() * err * (0.9 if (e.id == 0 and not demo and inp.y > 0.4) else 0.5)
 	last_serve_tx = tx
-	launch(tx, NZ + dir * tzr, serve_T, max(ball.y, 2.0))
+	if e.id == 0:
+		ball.spin = serve_spin
+	launch(tx, NZ + dir * tzr, serve_T, max(ball.y, 2.0), 1.06)
 
 
 
 	var sspd: = Vector3(ball.vx, ball.vy, ball.vz).length()
-	if e.id == 1 and serve_fault == 0:
-		# Objetivos CPU en m/s reales, desacoplados del factor HUD. 29oct: x1.35 (~+35% velocidad de saque, propuesta de jugabilidad; display honesto x3.6).
-		if sspd < 26.04:
-			# El reescalado lineal de una pasada quedaba corto: al acortar T el pase
-			# por red exige mas altura y launch() alarga T de nuevo (absorcion).
-			# Iterar como el clamp alto hasta alcanzar el suelo de diseno (26.04).
-			var t2: float = serve_T
-			for _icap in 6:
-				t2 = clampf(t2 * sspd / 26.04, 0.7, serve_T)
-				launch(tx, NZ + dir * tzr, t2, max(ball.y, 2.0))
-				sspd = Vector3(ball.vx, ball.vy, ball.vz).length()
-				if sspd >= 25.94:
-					break
-
-		elif sspd > 29.57:
-
-			var target: float = 29.35 if (AIP.speed >= 5.0 and AIP.speed < 6.2) else 32.63
-			if M.pts[e.id] >= 3 and M.pts[1 - e.id] <= 1:
-				target = minf(target, 29.89)
-			var t3: float = serve_T
-			for _icap in 6:
-				t3 = clampf(t3 * sspd / target, serve_T, 1.6)
-				launch(tx, NZ + dir * tzr, t3, max(ball.y, 2.0))
-				sspd = Vector3(ball.vx, ball.vy, ball.vz).length()
-				if sspd <= target + 0.1:
-					break
+	if e.id == 1:
+		var _slo: float = randf_range(47.2, 51.0) if serve_fault == 0 else randf_range(37.5, 40.0)
+		var _shi: float = 54.2 if serve_fault == 0 else 43.1
+		sspd = _clamp_launch_speed(tx, NZ + dir * tzr, serve_T, max(ball.y, 2.0), 1.06, 0.0, _slo, _shi, 0.18, 1.6)
+	elif not demo and e.id == 0:
+		var _first: bool = serve_fault == 0
+		var _kick: bool = stype == "slice" or stype == "kick"
+		var _slo: float = (36.1 if _first else 33.3) if _kick else (45.0 if _first else 36.1)
+		var _shi: float = (38.9 if _first else 36.1) if _kick else (48.6 if _first else 40.3)
+		sspd = _clamp_launch_speed(tx, NZ + dir * tzr, serve_T, max(ball.y, 2.0), 1.06, 0.0, _slo, _shi, 0.18, 1.0)
 	ball.spin = serve_spin
 	ball.curve = serve_curve
 	ball.hot = clampf((sspd - 24.0) / 20.0, 0.0, 1.0)
@@ -1351,7 +1369,7 @@ func _assist(e: Player) -> void :
 func step_ball(dt: float) -> void :
 
 
-	if ball.dead_roll and not ball.in_play and state == "point":
+	if ball.dead_roll and not ball.held and not ball.in_play and state == "point":
 		ball.vy -= G * dt
 		ball.x += ball.vx * dt
 		ball.z += ball.vz * dt
@@ -1386,12 +1404,10 @@ func step_ball(dt: float) -> void :
 		ball.x = sv.x + 0.28
 		ball.z = sv.z + 0.3 * sdir
 		if ball.vy < 0.0 and ball.y < 1.2:
-
-
 			ball.toss = false
+			ball.vy = 0.0
 			ball.held = true
-			serve_stage = "ready"
-			events.append({"t": "retoss"})
+			fault("Saque no golpeado")
 		return
 	if not ball.in_play and state != "point":
 		return
@@ -1961,7 +1977,10 @@ func ai_control(e: Player, dt: float) -> void :
 
 func _in_hit_win(e: Player, bx: float, by: float, bz: float, gx: float, gz: float, ymax: float) -> bool:
 
-	var h_behind: bool = (bz < e.z - 0.55) if e.near else (bz > e.z + 0.55)
+	var behind: float = 0.55
+	if not demo and e.id == 0:
+		behind = 1.05 if e.dive_t <= 0.0 else 1.25
+	var h_behind: bool = (bz < e.z - behind) if e.near else (bz > e.z + behind)
 	return absf(bx - e.x) < gx and absf(bz - e.z) < gz and by < ymax and not h_behind
 
 func human_control(e: Player, dt: float) -> void :
@@ -2066,7 +2085,7 @@ func human_control(e: Player, dt: float) -> void :
 				var _st: = "kick" if want_lob else ("slice" if inp.y < -0.4 else "")
 				var _q: float = 1.0 - clamp(absf(ball.toss_t - 0.5) / 0.45, 0.0, 1.0)
 				if _q <= 0.0 or ball.y < 2.1:
-					# ITF R19b: intento de swing sin contacto = falta (dejar caer sin golpear sigue siendo resaque)
+					# Intento de swing sin contacto o dejar caer el lanzamiento = falta.
 					e.swing = 0.3
 					events.append({"t": "swing_miss"})
 					fault("SIN CONTACTO")
@@ -2115,7 +2134,7 @@ func human_control(e: Player, dt: float) -> void :
 				if ball.y > 2.15:
 					_rm = 2.7
 
-				_fire_now = _in_hit_win(e, ball.x, ball.y, ball.z, 1.65, 1.5, _rm) or _in_hit_win(e, (ball.x + ball.px) * 0.5, (ball.y + ball.py) * 0.5, (ball.z + ball.pz) * 0.5, 1.65, 1.5, _rm)
+				_fire_now = _in_hit_win(e, ball.x, ball.y, ball.z, 2.0, 1.7, _rm) or _in_hit_win(e, (ball.x + ball.px) * 0.5, (ball.y + ball.py) * 0.5, (ball.z + ball.pz) * 0.5, 2.0, 1.7, _rm)
 			if not _fire_now and state == "play" and ball.in_play and ball.last != e.id and ball.vz < 0.0:
 				pass
 			else:
@@ -2145,7 +2164,7 @@ func human_control(e: Player, dt: float) -> void :
 		var amax: = 2.35 if a_volley else 2.2
 		if ball.y > 2.15:
 			amax = 2.7
-		if _in_hit_win(e, ball.x, ball.y, ball.z, 1.65, 1.5, amax) or _in_hit_win(e, (ball.x + ball.px) * 0.5, (ball.y + ball.py) * 0.5, (ball.z + ball.pz) * 0.5, 1.65, 1.5, amax):
+		if _in_hit_win(e, ball.x, ball.y, ball.z, 2.0, 1.7, amax) or _in_hit_win(e, (ball.x + ball.px) * 0.5, (ball.y + ball.py) * 0.5, (ball.z + ball.pz) * 0.5, 2.0, 1.7, amax):
 			e.charging = false
 			e.charge_pow = 1.0 + 0.6 * e.charge
 			e.swing = 0.3
@@ -2157,11 +2176,11 @@ func human_control(e: Player, dt: float) -> void :
 		e.want_t -= dt
 		if ball.in_play and ball.last != e.id and ball.vz < 0 and e.cool <= 0.0 and state == "play" and e.getup_t <= 0.0:
 			_assist(e)
-			var hgx: = 1.65
-			var hgz: = 1.5
+			var hgx: = 2.0
+			var hgz: = 1.7
 			if e.dive_t > 0.0:
-				hgx *= 1.8
-				hgz *= 1.8
+				hgx = 2.35
+				hgz = 2.0
 
 
 			var h_volley: = absf(ball.z - NZ) < 3.2
@@ -2219,13 +2238,15 @@ func update_player(e: Player, dt: float) -> void :
 		var _rec_base: float = 0.05 if ( not demo and e.id == 0) else 0.1
 		e.recov = (0.0 if e.getup_t > 0.0 else {"smash": 0.3, "serve": 0.13}.get(e.kind, _rec_base)) + e.recov_bonus
 
-		if e.speed > 3.5:
+		if not demo and e.id == 0:
+			e.recov = minf(e.recov, 0.08)
+		elif e.speed > 3.5:
 			e.recov = minf(e.recov, 0.45) * 0.7
 		e.recov_bonus = 0.0
 	e._prev_swing = e.swing
 	e.recov = maxf(0.0, e.recov - dt)
 	if e.recov > 0.0 and e.dive_t <= 0.0:
-		var rf: float = clampf(1.0 - e.recov / 0.26, 0.7 if ( not demo and e.id == 0) else 0.4, 1.0)
+		var rf: float = clampf(1.0 - e.recov / 0.26, 0.78 if ( not demo and e.id == 0) else 0.4, 1.0)
 		e.tvx *= rf
 		e.tvz *= rf
 

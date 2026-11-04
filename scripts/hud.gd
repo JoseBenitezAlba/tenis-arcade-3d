@@ -12,6 +12,8 @@ var popup_pool: = []
 var big_popup: Label
 var side_popup: Label
 var side_popup_t: = 0.0
+var callout: Label
+var callout_t: = 0.0
 var big_popup_t: = 0.0
 var cam: Camera3D
 var replay_tag: Label
@@ -36,20 +38,20 @@ func _ready() -> void :
 	layer = 10
 
 	var panel: = PanelContainer.new()
-	panel.position = Vector2(14, 606)
+	panel.position = Vector2(16, 580)
 	var sb: = StyleBoxFlat.new()
-	sb.bg_color = Color(0.03, 0.05, 0.11, 0.88)
+	sb.bg_color = Color(0.02, 0.04, 0.1, 0.9)
 	sb.corner_radius_top_left = 10
 	sb.corner_radius_top_right = 10
 	sb.corner_radius_bottom_left = 10
 	sb.corner_radius_bottom_right = 10
 
-	sb.border_color = Color(1, 1, 1, 0.14)
-	sb.shadow_color = Color(0, 0, 0, 0.38)
-	sb.shadow_size = 12
-	sb.set_border_width_all(1)
-	sb.content_margin_left = 14
-	sb.content_margin_right = 14
+	sb.border_color = Color(1, 0.82, 0.3, 0.5)
+	sb.shadow_color = Color(0, 0, 0, 0.45)
+	sb.shadow_size = 14
+	sb.set_border_width_all(2)
+	sb.content_margin_left = 16
+	sb.content_margin_right = 16
 	sb.content_margin_top = 10
 	sb.content_margin_bottom = 10
 	panel.add_theme_stylebox_override("panel", sb)
@@ -72,14 +74,14 @@ func _ready() -> void :
 		l.text = htxt
 		l.add_theme_font_size_override("font_size", 13)
 		l.add_theme_color_override("font_color", Color("#8ea2d8"))
-		l.custom_minimum_size = Vector2(52, 0)
+		l.custom_minimum_size = Vector2(56, 0)
 		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		grid.add_child(l)
 	for i in 2:
 		var nm: = Label.new()
-		nm.add_theme_font_size_override("font_size", 18)
+		nm.add_theme_font_size_override("font_size", 20)
 		nm.add_theme_color_override("font_color", Color.WHITE)
-		nm.custom_minimum_size = Vector2(180, 0)
+		nm.custom_minimum_size = Vector2(196, 0)
 		nm.clip_text = true
 		grid.add_child(nm)
 		name_labels.append(nm)
@@ -87,13 +89,13 @@ func _ready() -> void :
 		for j in 3:
 			var v: = Label.new()
 			v.text = "0"
-			v.add_theme_font_size_override("font_size", 21)
+			v.add_theme_font_size_override("font_size", 24)
 			v.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			v.custom_minimum_size = Vector2(52, 0)
+			v.custom_minimum_size = Vector2(56, 0)
 			grid.add_child(v)
 			row.append(v)
 		score_rows.append(row)
-	name_labels[0].add_theme_color_override("font_color", Color("#ffffff"))
+	name_labels[0].add_theme_color_override("font_color", Color("#ffd23f"))
 	name_labels[1].add_theme_color_override("font_color", Color("#c8d3ea"))
 	score_rows[0][2].add_theme_color_override("font_color", Color("#ffd23f"))
 	score_rows[1][2].add_theme_color_override("font_color", Color("#ffd23f"))
@@ -151,6 +153,16 @@ func _ready() -> void :
 	side_popup.add_theme_constant_override("outline_size", 8)
 	side_popup.visible = false
 	add_child(side_popup)
+
+	callout = Label.new()
+	callout.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	callout.position = Vector2(830, 520)
+	callout.size = Vector2(430, 68)
+	callout.add_theme_font_size_override("font_size", 40)
+	callout.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.92))
+	callout.add_theme_constant_override("outline_size", 11)
+	callout.visible = false
+	add_child(callout)
 
 	for i in 4:
 		var p: = Label.new()
@@ -333,6 +345,13 @@ func popup_big(txt: String, color: Color) -> void :
 	big_popup.modulate.a = 1.0
 	big_popup_t = 1.15
 
+func popup_callout(txt: String, color: Color) -> void :
+	callout.text = txt
+	callout.add_theme_color_override("font_color", color)
+	callout.visible = true
+	callout.modulate.a = 1.0
+	callout_t = 1.05
+
 func popup(txt: String, wp: Vector3, color: Color) -> void :
 	for p in popup_pool:
 		if not p.active:
@@ -479,6 +498,12 @@ func _process(dt: float) -> void :
 			big_popup.visible = false
 		elif big_popup_t < 0.35:
 			big_popup.modulate.a = big_popup_t / 0.35
+	if callout_t > 0.0:
+		callout_t -= dt
+		if callout_t <= 0.0:
+			callout.visible = false
+		elif callout_t < 0.35:
+			callout.modulate.a = callout_t / 0.35
 	for p in popup_pool:
 		if p.active:
 			p.age += dt

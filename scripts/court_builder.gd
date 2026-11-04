@@ -269,9 +269,31 @@ static func build(surface: String, day_v = false) -> Node3D:
 	var ad_names: = ["TENIS ARCADE", "PRO TOUR", "RACKETIA", "NITRO", "VOLTA", "COURT CLUB", "DEUCE", "TOPSPIN"]
 	var ad_cols: = [Color("#143a8a"), Color("#a11d33"), Color("#0f6b52"), Color("#6a2a9a"), Color("#b36a00"), Color("#0b5d8f"), Color("#a11d33"), Color("#143a8a")]
 	var wall_z: = L + 5.2
-	var back_wall: = _box(40, 3.0, 0.4, _mat(Color("#0d1530")))
-	back_wall.position = Vector3(0, 1.5, wall_z + 0.2)
+	var back_wall: = _box(40, 3.2, 0.4, _mat(Color("#10356f")))
+	back_wall.position = Vector3(0, 1.6, wall_z + 0.2)
 	root.add_child(back_wall)
+	var wall_trim: = _box(40, 0.08, 0.5, _mat(Color("#dbe8ff")))
+	wall_trim.position = Vector3(0, 3.22, wall_z + 0.02)
+	root.add_child(wall_trim)
+	var wall_brand: = Label3D.new()
+	wall_brand.text = "COURT CLUB"
+	wall_brand.font_size = 112
+	wall_brand.modulate = Color("#f4f8ff")
+	wall_brand.outline_size = 14
+	wall_brand.outline_modulate = Color(0.01, 0.05, 0.16, 0.9)
+	wall_brand.position = Vector3(0, 2.38, wall_z - 0.13)
+	wall_brand.rotation_degrees.y = 180
+	root.add_child(wall_brand)
+	for bx in [-12.6, 12.6]:
+		var wall_side: = Label3D.new()
+		wall_side.text = "DEUCE" if bx < 0 else "PRO TOUR"
+		wall_side.font_size = 74
+		wall_side.modulate = Color("#dfe9ff")
+		wall_side.outline_size = 9
+		wall_side.outline_modulate = Color(0.01, 0.05, 0.16, 0.9)
+		wall_side.position = Vector3(bx, 2.35, wall_z - 0.13)
+		wall_side.rotation_degrees.y = 180
+		root.add_child(wall_side)
 	var i: = 0
 	var x: = -17.6
 	while x < 18:
@@ -298,8 +320,8 @@ static func build(surface: String, day_v = false) -> Node3D:
 	crowd_mat.albedo_color = Color(0.4, 0.4, 0.47)
 	crowd_mat.uv1_scale = Vector3(8, 3, 1)
 	crowd_mat.roughness = 1.0
-	var stands_far: = _box(40, 7.0, 6.0, crowd_mat)
-	stands_far.position = Vector3(0, 6.0, wall_z + 11.0)
+	var stands_far: = _box(44, 8.5, 6.0, crowd_mat)
+	stands_far.position = Vector3(0, 6.25, wall_z + 11.0)
 	root.add_child(stands_far)
 	# Near end is a courtside advertising barrier with open stepped seating behind it.
 	for ni in 8:
@@ -314,6 +336,15 @@ static func build(surface: String, day_v = false) -> Node3D:
 		near_label.outline_size = 6
 		near_label.position = Vector3(nx, 0.5, -5.91)
 		root.add_child(near_label)
+	var side_wall_mat: = _mat(Color("#123f7a"))
+	var side_trim_mat: = _mat(Color("#dbe8ff"))
+	for sx in [-8.35, 8.35]:
+		var side_wall: = _box(0.16, 0.85, 34.0, side_wall_mat)
+		side_wall.position = Vector3(sx, 0.425, NZ)
+		root.add_child(side_wall)
+		var side_trim: = _box(0.2, 0.06, 34.0, side_trim_mat)
+		side_trim.position = Vector3(sx, 0.88, NZ)
+		root.add_child(side_trim)
 
 	var plinth_mat: = _mat(Color("#16252c"))
 	for pz in [-12.0, wall_z + 11.0]:
@@ -321,8 +352,8 @@ static func build(surface: String, day_v = false) -> Node3D:
 		plinth.position = Vector3(0, 1.25, pz)
 		root.add_child(plinth)
 	for sx in [-24.0, 24.0]:
-		var stands_side: = _box(6.0, 7.0, 34.0, crowd_mat)
-		stands_side.position = Vector3(sx, 6.0, L / 2.0)
+		var stands_side: = _box(6.0, 8.5, 34.0, crowd_mat)
+		stands_side.position = Vector3(sx, 6.25, L / 2.0)
 		root.add_child(stands_side)
 		var side_plinth: = _box(6.0, 2.5, 34.0, plinth_mat)
 		side_plinth.position = Vector3(sx, 1.25, L / 2.0)
@@ -341,11 +372,11 @@ static func build(surface: String, day_v = false) -> Node3D:
 		lamp_mat.emission_energy_multiplier = 3.0 if tod == 1 else 0.35
 	for tx in [-12.0, 12.0]:
 		for tz in [-4.0, L + 4.0]:
-			var tower: = _box(0.4, 9.0, 0.4, tower_mat)
-			tower.position = Vector3(tx, 4.5, tz)
+			var tower: = _box(0.45, 10.4, 0.45, tower_mat)
+			tower.position = Vector3(tx, 5.2, tz)
 			root.add_child(tower)
-			var lamp: = _box(1.6, 0.8, 0.3, lamp_mat)
-			lamp.position = Vector3(tx, 9.2, tz)
+			var lamp: = _box(2.1, 0.95, 0.35, lamp_mat)
+			lamp.position = Vector3(tx, 10.68, tz)
 			root.add_child(lamp)
 
 
@@ -355,9 +386,9 @@ static func build(surface: String, day_v = false) -> Node3D:
 		cell_mat.albedo_color = Color("#fffbe8")
 		cell_mat.emission_enabled = true
 		cell_mat.emission = Color("#fffbe8")
-		cell_mat.emission_energy_multiplier = 5.0
+		cell_mat.emission_energy_multiplier = 7.0
 		var cone_mat: = StandardMaterial3D.new()
-		cone_mat.albedo_color = Color(1.0, 0.97, 0.85, 0.022)
+		cone_mat.albedo_color = Color(1.0, 0.97, 0.85, 0.032)
 		cone_mat.emission_enabled = true
 		cone_mat.emission = Color(1.0, 0.97, 0.85)
 		cone_mat.emission_energy_multiplier = 0.05
@@ -365,16 +396,17 @@ static func build(surface: String, day_v = false) -> Node3D:
 		cone_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 		cone_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 		cone_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+		var glow_tex: = TexGen.glow_texture()
 		for tx in [-12.0, 12.0]:
 			for tz in [-4.0, L + 4.0]:
 				var zface: float = 0.18 if tz < NZ else -0.18
 				for gx in 3:
 					for gy in 2:
-						var cell: = _box(0.42, 0.3, 0.06, cell_mat)
+						var cell: = _box(0.5, 0.34, 0.07, cell_mat)
 						cell.set_meta("flood", "cell")
-						cell.position = Vector3(tx + (gx - 1) * 0.52, 9.2 + (gy - 0.5) * 0.4, tz + zface)
+						cell.position = Vector3(tx + (gx - 1) * 0.58, 10.68 + (gy - 0.5) * 0.46, tz + zface)
 						root.add_child(cell)
-				var from: = Vector3(tx, 9.0, tz)
+				var from: = Vector3(tx, 10.4, tz)
 				var to: = Vector3(tx * 0.35, 0.06, NZ)
 				var cone: = MeshInstance3D.new()
 				cone.set_meta("flood", "cone")
@@ -388,6 +420,15 @@ static func build(surface: String, day_v = false) -> Node3D:
 				cone.look_at_from_position((from + to) * 0.5, to, Vector3.UP)
 				cone.rotate_object_local(Vector3.RIGHT, PI / 2.0)
 				root.add_child(cone)
+				var halo: = Sprite3D.new()
+				halo.texture = glow_tex
+				halo.pixel_size = 0.04
+				halo.position = Vector3(tx, 10.7, tz)
+				halo.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+				halo.no_depth_test = true
+				halo.modulate = Color(1.0, 0.97, 0.86, 0.52)
+				halo.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+				root.add_child(halo)
 
 
 	var env: = WorldEnvironment.new()
@@ -413,15 +454,16 @@ static func build(surface: String, day_v = false) -> Node3D:
 	e.sky = sky
 	e.background_mode = Environment.BG_SKY
 	e.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	e.ambient_light_energy = 0.46 if tod == 0 else (1.15 if tod == 2 else 0.8)
+	e.ambient_light_energy = 0.46 if tod == 0 else (1.15 if tod == 2 else 1.0)
 	e.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	e.tonemap_exposure = 1.0 if tod == 0 else (1.04 if tod == 2 else 1.12)
 	env.environment = e
 	root.add_child(env)
 
 	var sun: = DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-52, 168, 0) if tod != 2 else Vector3(-24, 148, 0)
-	sun.light_energy = 0.82 if tod == 0 else (1.25 if tod == 2 else 1.1)
-	sun.light_color = Color("#fff4e0") if tod == 0 else (Color("#ffc98a") if tod == 2 else Color("#e8eeff"))
+	sun.light_energy = 0.82 if tod == 0 else (1.25 if tod == 2 else 1.35)
+	sun.light_color = Color("#fff4e0") if tod == 0 else (Color("#ffc98a") if tod == 2 else Color("#e6efff"))
 	sun.shadow_enabled = true
 	sun.directional_shadow_max_distance = 65.0
 	sun.shadow_bias = 0.025
@@ -430,15 +472,17 @@ static func build(surface: String, day_v = false) -> Node3D:
 
 
 
-	for sx in ([-7.0, 7.0] if tod == 1 else []):
-		var spot: = SpotLight3D.new()
-		spot.position = Vector3(sx, 9.0, NZ)
-		spot.rotation_degrees = Vector3(-90, 0, 0)
-		spot.spot_range = 26.0
-		spot.spot_angle = 42.0
-		spot.light_energy = 3.0
-		spot.light_color = Color("#fff2d0")
-		root.add_child(spot)
+	if tod == 1:
+		for sx in [-7.0, 7.0]:
+			for sz in [NZ - 5.5, NZ + 5.5]:
+				var spot: = SpotLight3D.new()
+				spot.position = Vector3(sx, 9.0, sz)
+				spot.rotation_degrees = Vector3(-90, 0, 0)
+				spot.spot_range = 30.0
+				spot.spot_angle = 44.0
+				spot.light_energy = 2.8
+				spot.light_color = Color("#fff2d0")
+				root.add_child(spot)
 
 
 	var green: = _mat(Color("#1a5c3a"))

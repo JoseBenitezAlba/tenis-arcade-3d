@@ -44,11 +44,11 @@ func build() -> void :
 
 	var stands: Array = []
 
-	stands.append([Vector3(-19.0, 3.05, 28.9), Vector3(1, 0, 0), Vector3(0, 0.78, 0.5), 39, 8, Basis(Vector3.UP, PI), Vector3(0, 0, 1), [13, 26]])
+	stands.append([Vector3(-21.0, 3.05, 28.9), Vector3(1, 0, 0), Vector3(0, 0.78, 0.5), 43, 9, Basis(Vector3.UP, PI), Vector3(0, 0, 1), [13, 26]])
 
-	stands.append([Vector3(14.3, 3.05, -2.0), Vector3(0, 0, 1), Vector3(0.5, 0.78, 0), 29, 7, Basis(Vector3.UP, - PI * 0.5), Vector3(1, 0, 0), [14]])
-	stands.append([Vector3(-14.3, 3.05, -2.0), Vector3(0, 0, 1), Vector3(-0.5, 0.78, 0), 29, 7, Basis(Vector3.UP, PI * 0.5), Vector3(-1, 0, 0), [14]])
-	stands.append([Vector3(-19.0, 3.05, -10.0), Vector3(1, 0, 0), Vector3(0, 0.78, -0.5), 39, 4, Basis(), Vector3(0, 0, -1), [13, 26]])
+	stands.append([Vector3(14.3, 3.05, -2.0), Vector3(0, 0, 1), Vector3(0.5, 0.78, 0), 31, 8, Basis(Vector3.UP, - PI * 0.5), Vector3(1, 0, 0), [14]])
+	stands.append([Vector3(-14.3, 3.05, -2.0), Vector3(0, 0, 1), Vector3(-0.5, 0.78, 0), 31, 8, Basis(Vector3.UP, PI * 0.5), Vector3(-1, 0, 0), [14]])
+	stands.append([Vector3(-21.0, 3.05, -10.0), Vector3(1, 0, 0), Vector3(0, 0.78, -0.5), 43, 5, Basis(), Vector3(0, 0, -1), [13, 26]])
 
 	var step_mat: = StandardMaterial3D.new()
 	step_mat.albedo_color = Color("#39405a")
@@ -106,22 +106,22 @@ func build() -> void :
 				var brng: = RandomNumberGenerator.new()
 				brng.seed = 991 + blk * 37 + int(org.x * 3.0) + int(org.z)
 				var block_col: = Color(MUTED[brng.randi_range(0, MUTED.size() - 1)])
-				if brng.randf() < 0.22:
+				if brng.randf() < 0.34:
 					block_col = Color(SHIRTS[brng.randi_range(0, SHIRTS.size() - 1)])
 				var prng: = RandomNumberGenerator.new()
 				prng.seed = 5003 + blk * 131 + c * 17 + r * 7
 				var col: = block_col
-				if prng.randf() < 0.3:
+				if prng.randf() < 0.22:
 					col = Color(MUTED[prng.randi_range(0, MUTED.size() - 1)])
-				elif prng.randf() < 0.1:
+				elif prng.randf() < 0.16:
 					col = Color(SHIRTS[prng.randi_range(0, SHIRTS.size() - 1)])
-				col = col.lerp(Color(0.22, 0.22, 0.27), prng.randf_range(0.1, 0.42))
+				col = col.lerp(Color(0.22, 0.22, 0.27), prng.randf_range(0.06, 0.3))
 				shirt_cols.append(col)
 				skin_cols.append(Color(SKINS[prng.randi_range(0, SKINS.size() - 1)]))
-				empty.append(prng.randf() < 0.07)
+				empty.append(prng.randf() < 0.03)
 
 				var CAPS: = ["#e8e4da", "#d94f3d", "#3f7fd9", "#2f3644", "#e8b53a"]
-				cap_ok.append(prng.randf() < 0.24 and not empty[empty.size() - 1])
+				cap_ok.append(prng.randf() < 0.32 and not empty[empty.size() - 1])
 				cap_cols.append(Color(CAPS[prng.randi_range(0, CAPS.size() - 1)]))
 				stand_up.append(prng.randf() < 0.45)
 				builds.append(Vector2(prng.randf_range(0.82, 1.2), prng.randf_range(0.86, 1.14)))

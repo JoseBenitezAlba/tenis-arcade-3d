@@ -7,7 +7,7 @@ const LINE_W_SIDE: = 0.11
 
 const THEMES: = {
 	"clay": {"court": Color("#bd5c26"), "court2": Color("#b4551f"), "surround": Color("#a34e1d"), "out": Color("#2a5741"), "out2": Color("#1e4434"), "line": Color("#f6f1e6")}, 
-	"hard": {"court": Color("#2a5fae"), "court2": Color("#2656a0"), "surround": Color("#24694a"), "out": Color("#205c42"), "out2": Color("#1b4d37"), "line": Color("#f4f6fa")}, 
+	"hard": {"court": Color("#2f6fc4"), "court2": Color("#2a66b8"), "surround": Color("#2b7a52"), "out": Color("#206247"), "out2": Color("#194f39"), "line": Color("#f4f6fa")},
 	"grass": {"court": Color("#31582c"), "court2": Color("#2d5029"), "surround": Color("#294a28"), "out": Color("#2f6330"), "out2": Color("#265122"), "line": Color("#f6f8f2")}, 
 }
 const L: = 23.77
@@ -199,6 +199,21 @@ static func tier_texture() -> ImageTexture:
 			if rng.randf() < 0.75:
 				var c: Color = seat_pal[rng.randi() % seat_pal.size()]
 				img.fill_rect(Rect2i(x, row + 7, 5, 7), c)
+	img.generate_mipmaps()
+	return ImageTexture.create_from_image(img)
+
+
+static func glow_texture() -> ImageTexture:
+	var s: = 128
+	var img: = Image.create(s, s, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	var c: = s / 2.0
+	for y in s:
+		for x in s:
+			var d: = Vector2(x - c, y - c).length() / c
+			if d < 1.0:
+				var a: float = pow(1.0 - d, 2.2)
+				img.set_pixel(x, y, Color(1, 0.97, 0.86, a * 0.85))
 	img.generate_mipmaps()
 	return ImageTexture.create_from_image(img)
 
