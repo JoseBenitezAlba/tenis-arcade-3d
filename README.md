@@ -6,13 +6,12 @@ Juego de tenis arcade estilo Virtua Tennis 3, hecho en Godot 4.7. Controles con 
 Descomprime y ejecuta `TenisArcade3D.exe`.
 
 ## Controles
-- Mover: stick izquierdo / flechas o WASD
-- Golpe plano: boton A / tecla J
-- Golpe liftado: boton X / tecla K
-- Slice: boton B / tecla L
-- Globo: boton Y / tecla I
-- Saque: mismo boton de golpe (seguir direccion para colocar)
-- Pausa: Start / Esc
+- Mover: stick izquierdo / WASD o flechas
+- Golpe: boton A / ESPACIO o J (manten para cargar; la direccion gana amplitud con la carga)
+- Globo: boton X / tecla Z o K
+- Dejada/slice: boton B / tecla SHIFT (dejada cerca de la red, slice desde el fondo)
+- Saque: mismo boton de golpe, pulsado dos veces (lanzamiento y golpeo); la direccion coloca el saque
+- Pausa: Start / tecla P. Salir del partido: Back / ESC
 
 ## Modos
 - Partido rapido: superficie, dificultad, sets y dia/noche a elegir.

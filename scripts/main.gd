@@ -174,6 +174,12 @@ func _on_quick_match(surface: String, diff: int, sets: int, tod: int, style: int
 		aip["miss"] = aip["miss"] * 0.5
 		aip["risk"] = aip["risk"] * 0.7
 		style_lbl = " · CTR"
+	elif style == 3:
+		aip["style"] = "power"
+		aip["speed"] = aip["speed"] + 0.15
+		aip["err"] = aip["err"] * 1.08
+		aip["risk"] = minf(1.0, aip["risk"] + 0.15)
+		style_lbl = " · POT"
 	_start_match({
 		"surface": surface, 
 		"AIP": aip, 

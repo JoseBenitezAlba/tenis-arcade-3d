@@ -253,7 +253,7 @@ func show_exhibition() -> void :
 	root_box.add_child(_row([_sub("Hora", 14), _opt_group(["DÍA", "TARDE", "NOCHE"], [0, 2, 1].find(tod), func(i):
 		tod = [0, 2, 1][i]
 		show_exhibition())]))
-	root_box.add_child(_row([_sub("Estilo", 14), _opt_group(["NORMAL", "SAQUE-VOLEA", "CONTRAGOLPE"], style, func(i):
+	root_box.add_child(_row([_sub("Estilo", 14), _opt_group(["NORMAL", "SAQUE-VOLEA", "CONTRAGOLPE", "POTENCIA"], style, func(i):
 		style = i
 		show_exhibition())]))
 	var play: = _btn("JUGAR", false, true)

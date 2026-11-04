@@ -202,14 +202,14 @@ const PERS_CURATED: = {
 static func pers_of(pname: String) -> String:
 	if PERS_CURATED.has(pname):
 		return PERS_CURATED[pname]
-	var h: int = abs(pname.hash()) % 3
-	return "sv" if h == 0 else ("counter" if h == 1 else "")
+	var h: int = abs(pname.hash()) % 4
+	return ["sv", "counter", "power", ""][h]
 
 static func pers_name(pers: String) -> String:
-	return {"sv": "Saque-volea", "counter": "Contragolpe"}.get(pers, "")
+	return {"sv": "Saque-volea", "counter": "Contragolpe", "power": "Potencia"}.get(pers, "")
 
 static func pers_suffix(pers: String) -> String:
-	return {"sv": " · S/V", "counter": " · CTR"}.get(pers, "")
+	return {"sv": " · S/V", "counter": " · CTR", "power": " · POT"}.get(pers, "")
 
 static func params_for(r: float, sty: int = 1, pers: String = "") -> Dictionary:
 
@@ -238,6 +238,11 @@ static func params_for(r: float, sty: int = 1, pers: String = "") -> Dictionary:
 		out["err"] = out["err"] * 0.75
 		out["miss"] = out["miss"] * 0.5
 		out["risk"] = out["risk"] * 0.7
+	elif pers == "power":
+		out["style"] = "power"
+		out["speed"] = out["speed"] + 0.15
+		out["err"] = out["err"] * 1.08
+		out["risk"] = minf(1.0, out["risk"] + 0.15)
 	return out
 
 func player_from_stats() -> Dictionary:
