@@ -629,6 +629,32 @@ func _bend_torso(k: float) -> void :
 			var q: = skel.get_bone_global_pose(bi).basis.get_rotation_quaternion()
 			skel.set_bone_global_pose_override(bi, Transform3D(Basis(q * Quaternion(Vector3.RIGHT, 0.45 * k)), skel.get_bone_global_pose(bi).origin), 1.0, true)
 
+func _ready_stance() -> void :
+	if skel == null:
+		return
+	for side in [["UpperLeg.L", 1.0], ["UpperLeg.R", -1.0]]:
+		var bi: = skel.find_bone(_bone_name(skel, side[0]))
+		if bi < 0:
+			continue
+		var g: = skel.get_bone_global_pose(bi)
+		var rot: = Basis(Vector3.RIGHT, -0.30) * Basis(Vector3.BACK, 0.20 * float(side[1]))
+		skel.set_bone_global_pose_override(bi, Transform3D(rot * g.basis, g.origin), 1.0, true)
+	skel.force_update_all_bone_transforms()
+	for bn in ["LowerLeg.L", "LowerLeg.R"]:
+		var li: = skel.find_bone(_bone_name(skel, bn))
+		if li < 0:
+			continue
+		var lg: = skel.get_bone_global_pose(li)
+		skel.set_bone_global_pose_override(li, Transform3D(Basis(Vector3.RIGHT, 0.45) * lg.basis, lg.origin), 1.0, true)
+	skel.force_update_all_bone_transforms()
+	for fn in ["Foot.L", "Foot.R"]:
+		var fi: = skel.find_bone(_bone_name(skel, fn))
+		if fi < 0:
+			continue
+		var fg: = skel.get_bone_global_pose(fi)
+		skel.set_bone_global_pose_override(fi, Transform3D(Basis(Vector3.RIGHT, -0.24) * fg.basis, fg.origin), 1.0, true)
+	_bend_torso(0.28)
+
 var celeb_t: = 0.0
 var celeb_name: = ""
 var rk_show_delay: = 0
@@ -912,6 +938,10 @@ func update_from_sim(e, dt: float) -> void :
 
 	if _fatk > 0.55:
 		_bend_torso(0.5 * clampf((_fatk - 0.55) / 0.45, 0.0, 1.0))
+	var _stance_on: bool = state == "Idle_Sword" and eff_sp < 0.5 and e.swing <= 0.0 and celeb_t <= 0.0 and (e.get("split_t") == null or e.split_t <= 0.0) and (e.get("dive_t") == null or e.dive_t <= 0.0)
+	if _stance_on:
+		_ready_stance()
+		position.y -= 0.045
 	_apply_gaze()
 	_rk_rest(dt)
 	if state in CELEB_ANIMS:

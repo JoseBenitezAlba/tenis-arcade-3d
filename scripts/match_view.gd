@@ -38,9 +38,9 @@ var cam: Camera3D
 var fill_light: DirectionalLight3D
 var night_mode: bool = false
 
-const CAM_POS: = Vector3(0, 4.8, -9.8)
-const CAM_FOV: = 41.0
-const CAM_LOOK_Y: = 1.0
+const CAM_POS: = Vector3(0, 5.7, -10.7)
+const CAM_FOV: = 42.0
+const CAM_LOOK_Y: = 0.85
 var hud: MatchHUD
 var sfx: SoundKit
 var dust_pool: = []

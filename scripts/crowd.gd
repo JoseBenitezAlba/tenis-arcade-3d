@@ -35,6 +35,7 @@ const SKINS: = ["#f2c79b", "#d9a06b", "#a06b3f", "#7a4a28", "#f5d7b5", "#8a5a35"
 func _mat() -> StandardMaterial3D:
 	var m: = StandardMaterial3D.new()
 	m.vertex_color_use_as_albedo = true
+	m.albedo_color = Color(0.78, 0.78, 0.84)
 	m.roughness = 0.9
 	return m
 

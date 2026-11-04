@@ -7,7 +7,7 @@ const LINE_W_SIDE: = 0.11
 
 const THEMES: = {
 	"clay": {"court": Color("#bd5c26"), "court2": Color("#b4551f"), "surround": Color("#a34e1d"), "out": Color("#2a5741"), "out2": Color("#1e4434"), "line": Color("#f6f1e6")}, 
-	"hard": {"court": Color("#2f6fc4"), "court2": Color("#2a66b8"), "surround": Color("#2b7a52"), "out": Color("#206247"), "out2": Color("#194f39"), "line": Color("#f4f6fa")},
+	"hard": {"court": Color("#1e88e5"), "court2": Color("#1a7ad0"), "surround": Color("#7cb342"), "out": Color("#6aa83c"), "out2": Color("#548a2e"), "line": Color("#f4f6fa")},
 	"grass": {"court": Color("#31582c"), "court2": Color("#2d5029"), "surround": Color("#294a28"), "out": Color("#2f6330"), "out2": Color("#265122"), "line": Color("#f6f8f2")}, 
 }
 const L: = 23.77
@@ -26,10 +26,10 @@ static func court_texture(surface: String) -> ImageTexture:
 	var py_of: = func(z: float) -> float: return (z + 4.0) * pxm_z
 	var px_of: = func(x: float) -> float: return (x + 7.2) * pxm_x
 
-	var ix0: = int(px_of.call(-5.51))
-	var ix1: = int(px_of.call(5.51))
-	var iy0: = int(py_of.call(-0.05))
-	var iy1: = int(py_of.call(L + 0.05))
+	var ix0: = int(px_of.call(-6.7))
+	var ix1: = int(px_of.call(6.7))
+	var iy0: = int(py_of.call(-2.5))
+	var iy1: = int(py_of.call(L + 2.5))
 	img.fill_rect(Rect2i(ix0, iy0, ix1 - ix0, iy1 - iy0), T.court)
 
 	if surface == "grass":

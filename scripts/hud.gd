@@ -38,22 +38,22 @@ func _ready() -> void :
 	layer = 10
 
 	var panel: = PanelContainer.new()
-	panel.position = Vector2(16, 580)
+	panel.position = Vector2(24, 584)
 	var sb: = StyleBoxFlat.new()
-	sb.bg_color = Color(0.02, 0.04, 0.1, 0.9)
-	sb.corner_radius_top_left = 10
-	sb.corner_radius_top_right = 10
-	sb.corner_radius_bottom_left = 10
-	sb.corner_radius_bottom_right = 10
+	sb.bg_color = Color(0.02, 0.03, 0.08, 0.82)
+	sb.corner_radius_top_left = 12
+	sb.corner_radius_top_right = 12
+	sb.corner_radius_bottom_left = 12
+	sb.corner_radius_bottom_right = 12
 
-	sb.border_color = Color(1, 0.82, 0.3, 0.5)
-	sb.shadow_color = Color(0, 0, 0, 0.45)
-	sb.shadow_size = 14
+	sb.border_color = Color(1, 1, 1, 0.22)
+	sb.shadow_color = Color(0, 0, 0, 0.5)
+	sb.shadow_size = 18
 	sb.set_border_width_all(2)
-	sb.content_margin_left = 16
-	sb.content_margin_right = 16
+	sb.content_margin_left = 18
+	sb.content_margin_right = 18
 	sb.content_margin_top = 10
-	sb.content_margin_bottom = 10
+	sb.content_margin_bottom = 12
 	panel.add_theme_stylebox_override("panel", sb)
 	score_panel = panel
 	score_sb = sb
@@ -63,7 +63,7 @@ func _ready() -> void :
 	panel.add_child(vbox)
 	var accent: = ColorRect.new()
 	accent.color = Color("#ffd23f")
-	accent.custom_minimum_size = Vector2(0, 4)
+	accent.custom_minimum_size = Vector2(0, 3)
 	vbox.add_child(accent)
 	var grid: = GridContainer.new()
 	grid.columns = 4
@@ -89,7 +89,8 @@ func _ready() -> void :
 		for j in 3:
 			var v: = Label.new()
 			v.text = "0"
-			v.add_theme_font_size_override("font_size", 24)
+			v.add_theme_font_size_override("font_size", 27)
+			v.add_theme_color_override("font_color", Color("#f4f7ff"))
 			v.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			v.custom_minimum_size = Vector2(56, 0)
 			grid.add_child(v)
@@ -156,11 +157,15 @@ func _ready() -> void :
 
 	callout = Label.new()
 	callout.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	callout.position = Vector2(830, 520)
-	callout.size = Vector2(430, 68)
-	callout.add_theme_font_size_override("font_size", 40)
-	callout.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.92))
-	callout.add_theme_constant_override("outline_size", 11)
+	callout.position = Vector2(806, 500)
+	callout.size = Vector2(450, 76)
+	callout.add_theme_font_size_override("font_size", 42)
+	callout.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.95))
+	callout.add_theme_constant_override("outline_size", 12)
+	callout.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.55))
+	callout.add_theme_constant_override("shadow_offset_x", 3)
+	callout.add_theme_constant_override("shadow_offset_y", 3)
+	callout.add_theme_constant_override("shadow_outline_size", 6)
 	callout.visible = false
 	add_child(callout)
 
@@ -255,13 +260,15 @@ func show_point_card(mine: bool, pts: String) -> void :
 	if point_card == null:
 		point_card = PanelContainer.new()
 		var sb: = StyleBoxFlat.new()
-		sb.bg_color = Color(0.28, 0.03, 0.05, 0.92)
-		sb.border_color = Color(1, 1, 1, 0.25)
+		sb.bg_color = Color(0.03, 0.05, 0.12, 0.82)
+		sb.border_color = Color(1, 1, 1, 0.24)
+		sb.shadow_color = Color(0, 0, 0, 0.45)
+		sb.shadow_size = 12
 		sb.set_border_width_all(2)
-		sb.corner_radius_top_left = 6
-		sb.corner_radius_top_right = 6
-		sb.corner_radius_bottom_left = 6
-		sb.corner_radius_bottom_right = 6
+		sb.corner_radius_top_left = 10
+		sb.corner_radius_top_right = 10
+		sb.corner_radius_bottom_left = 10
+		sb.corner_radius_bottom_right = 10
 		sb.content_margin_left = 26
 		sb.content_margin_right = 26
 		sb.content_margin_top = 12
