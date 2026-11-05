@@ -869,12 +869,27 @@ func _physics_process(dt: float) -> void :
 	var goal_look: Vector3
 	if closeup:
 		var wp = sim.pl[_point_winner]
-		var side_x: float = - signf(wp.x) * 2.2 if absf(wp.x) > 0.6 else 2.2
-
-		var cam_z: float = wp.z + 3.6 if wp.near else wp.z - 3.6
-		goal_pos = Vector3(wp.x + side_x, 1.7, cam_z)
-		goal_fov = 36.0
-		goal_look = Vector3(wp.x, 1.45, wp.z)
+		var other = sim.pl[1 - _point_winner]
+		var side_x: float = - signf(wp.x) * 3.0 if absf(wp.x) > 0.6 else 3.0
+		var cam_z: float
+		if wp.near:
+			cam_z = wp.z - 5.2 if wp.z > NZ - 7.0 else wp.z + 5.2
+		else:
+			cam_z = wp.z + 5.2 if wp.z < NZ + 7.0 else wp.z - 5.2
+		var base_x: float = clampf(wp.x + side_x, -5.0, 5.0)
+		var alt_x: float = clampf(wp.x - side_x, -5.0, 5.0)
+		var candidates: Array = [
+			Vector3(base_x, 2.7, cam_z),
+			Vector3(alt_x, 2.7, cam_z),
+			Vector3(base_x, 3.5, cam_z + (2.2 if wp.near else -2.2)),
+		]
+		goal_pos = candidates[0]
+		for c in candidates:
+			if Vector2(c.x - other.x, c.z - other.z).length() > 2.6:
+				goal_pos = c
+				break
+		goal_fov = 40.0
+		goal_look = Vector3(wp.x, 1.15, wp.z)
 	else:
 
 
@@ -1603,6 +1618,8 @@ func drain_events() -> void :
 				rec.clear()
 			"fault":
 				sfx.play("fault")
+				hud.hide_speed()
+				hud.serve_meter_hide()
 				hud.show_banner("FALTA", ev.why, Color("#ffd23f"))
 				banner_t = 0.9
 				banner_dur = 0.9

@@ -193,6 +193,8 @@ var M: = MatchState.new()
 var state: = "serve"
 var state_t: = 0.0
 var serve_fault: = 0
+var serve_attempt: = 0
+var serve_faulted_attempt: = -1
 var serve_stage: = "ready"
 var cpu_serve_at: = 0.0
 var rut_t: = 0.0
@@ -411,6 +413,9 @@ func award_point(w: int, why: String, sub: String) -> void :
 func fault(why: String) -> void :
 	if state != "serve":
 		return
+	if serve_faulted_attempt == serve_attempt:
+		return
+	serve_faulted_attempt = serve_attempt
 	if serve_fault == 0:
 		stats[M.server].first_total += 1
 	serve_fault += 1
@@ -420,6 +425,11 @@ func fault(why: String) -> void :
 		return
 	events.append({"t": "fault", "why": why})
 	ball.in_play = false
+	for _p in pl:
+		_p.charging = false
+		_p.charge = 0.0
+		_p.buffered_hit_t = 0.0
+		_p.want_t = 0.0
 
 	prep_serve()
 
@@ -562,6 +572,21 @@ func _clamp_launch_speed(tx: float, tz: float, T: float, y0: float, clear: float
 			sp = nsp
 			break
 		sp = nsp
+	# A low contact that has to clear the net can end up below the floor with
+	# the flat trajectory. Try the lofted branch as well and keep the faster one.
+	if sp < lo - 0.05:
+		var t2: float = clampf(t * 1.08, tmin, tmax)
+		for _j in 6:
+			_launch_any(tx, tz, t2, y0, clear, vcap)
+			var sp2: float = Vector3(ball.vx, ball.vy, ball.vz).length()
+			if sp2 > sp:
+				sp = sp2
+				t = t2
+			if sp >= lo - 0.05 or t2 >= tmax - 0.0001:
+				break
+			t2 = clampf(t2 * 1.08, tmin, tmax)
+		_launch_any(tx, tz, t, y0, clear, vcap)
+		sp = Vector3(ball.vx, ball.vy, ball.vz).length()
 	return sp
 
 
@@ -615,6 +640,11 @@ func do_hit(e: Player, kind: String, ai: bool) -> void :
 	var tx: float = aim.tx
 	var d: float = clampf(aim.d, 0.02, 1.04)
 	var T: float = aim.T
+	var launch_y: float = maxf(ball.y, 0.5)
+	if not ai and e.id == 0 and kind in ["drive", "slice", "volley"]:
+		launch_y = maxf(launch_y, 1.0)
+		if ball.y < 0.85:
+			d = maxf(d, 0.78)
 
 	if ai and kind == "drive" and stretch > 0.6:
 		T *= 1.12 + 0.15 * clampf(stretch - 0.6, 0.0, 1.5)
@@ -710,9 +740,9 @@ func do_hit(e: Player, kind: String, ai: bool) -> void :
 		if dirz2 != 0.0:
 			tz = NZ + dirz2 * minf(absf(tz - NZ), L / 2.0 - 0.25)
 		tx = clampf(tx, -3.7, 3.7)
-		launch_magnus(tx, tz, T, max(ball.y, 0.5), nc_floor, _vcap)
+		launch_magnus(tx, tz, T, launch_y, nc_floor, _vcap)
 	else:
-		launch(tx, tz, T, max(ball.y, 0.5), nc_floor, _vcap)
+		launch(tx, tz, T, launch_y, nc_floor, _vcap)
 	var before_skim: Vector3 = Vector3(ball.vx, ball.vy, ball.vz)
 	var explicit_skim_risk: bool = false
 	var nc_skim: = 0.0
@@ -747,7 +777,7 @@ func do_hit(e: Player, kind: String, ai: bool) -> void :
 			nc_forced = true
 		var dzs: float = tz - ball.z
 		if dzs != 0.0 and ball.vz != 0.0:
-			var yn0: float = max(ball.y, 0.5)
+			var yn0: float = launch_y
 			var r: float = (NZ - ball.z) / dzs
 			var tn0: float = (NZ - ball.z) / ball.vz
 			if MAGNUS and absf(tz - NZ) > 4.0:
@@ -828,7 +858,7 @@ func do_hit(e: Player, kind: String, ai: bool) -> void :
 		var _forced: bool = dx > 1.15 or move_q > 1.05 or ball.y <= 0.85 or on_rise or tq in ["late", "early", "rise"]
 		var _lo: float = 29.2 if _forced else 37.5
 		var _hi: float = 34.7 if _forced else 43.1
-		_clamp_launch_speed(tx, tz, T, max(ball.y, 0.5), nc_floor, _vcap, _lo, _hi, 0.18, 2.2)
+		_clamp_launch_speed(tx, tz, T, launch_y, nc_floor, _vcap, _lo, _hi, 0.18, 2.2)
 	var spd: = Vector3(ball.vx, ball.vy, ball.vz).length()
 	ball.hot = clampf((spd - 24.0) / 20.0, 0.0, 1.0)
 	events.append({"t": "hit", "id": e.id, "kind": kind, "x": ball.x, "y": ball.y, "z": ball.z, "rise": on_rise, "perfect": perfect, "tper": aim.get("tper", false), "spd": spd, "charge": shot_charge, "tq": tq, "jam": srv_ret_hit and ball.serve_jam, "stretch": snappedf(stretch, 0.01)})
@@ -1261,6 +1291,7 @@ func toss_ball() -> void :
 	ball.vy = 10.5
 	ball.vx = 0.0
 	ball.vz = 0.0
+	serve_attempt += 1
 	serve_stage = "toss"
 	events.append({"t": "toss"})
 

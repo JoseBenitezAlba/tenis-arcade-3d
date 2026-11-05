@@ -731,7 +731,12 @@ func update_from_sim(e, dt: float) -> void :
 	_last_pz = e.z
 
 	eff_sp = minf(e.speed, mvd / maxf(dt, 0.0001) * 1.15 + 0.35)
-	position = Vector3(e.x, FOOT_LIFT, e.z)
+	var target_pos: = Vector3(e.x, FOOT_LIFT, e.z)
+	# Reposiciones de saque/punto: deslizar en vez de teletransportar el rig.
+	if position.distance_to(target_pos) > 2.2:
+		position = position.lerp(target_pos, minf(1.0, dt * 11.0))
+	else:
+		position = target_pos
 
 
 
