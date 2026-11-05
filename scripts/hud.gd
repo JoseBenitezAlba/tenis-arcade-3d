@@ -38,68 +38,59 @@ func _ready() -> void :
 	layer = 10
 
 	var panel: = PanelContainer.new()
-	panel.position = Vector2(24, 584)
+	panel.position = Vector2(28, 618)
 	var sb: = StyleBoxFlat.new()
-	sb.bg_color = Color(0.02, 0.03, 0.08, 0.82)
-	sb.corner_radius_top_left = 12
-	sb.corner_radius_top_right = 12
-	sb.corner_radius_bottom_left = 12
-	sb.corner_radius_bottom_right = 12
+	sb.bg_color = Color(0.10, 0.13, 0.07, 0.74)
+	sb.corner_radius_top_left = 10
+	sb.corner_radius_top_right = 10
+	sb.corner_radius_bottom_left = 10
+	sb.corner_radius_bottom_right = 10
 
-	sb.border_color = Color(1, 1, 1, 0.22)
-	sb.shadow_color = Color(0, 0, 0, 0.5)
-	sb.shadow_size = 18
+	sb.border_color = Color(1, 1, 1, 0.85)
+	sb.shadow_color = Color(0, 0, 0, 0.45)
+	sb.shadow_size = 14
 	sb.set_border_width_all(2)
-	sb.content_margin_left = 18
-	sb.content_margin_right = 18
-	sb.content_margin_top = 10
-	sb.content_margin_bottom = 12
+	sb.content_margin_left = 14
+	sb.content_margin_right = 14
+	sb.content_margin_top = 8
+	sb.content_margin_bottom = 8
 	panel.add_theme_stylebox_override("panel", sb)
 	score_panel = panel
 	score_sb = sb
 	add_child(panel)
-	var vbox: = VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 6)
-	panel.add_child(vbox)
-	var accent: = ColorRect.new()
-	accent.color = Color("#ffd23f")
-	accent.custom_minimum_size = Vector2(0, 3)
-	vbox.add_child(accent)
 	var grid: = GridContainer.new()
-	grid.columns = 4
-	vbox.add_child(grid)
-	var head: = ["", "SET", "JUEG", "PTS"]
-	for htxt in head:
-		var l: = Label.new()
-		l.text = htxt
-		l.add_theme_font_size_override("font_size", 13)
-		l.add_theme_color_override("font_color", Color("#8ea2d8"))
-		l.custom_minimum_size = Vector2(56, 0)
-		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		grid.add_child(l)
+	grid.columns = 3
+	grid.add_theme_constant_override("h_separation", 14)
+	grid.add_theme_constant_override("v_separation", 2)
+	panel.add_child(grid)
 	for i in 2:
 		var nm: = Label.new()
-		nm.add_theme_font_size_override("font_size", 20)
+		nm.add_theme_font_size_override("font_size", 19)
 		nm.add_theme_color_override("font_color", Color.WHITE)
-		nm.custom_minimum_size = Vector2(196, 0)
+		nm.custom_minimum_size = Vector2(188, 0)
 		nm.clip_text = true
 		grid.add_child(nm)
 		name_labels.append(nm)
 		var row: = []
-		for j in 3:
-			var v: = Label.new()
-			v.text = "0"
-			v.add_theme_font_size_override("font_size", 27)
-			v.add_theme_color_override("font_color", Color("#f4f7ff"))
-			v.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			v.custom_minimum_size = Vector2(56, 0)
-			grid.add_child(v)
-			row.append(v)
+		var a: = Label.new()
+		a.text = "0 - 0"
+		a.add_theme_font_size_override("font_size", 24)
+		a.add_theme_color_override("font_color", Color("#ffd23f"))
+		a.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		a.custom_minimum_size = Vector2(92, 0)
+		grid.add_child(a)
+		row.append(a)
+		var b: = Label.new()
+		b.text = "0"
+		b.add_theme_font_size_override("font_size", 24)
+		b.add_theme_color_override("font_color", Color("#f4f7ff"))
+		b.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		b.custom_minimum_size = Vector2(42, 0)
+		grid.add_child(b)
+		row.append(b)
 		score_rows.append(row)
-	name_labels[0].add_theme_color_override("font_color", Color("#ffd23f"))
-	name_labels[1].add_theme_color_override("font_color", Color("#c8d3ea"))
-	score_rows[0][2].add_theme_color_override("font_color", Color("#ffd23f"))
-	score_rows[1][2].add_theme_color_override("font_color", Color("#ffd23f"))
+	name_labels[0].add_theme_color_override("font_color", Color("#e0604f"))
+	name_labels[1].add_theme_color_override("font_color", Color("#7fc4e8"))
 
 
 	banner = Label.new()
@@ -232,7 +223,7 @@ func _ready() -> void :
 	speed_label.add_theme_constant_override("outline_size", 6)
 	speed_label.visible = false
 	var sp_bg: = StyleBoxFlat.new()
-	sp_bg.bg_color = Color(0, 0, 0, 0.5)
+	sp_bg.bg_color = Color(0.10, 0.13, 0.07, 0.7)
 	sp_bg.set_corner_radius_all(8)
 	sp_bg.content_margin_left = 10
 	sp_bg.content_margin_right = 10
@@ -248,20 +239,19 @@ func set_names(n0: String, n1: String) -> void :
 func update_score(M) -> void :
 	var in_tb: bool = "tb" in M and M.tb
 	for i in 2:
-		score_rows[i][0].text = str(M.sets[i])
-		score_rows[i][1].text = str(M.games[i])
+		score_rows[i][0].text = "%d - %d" % [M.sets[i], M.games[i]]
 
-		score_rows[i][2].text = str(M.tb_pts[i]) if in_tb else PT[mini(3, M.pts[i])]
+		score_rows[i][1].text = str(M.tb_pts[i]) if in_tb else PT[mini(3, M.pts[i])]
 		var base: String = name_labels[i].get_meta("base")
-		name_labels[i].text = ("● " if M.server == i else "  ") + base
+		name_labels[i].text = ("● " if M.server == i else "") + base
 
 func show_point_card(mine: bool, pts: String) -> void :
 
 	if point_card == null:
 		point_card = PanelContainer.new()
 		var sb: = StyleBoxFlat.new()
-		sb.bg_color = Color(0.03, 0.05, 0.12, 0.82)
-		sb.border_color = Color(1, 1, 1, 0.24)
+		sb.bg_color = Color(0.10, 0.13, 0.07, 0.82)
+		sb.border_color = Color(1, 1, 1, 0.75)
 		sb.shadow_color = Color(0, 0, 0, 0.45)
 		sb.shadow_size = 12
 		sb.set_border_width_all(2)
@@ -471,11 +461,11 @@ func _process(dt: float) -> void :
 		if ga > 0.0:
 			score_sb.border_color = Color(1.0, 0.82, 0.3, ga)
 			score_sb.set_border_width_all(2)
-			score_sb.bg_color = Color(0.16, 0.11, 0.03, 0.92).lerp(Color(0.03, 0.05, 0.11, 0.88), 1.0 - ga)
+			score_sb.bg_color = Color(0.16, 0.11, 0.03, 0.92).lerp(Color(0.10, 0.13, 0.07, 0.74), 1.0 - ga)
 		else:
-			score_sb.border_color = Color(1, 1, 1, 0.14)
-			score_sb.set_border_width_all(1)
-			score_sb.bg_color = Color(0.03, 0.05, 0.11, 0.88)
+			score_sb.border_color = Color(1, 1, 1, 0.85)
+			score_sb.set_border_width_all(2)
+			score_sb.bg_color = Color(0.10, 0.13, 0.07, 0.74)
 	if side_popup_t > 0.0:
 		side_popup_t -= dt
 		if side_popup_t <= 0.0:

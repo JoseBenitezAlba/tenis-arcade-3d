@@ -233,7 +233,7 @@ func show_menu(p_career: Career) -> void :
 		pad_invert.emit(false, i == 1))]))
 	root_box.add_child(_row([_sub("Eje X", 14), _opt_group(["NORMAL", "INVERTIDO"], 1 if pad_inv_x else 0, func(i):
 		pad_invert.emit(true, i == 1))]))
-	root_box.add_child(_sub("Mando: stick mover · A golpe (mantén para cargar) · X globo · B dejada · START pausa\nTeclado: WASD/flechas · ESPACIO golpe (mantén para cargar) · Z globo · SHIFT dejada · P pausa", 13, Color("#8ea2d8")))
+	root_box.add_child(_sub("Mando: stick mover · A golpe (mantén para cargar) · X globo · B dejada · LB cámara · START pausa\nTeclado: WASD/flechas · ESPACIO golpe (mantén para cargar) · Z globo · SHIFT dejada · C cámara · P pausa", 13, Color("#8ea2d8")))
 	wt.grab_focus()
 
 

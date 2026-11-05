@@ -38,9 +38,11 @@ var cam: Camera3D
 var fill_light: DirectionalLight3D
 var night_mode: bool = false
 
-const CAM_POS: = Vector3(0, 5.7, -10.7)
-const CAM_FOV: = 42.0
-const CAM_LOOK_Y: = 0.85
+const CAM_MODES: = [
+	{"pos": Vector3(0, 2.1, -6.4), "fov": 45.0, "look_y": 1.05},
+	{"pos": Vector3(0, 5.7, -10.7), "fov": 42.0, "look_y": 0.85},
+]
+var cam_mode: = 0
 var hud: MatchHUD
 var sfx: SoundKit
 var dust_pool: = []
@@ -113,7 +115,9 @@ var surface: = "clay"
 var brake_cd: = [0.0, 0.0]
 var step_t: = [0.0, 0.0]
 var burst_prev: = [0.0, 0.0]
-var rally_label: Label
+var rally_label: PanelContainer
+var rally_prefix: Label
+var rally_value: Label
 var rally_best: = 0
 var _meter_hold: = 0.0
 var rally_change_t: = 0.0
@@ -432,34 +436,45 @@ func _ready() -> void :
 		skid_pool.append({"m": sk, "mat": skm, "life": 0.0, "max": 4.5})
 
 	cam = Camera3D.new()
-	cam.position = CAM_POS
-	cam.fov = CAM_FOV
+	var cc: Dictionary = CAM_MODES[cam_mode]
+	cam.position = cc["pos"]
+	cam.fov = cc["fov"]
 	add_child(cam)
-	cam.look_at(Vector3(0, CAM_LOOK_Y, NZ))
+	cam.look_at(Vector3(0, cc["look_y"], NZ))
 	cam.make_current()
 
 	hud = MatchHUD.new()
 	hud.cam = cam
 	add_child(hud)
-	rally_label = Label.new()
-	rally_label.position = Vector2(930, 592)
-	rally_label.size = Vector2(330, 66)
-	rally_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	rally_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	rally_label.add_theme_font_size_override("font_size", 30)
-	rally_label.add_theme_color_override("font_color", Color("#ffe783"))
-	rally_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.86))
-	rally_label.add_theme_constant_override("outline_size", 8)
+	rally_label = PanelContainer.new()
+	rally_label.position = Vector2(1004, 642)
 	var _rsb: = StyleBoxFlat.new()
-	_rsb.bg_color = Color(0.02, 0.04, 0.1, 0.86)
-	_rsb.border_color = Color(1, 0.82, 0.3, 0.55)
+	_rsb.bg_color = Color(0.07, 0.09, 0.05, 0.78)
+	_rsb.border_color = Color(1, 1, 1, 0.85)
 	_rsb.set_border_width_all(2)
-	_rsb.set_corner_radius_all(9)
+	_rsb.set_corner_radius_all(8)
 	_rsb.content_margin_left = 14
 	_rsb.content_margin_right = 14
-	_rsb.content_margin_top = 6
-	_rsb.content_margin_bottom = 6
-	rally_label.add_theme_stylebox_override("normal", _rsb)
+	_rsb.content_margin_top = 4
+	_rsb.content_margin_bottom = 5
+	rally_label.add_theme_stylebox_override("panel", _rsb)
+	var _rh: = HBoxContainer.new()
+	_rh.add_theme_constant_override("separation", 8)
+	rally_label.add_child(_rh)
+	rally_prefix = Label.new()
+	rally_prefix.text = "RALLY:"
+	rally_prefix.add_theme_font_size_override("font_size", 24)
+	rally_prefix.add_theme_color_override("font_color", Color.WHITE)
+	rally_prefix.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
+	rally_prefix.add_theme_constant_override("outline_size", 4)
+	_rh.add_child(rally_prefix)
+	rally_value = Label.new()
+	rally_value.text = "00"
+	rally_value.add_theme_font_size_override("font_size", 24)
+	rally_value.add_theme_color_override("font_color", Color("#ffd23f"))
+	rally_value.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
+	rally_value.add_theme_constant_override("outline_size", 4)
+	_rh.add_child(rally_value)
 	rally_label.visible = false
 	hud.add_child(rally_label)
 	hud.set_names(get_meta("my_name", "TÚ"), get_meta("cpu_label", "CPU"))
@@ -474,7 +489,7 @@ func _ready() -> void :
 		if touch_ui:
 			hud.set_hint("Joystick izquierdo mover · GOLPE / GLOBO / DEJADA a la derecha · II pausa")
 		else:
-			hud.set_hint("Stick/WASD mover · A/ESPACIO golpe · X/Z globo · B dejada · START pausa")
+			hud.set_hint("Stick/WASD mover · A/ESPACIO golpe · X/Z globo · B dejada · C/LB cámara · START pausa")
 	else:
 		hud.set_hint("")
 
@@ -635,6 +650,9 @@ func spawn_dust(pos: Vector3, n: int, col: Color, sc: float = 1.0) -> void :
 				break
 
 func _unhandled_input(event: InputEvent) -> void :
+	if event.is_action_pressed("camera") and not demo:
+		cam_mode = (cam_mode + 1) % CAM_MODES.size()
+		return
 	if replaying:
 		if (event is InputEventKey and event.pressed and not event.echo) or (event is InputEventJoypadButton and event.pressed):
 			_end_replay()
@@ -940,10 +958,11 @@ func _physics_process(dt: float) -> void :
 	else:
 
 
+		var cc: Dictionary = CAM_MODES[cam_mode]
 		var target_x: float = clampf(sim.ball.x * 0.35 + sim.pl[0].x * 0.15, -2.6, 2.6)
-		goal_pos = Vector3(target_x, CAM_POS.y, CAM_POS.z)
-		goal_fov = CAM_FOV
-		goal_look = Vector3(sim.ball.x * 0.2, CAM_LOOK_Y, NZ)
+		goal_pos = Vector3(target_x, cc["pos"].y, cc["pos"].z)
+		goal_fov = cc["fov"]
+		goal_look = Vector3(sim.ball.x * 0.2, cc["look_y"], NZ)
 
 
 
@@ -1113,9 +1132,10 @@ func _end_replay() -> void :
 	replaying = false
 	rec.clear()
 	hud.hide_replay()
-	cam.position = CAM_POS
-	cam.fov = CAM_FOV
-	cam.look_at(Vector3(0, CAM_LOOK_Y, NZ))
+	var cc: Dictionary = CAM_MODES[cam_mode]
+	cam.position = cc["pos"]
+	cam.fov = cc["fov"]
+	cam.look_at(Vector3(0, cc["look_y"], NZ))
 
 func _pts_line() -> String:
 
@@ -1246,12 +1266,14 @@ func _update_rally_label(dt: float) -> void :
 	var live: int = sim.rally_hits if sim.state == "play" else 0
 	if live >= 2:
 		rally_label.visible = true
-		rally_label.text = "RALLY: %02d" % live
+		rally_prefix.text = "RALLY:"
+		rally_value.text = "%02d" % live
 		rally_label.modulate.a = 1.0
 	elif rally_change_t > 0.0:
 		rally_label.visible = true
 		rally_change_t = maxf(0.0, rally_change_t - dt)
-		rally_label.text = "MEJOR: %02d" % rally_best
+		rally_prefix.text = "MEJOR:"
+		rally_value.text = "%02d" % rally_best
 		rally_label.modulate.a = minf(1.0, rally_change_t * 1.7)
 	else:
 		rally_label.visible = false

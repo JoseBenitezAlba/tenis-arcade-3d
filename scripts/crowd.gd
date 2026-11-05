@@ -27,15 +27,15 @@ var exc: = 0.0
 var force_ovation: = false
 var n: = 0
 
-const SHIRTS: = ["#d94f3d", "#e8b53a", "#3f7fd9", "#45a36b", "#e8e4da", "#c75ba8", "#7a5fd0", "#d97f3a", "#3fb8b8", "#b8c4d4", "#8a4f2e", "#4a5568"]
+const SHIRTS: = ["#e2413a", "#f2c230", "#2f7fe0", "#3fb05c", "#f2f2f0", "#e06a2f", "#b45ad9", "#2fc4c4", "#ff8fb1", "#1f4fa8", "#d9d04a", "#e8e8e8", "#d93f7f", "#35b8e0", "#f07a3c", "#7fd14a"]
 
-const MUTED: = ["#3a4250", "#4e5563", "#636b78", "#8b909b", "#a49f93", "#2f3644", "#756a5c", "#525a68"]
+const MUTED: = ["#4a5262", "#5d6472", "#737b88", "#8f95a0", "#a8a294", "#3f4756", "#857a6a", "#626a78"]
 const SKINS: = ["#f2c79b", "#d9a06b", "#a06b3f", "#7a4a28", "#f5d7b5", "#8a5a35"]
 
 func _mat() -> StandardMaterial3D:
 	var m: = StandardMaterial3D.new()
 	m.vertex_color_use_as_albedo = true
-	m.albedo_color = Color(0.78, 0.78, 0.84)
+	m.albedo_color = Color(0.7, 0.68, 0.66)
 	m.roughness = 0.9
 	return m
 
@@ -45,17 +45,17 @@ func build() -> void :
 
 	var stands: Array = []
 
-	stands.append([Vector3(-21.0, 3.05, 28.9), Vector3(1, 0, 0), Vector3(0, 0.78, 0.5), 43, 9, Basis(Vector3.UP, PI), Vector3(0, 0, 1), [13, 26]])
+	stands.append([Vector3(-21.0, 3.05, 28.9), Vector3(1, 0, 0), Vector3(0, 0.7, 0.5), 43, 10, Basis(Vector3.UP, PI), Vector3(0, 0, 1), [13, 26]])
 
-	stands.append([Vector3(14.3, 3.05, -2.0), Vector3(0, 0, 1), Vector3(0.5, 0.78, 0), 31, 8, Basis(Vector3.UP, - PI * 0.5), Vector3(1, 0, 0), [14]])
-	stands.append([Vector3(-14.3, 3.05, -2.0), Vector3(0, 0, 1), Vector3(-0.5, 0.78, 0), 31, 8, Basis(Vector3.UP, PI * 0.5), Vector3(-1, 0, 0), [14]])
-	stands.append([Vector3(-21.0, 3.05, -10.0), Vector3(1, 0, 0), Vector3(0, 0.78, -0.5), 43, 5, Basis(), Vector3(0, 0, -1), [13, 26]])
+	stands.append([Vector3(14.3, 3.05, -2.0), Vector3(0, 0, 1), Vector3(0.5, 0.7, 0), 31, 10, Basis(Vector3.UP, - PI * 0.5), Vector3(1, 0, 0), [14]])
+	stands.append([Vector3(-14.3, 3.05, -2.0), Vector3(0, 0, 1), Vector3(-0.5, 0.7, 0), 31, 10, Basis(Vector3.UP, PI * 0.5), Vector3(-1, 0, 0), [14]])
+	stands.append([Vector3(-21.0, 3.05, -10.0), Vector3(1, 0, 0), Vector3(0, 0.7, -0.5), 43, 5, Basis(), Vector3(0, 0, -1), [13, 26]])
 
 	var step_mat: = StandardMaterial3D.new()
-	step_mat.albedo_color = Color("#39405a")
+	step_mat.albedo_color = Color("#232a3a")
 	step_mat.roughness = 1.0
 	var aisle_mat: = StandardMaterial3D.new()
-	aisle_mat.albedo_color = Color("#4a5270")
+	aisle_mat.albedo_color = Color("#2e3547")
 	aisle_mat.roughness = 1.0
 	for st in stands:
 		var org: Vector3 = st[0]
@@ -107,19 +107,19 @@ func build() -> void :
 				var brng: = RandomNumberGenerator.new()
 				brng.seed = 991 + blk * 37 + int(org.x * 3.0) + int(org.z)
 				var block_col: = Color(MUTED[brng.randi_range(0, MUTED.size() - 1)])
-				if brng.randf() < 0.34:
+				if brng.randf() < 0.78:
 					block_col = Color(SHIRTS[brng.randi_range(0, SHIRTS.size() - 1)])
 				var prng: = RandomNumberGenerator.new()
 				prng.seed = 5003 + blk * 131 + c * 17 + r * 7
 				var col: = block_col
-				if prng.randf() < 0.22:
-					col = Color(MUTED[prng.randi_range(0, MUTED.size() - 1)])
-				elif prng.randf() < 0.16:
+				if prng.randf() < 0.3:
 					col = Color(SHIRTS[prng.randi_range(0, SHIRTS.size() - 1)])
-				col = col.lerp(Color(0.22, 0.22, 0.27), prng.randf_range(0.06, 0.3))
+				elif prng.randf() < 0.12:
+					col = Color(MUTED[prng.randi_range(0, MUTED.size() - 1)])
+				col = col.lerp(Color(0.31, 0.28, 0.26), prng.randf_range(0.1, 0.22))
 				shirt_cols.append(col)
 				skin_cols.append(Color(SKINS[prng.randi_range(0, SKINS.size() - 1)]))
-				empty.append(prng.randf() < 0.03)
+				empty.append(prng.randf() < 0.015)
 
 				var CAPS: = ["#e8e4da", "#d94f3d", "#3f7fd9", "#2f3644", "#e8b53a"]
 				cap_ok.append(prng.randf() < 0.32 and not empty[empty.size() - 1])
@@ -321,7 +321,7 @@ func update(dt: float, rally_exc: float) -> void :
 		var body_sy: = 0.92 * builds[i].y
 		if ova and stand_up[i]:
 			body_sy = 1.16 * builds[i].y
-		var t: = Transform3D(face_rot[i].scaled(Vector3(1.32 * builds[i].x, body_sy, 1.18 * builds[i].x)), p + Vector3(0, y + 0.28, 0))
+		var t: = Transform3D(face_rot[i].scaled(Vector3(1.26 * builds[i].x, body_sy, 1.14 * builds[i].x)), p + Vector3(0, y + 0.28, 0))
 		mm_body.multimesh.set_instance_transform(i, t)
 
 		var ty: float = atan2(p.x - ball_pos.x, p.z - ball_pos.z) + PI

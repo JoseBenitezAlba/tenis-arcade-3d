@@ -11,7 +11,7 @@ const THEMES: = {
 	"grass": {"court": Color("#31582c"), "court2": Color("#2d5029"), "surround": Color("#294a28"), "out": Color("#2f6330"), "out2": Color("#265122"), "line": Color("#f6f8f2")}, 
 }
 const NIGHT_THEMES: = {
-	"hard": {"court": Color("#2b6f9e"), "court2": Color("#245f88"), "surround": Color("#6f9e3a"), "out": Color("#5f8f34"), "out2": Color("#4f7a2c"), "line": Color("#f4f6fa")},
+	"hard": {"court": Color("#346b86"), "court2": Color("#2e617a"), "surround": Color("#749a46"), "out": Color("#628a40"), "out2": Color("#527338"), "line": Color("#f4f6fa")},
 }
 const L: = 23.77
 const NZ: = L / 2.0
@@ -29,10 +29,10 @@ static func court_texture(surface: String, night: bool = false) -> ImageTexture:
 	var py_of: = func(z: float) -> float: return (z + 4.0) * pxm_z
 	var px_of: = func(x: float) -> float: return (x + 7.2) * pxm_x
 
-	var ix0: = int(px_of.call(-6.7))
-	var ix1: = int(px_of.call(6.7))
-	var iy0: = int(py_of.call(-2.5))
-	var iy1: = int(py_of.call(L + 2.5))
+	var ix0: = int(px_of.call(-5.6))
+	var ix1: = int(px_of.call(5.6))
+	var iy0: = int(py_of.call(-0.15))
+	var iy1: = int(py_of.call(L + 0.15))
 	img.fill_rect(Rect2i(ix0, iy0, ix1 - ix0, iy1 - iy0), T.court)
 
 	if surface == "grass":
@@ -193,24 +193,49 @@ static func tier_texture() -> ImageTexture:
 	img.fill(Color("#19181d"))
 	var rng: = RandomNumberGenerator.new()
 	rng.seed = 23
-	var seat_pal: = [Color("#2a2520"), Color("#332c25"), Color("#3b322a"), Color("#24262b"), Color("#2f2a24")]
-	var head_pal: = [Color("#8a6148"), Color("#a8795a"), Color("#6b4a36"), Color("#c08a62"), Color("#7a5a46")]
-	var accent_pal: = [Color("#7c2430"), Color("#c9b48a"), Color("#2b4f7a"), Color("#6a4a2a")]
-	for row in range(0, h, 16):
+	var seat_pal: = [Color("#3a332a"), Color("#443b30"), Color("#4d4135"), Color("#34363c"), Color("#3f382f")]
+	var head_pal: = [Color("#a8795a"), Color("#c08a62"), Color("#8a6148"), Color("#d9a274"), Color("#9a6f4e")]
+	var accent_pal: = [Color("#d94f3d"), Color("#e8c04a"), Color("#3f7fd9"), Color("#45a36b"), Color("#c75ba8"), Color("#e8e4da")]
+	for row in range(0, h, 14):
 
-		img.fill_rect(Rect2i(0, row, w, 4), Color("#2e2d33"))
+		img.fill_rect(Rect2i(0, row, w, 4), Color("#2b2a30"))
 
 		for x in range(0, w, 7):
-			if rng.randf() < 0.78:
+			if rng.randf() < 0.9:
 				var c: Color = seat_pal[rng.randi() % seat_pal.size()]
-				if rng.randf() < 0.08:
+				if rng.randf() < 0.32:
 					c = accent_pal[rng.randi() % accent_pal.size()]
-				img.fill_rect(Rect2i(x, row + 7, 5, 7), c)
+				img.fill_rect(Rect2i(x, row + 6, 5, 7), c)
 				var hc: Color = head_pal[rng.randi() % head_pal.size()]
-				img.fill_rect(Rect2i(x + 1, row + 4, 3, 3), hc)
+				img.fill_rect(Rect2i(x + 1, row + 3, 3, 3), hc)
 	img.generate_mipmaps()
 	return ImageTexture.create_from_image(img)
 
+
+static func night_sky_panorama() -> ImageTexture:
+	var w: = 512
+	var h: = 256
+	var img: = Image.create(w, h, false, Image.FORMAT_RGBA8)
+	var top: = Color("#00061a")
+	var mid: = Color("#010a20")
+	var hor: = Color("#06142f")
+	var rng: = RandomNumberGenerator.new()
+	rng.seed = 91
+	for y in h:
+		var t: = float(y) / h
+		var c: Color
+		if t < 0.52:
+			c = top.lerp(mid, pow(t / 0.52, 1.4))
+			c = c.lerp(hor, pow(maxf(0.0, (t - 0.34) / 0.18), 1.6))
+		else:
+			c = hor.lerp(Color("#030814"), minf(1.0, (t - 0.52) / 0.12))
+		img.fill_rect(Rect2i(0, y, w, 1), c)
+		for k in 96:
+			var x: = rng.randi() % w
+			var d: = rng.randf_range(-0.004, 0.004)
+			img.set_pixel(x, y, Color(clampf(c.r + d, 0.0, 1.0), clampf(c.g + d, 0.0, 1.0), clampf(c.b + d, 0.0, 1.0), 1.0))
+	img.generate_mipmaps()
+	return ImageTexture.create_from_image(img)
 
 static func glow_texture() -> ImageTexture:
 	var s: = 128

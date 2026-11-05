@@ -61,6 +61,7 @@ func _register_inputs() -> void :
 		"hit": [{"k": KEY_SPACE}, {"k": KEY_J}, {"jb": JOY_BUTTON_A}], 
 		"lob": [{"k": KEY_Z}, {"k": KEY_K}, {"jb": JOY_BUTTON_X}], 
 		"drop": [{"k": KEY_SHIFT}, {"jb": JOY_BUTTON_B}], 
+		"camera": [{"k": KEY_C}, {"jb": JOY_BUTTON_LEFT_SHOULDER}],
 		"pause": [{"k": KEY_P}, {"jb": JOY_BUTTON_START}], 
 		"quit": [{"k": KEY_ESCAPE}, {"jb": JOY_BUTTON_BACK}], 
 		"ui_accept": [{"jb": JOY_BUTTON_A}], 
