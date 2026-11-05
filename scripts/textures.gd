@@ -11,7 +11,7 @@ const THEMES: = {
 	"grass": {"court": Color("#31582c"), "court2": Color("#2d5029"), "surround": Color("#294a28"), "out": Color("#2f6330"), "out2": Color("#265122"), "line": Color("#f6f8f2")}, 
 }
 const NIGHT_THEMES: = {
-	"hard": {"court": Color("#346b86"), "court2": Color("#2e617a"), "surround": Color("#749a46"), "out": Color("#628a40"), "out2": Color("#527338"), "line": Color("#f4f6fa")},
+	"hard": {"court": Color("#38627a"), "court2": Color("#325a70"), "surround": Color("#688a3e"), "out": Color("#5b7d38"), "out2": Color("#4b6a30"), "line": Color("#f4f6fa")},
 }
 const L: = 23.77
 const NZ: = L / 2.0
@@ -185,29 +185,64 @@ static func crowd_texture() -> ImageTexture:
 	return ImageTexture.create_from_image(img)
 
 static func tier_texture() -> ImageTexture:
-
-
-	var w: = 512
-	var h: = 256
+	var w: = 1536
+	var h: = 384
 	var img: = Image.create(w, h, false, Image.FORMAT_RGBA8)
-	img.fill(Color("#19181d"))
+	img.fill(Color("#151c2c"))
 	var rng: = RandomNumberGenerator.new()
 	rng.seed = 23
-	var seat_pal: = [Color("#3a332a"), Color("#443b30"), Color("#4d4135"), Color("#34363c"), Color("#3f382f")]
-	var head_pal: = [Color("#a8795a"), Color("#c08a62"), Color("#8a6148"), Color("#d9a274"), Color("#9a6f4e")]
-	var accent_pal: = [Color("#d94f3d"), Color("#e8c04a"), Color("#3f7fd9"), Color("#45a36b"), Color("#c75ba8"), Color("#e8e4da")]
-	for row in range(0, h, 14):
-
-		img.fill_rect(Rect2i(0, row, w, 4), Color("#2b2a30"))
-
-		for x in range(0, w, 7):
-			if rng.randf() < 0.9:
-				var c: Color = seat_pal[rng.randi() % seat_pal.size()]
-				if rng.randf() < 0.32:
-					c = accent_pal[rng.randi() % accent_pal.size()]
-				img.fill_rect(Rect2i(x, row + 6, 5, 7), c)
-				var hc: Color = head_pal[rng.randi() % head_pal.size()]
-				img.fill_rect(Rect2i(x + 1, row + 3, 3, 3), hc)
+	var shirts: = [Color("#d94b3f"), Color("#e8b53a"), Color("#3f7fd9"), Color("#45a36b"), Color("#e8e4da"), Color("#d97f3a"), Color("#b45ad9"), Color("#3fb8b8"), Color("#e06a8a"), Color("#4a5f9e"), Color("#c9c04a"), Color("#35b8e0"), Color("#f07a3c"), Color("#7fd14a"), Color("#8a4f2e"), Color("#5d6472")]
+	var skins: = [Color("#f2c79b"), Color("#d9a06b"), Color("#a06b3f"), Color("#7a4a28"), Color("#f5d7b5"), Color("#8a5a35")]
+	var hairs: = [Color("#241a12"), Color("#3a2a18"), Color("#141414"), Color("#7a4a1e"), Color("#8a8078"), Color("#c9a25e")]
+	var pants: = [Color("#1c2230"), Color("#222a3a"), Color("#2b3345"), Color("#3a4250"), Color("#141a24"), Color("#d9d4c8")]
+	var muted: = [Color("#2a3242"), Color("#3a4250"), Color("#4a5262"), Color("#5d6472"), Color("#8a8078"), Color("#6b5a4a"), Color("#1c2230"), Color("#735f4f")]
+	var rows: = 12
+	var row_h: = h / rows
+	var cols: = 64
+	var col_w: = w / cols
+	for r in rows:
+		var base_y: = h - (r + 1) * row_h
+		var depth: = float(r) / float(rows - 1)
+		var dim: = lerpf(1.0, 0.78, depth)
+		img.fill_rect(Rect2i(0, base_y + row_h - 6, w, 6), Color("#1d2536"))
+		img.fill_rect(Rect2i(0, base_y + row_h - 8, w, 2), Color("#323c52"))
+		for c in cols:
+			if c % 11 == 5:
+				continue
+			if rng.randf() < 0.03:
+				continue
+			var x: = int(c * col_w + col_w * 0.5 + rng.randf_range(-4.0, 4.0))
+			var y: = base_y + 7 + int(rng.randf_range(0.0, 3.0))
+			var col: Color = shirts[rng.randi() % shirts.size()]
+			if rng.randf() < 0.4:
+				col = muted[rng.randi() % muted.size()]
+			col = col.lerp(Color(0.2, 0.19, 0.2), rng.randf_range(0.06, 0.24)) * dim
+			var skin: Color = skins[rng.randi() % skins.size()] * dim
+			var hair: Color = hairs[rng.randi() % hairs.size()] * dim
+			var pc: Color = pants[rng.randi() % pants.size()] * dim
+			var bw: = 11
+			var bh: = 17
+			img.fill_rect(Rect2i(x - bw, y - 2, bw * 2, 3), pc)
+			for by in range(0, bh):
+				var k: float = float(by) / float(bh)
+				var hw: int = int(bw * (1.0 - 0.2 * absf(k * 2.0 - 1.0)))
+				img.fill_rect(Rect2i(x - hw, y + by, hw * 2, 1), col)
+			img.fill_rect(Rect2i(x - bw, y + 2, 2, 10), col.lightened(0.18))
+			img.fill_rect(Rect2i(x + bw - 2, y + 2, 2, 10), col.darkened(0.28))
+			img.fill_rect(Rect2i(x - 2, y - 4, 4, 5), skin)
+			for hy in range( -8, 5):
+				var hw: int = int(sqrt(maxf(0.0, 64.0 - hy * hy)))
+				if hy < -2:
+					img.fill_rect(Rect2i(x - hw, y - 10 + hy, hw * 2, 1), hair)
+				else:
+					img.fill_rect(Rect2i(x - hw, y - 10 + hy, hw * 2, 1), skin)
+			if rng.randf() < 0.22:
+				img.fill_rect(Rect2i(x - 8, y - 14, 16, 3), Color("#e8e4da") * dim)
+	for ax in [10, 30, 51]:
+		img.fill_rect(Rect2i(int(ax * col_w) - 4, 0, 8, h), Color("#0a0f19"))
+		img.fill_rect(Rect2i(int(ax * col_w) + 4, 0, 2, h), Color("#252d40"))
+	img.fill_rect(Rect2i(0, int(h * 0.44), w, 11), Color("#111826"))
+	img.fill_rect(Rect2i(0, int(h * 0.44), w, 2), Color("#5b6a86"))
 	img.generate_mipmaps()
 	return ImageTexture.create_from_image(img)
 
@@ -216,9 +251,9 @@ static func night_sky_panorama() -> ImageTexture:
 	var w: = 512
 	var h: = 256
 	var img: = Image.create(w, h, false, Image.FORMAT_RGBA8)
-	var top: = Color("#00061a")
-	var mid: = Color("#010a20")
-	var hor: = Color("#06142f")
+	var top: = Color("#010b1c")
+	var mid: = Color("#021024")
+	var hor: = Color("#071a38")
 	var rng: = RandomNumberGenerator.new()
 	rng.seed = 91
 	for y in h:

@@ -30,12 +30,15 @@ var score_panel: PanelContainer
 var score_sb: StyleBoxFlat
 var _glow_level: = 0
 var _glow_t: = 0.0
+var ui_bold: FontVariation
 var point_card_title: Label
 var point_card_pts: Label
 var point_card_t: = 0.0
 
 func _ready() -> void :
 	layer = 10
+	ui_bold = FontVariation.new()
+	ui_bold.variation_embolden = 0.55
 
 	var panel: = PanelContainer.new()
 	panel.position = Vector2(28, 618)
@@ -66,6 +69,7 @@ func _ready() -> void :
 	for i in 2:
 		var nm: = Label.new()
 		nm.add_theme_font_size_override("font_size", 19)
+		nm.add_theme_font_override("font", ui_bold)
 		nm.add_theme_color_override("font_color", Color.WHITE)
 		nm.custom_minimum_size = Vector2(188, 0)
 		nm.clip_text = true
@@ -75,6 +79,7 @@ func _ready() -> void :
 		var a: = Label.new()
 		a.text = "0 - 0"
 		a.add_theme_font_size_override("font_size", 24)
+		a.add_theme_font_override("font", ui_bold)
 		a.add_theme_color_override("font_color", Color("#ffd23f"))
 		a.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		a.custom_minimum_size = Vector2(92, 0)
@@ -83,6 +88,7 @@ func _ready() -> void :
 		var b: = Label.new()
 		b.text = "0"
 		b.add_theme_font_size_override("font_size", 24)
+		b.add_theme_font_override("font", ui_bold)
 		b.add_theme_color_override("font_color", Color("#f4f7ff"))
 		b.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		b.custom_minimum_size = Vector2(42, 0)
@@ -98,6 +104,7 @@ func _ready() -> void :
 	banner.position = Vector2(0, 56)
 	banner.size = Vector2(1280, 90)
 	banner.add_theme_font_size_override("font_size", 44)
+	banner.add_theme_font_override("font", ui_bold)
 	banner.add_theme_color_override("font_color", Color.WHITE)
 	banner.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.7))
 	banner.add_theme_constant_override("outline_size", 10)
@@ -151,6 +158,7 @@ func _ready() -> void :
 	callout.position = Vector2(806, 500)
 	callout.size = Vector2(450, 76)
 	callout.add_theme_font_size_override("font_size", 42)
+	callout.add_theme_font_override("font", ui_bold)
 	callout.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.95))
 	callout.add_theme_constant_override("outline_size", 12)
 	callout.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.55))
@@ -399,7 +407,6 @@ func hide_speed() -> void :
 
 func hide_play_feedback() -> void :
 	hide_popups()
-	hide_speed()
 	serve_meter_hide()
 	if hint != null:
 		hint.visible = false
@@ -414,10 +421,10 @@ static func glow_alpha(level: int, t: float) -> float:
 
 static func vignette_target(level: int) -> float:
 	if level >= 3:
-		return 0.34
+		return 0.36
 	if level == 2:
-		return 0.22
-	return 0.0
+		return 0.24
+	return 0.12
 
 var vignette: TextureRect = null
 var vignette_a: = 0.0

@@ -39,7 +39,7 @@ var fill_light: DirectionalLight3D
 var night_mode: bool = false
 
 const CAM_MODES: = [
-	{"pos": Vector3(0, 2.1, -6.4), "fov": 45.0, "look_y": 1.05},
+	{"pos": Vector3(0, 2.1, -7.3), "fov": 45.0, "look_y": 1.05},
 	{"pos": Vector3(0, 5.7, -10.7), "fov": 42.0, "look_y": 0.85},
 ]
 var cam_mode: = 0
@@ -119,6 +119,8 @@ var rally_label: PanelContainer
 var rally_prefix: Label
 var rally_value: Label
 var rally_best: = 0
+var rally_shown: = 0
+var _last_rally_live: = 0
 var _meter_hold: = 0.0
 var rally_change_t: = 0.0
 var mark_pool: = []
@@ -185,6 +187,8 @@ var point_hot: = 0
 var cam_look: = Vector3(0, 1.0, 11.885)
 var _line_armed: = false
 var _hint_hidden: = false
+var _perf_t0: = 0
+var _hitch_log_t: = 0.0
 
 var rec: = []
 var replaying: = false
@@ -290,7 +294,7 @@ func _ready() -> void :
 		q.position.y = 0.07
 		add_child(q)
 		if i < 2:
-			q.scale = Vector3(PLAYER_SHADOW_K, PLAYER_SHADOW_K, 1.0)
+			q.scale = Vector3(PLAYER_SHADOW_K * 1.55, PLAYER_SHADOW_K * 0.95, 1.0)
 			shadows.append(q)
 		else:
 			ball_shadow = q
@@ -464,6 +468,7 @@ func _ready() -> void :
 	rally_prefix = Label.new()
 	rally_prefix.text = "RALLY:"
 	rally_prefix.add_theme_font_size_override("font_size", 24)
+	rally_prefix.add_theme_font_override("font", hud.ui_bold)
 	rally_prefix.add_theme_color_override("font_color", Color.WHITE)
 	rally_prefix.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
 	rally_prefix.add_theme_constant_override("outline_size", 4)
@@ -471,6 +476,7 @@ func _ready() -> void :
 	rally_value = Label.new()
 	rally_value.text = "00"
 	rally_value.add_theme_font_size_override("font_size", 24)
+	rally_value.add_theme_font_override("font", hud.ui_bold)
 	rally_value.add_theme_color_override("font_color", Color("#ffd23f"))
 	rally_value.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
 	rally_value.add_theme_constant_override("outline_size", 4)
@@ -560,6 +566,8 @@ func _prewarm_effects() -> void :
 		mk.m.visible = true
 	bounce_ring.position = far
 	bounce_ring.visible = true
+	crowd.start_flashes(0.01)
+	hud.show_point_card(true, "0 - 0")
 	await get_tree().process_frame
 	for t in trail:
 		t.m.visible = false
@@ -572,6 +580,10 @@ func _prewarm_effects() -> void :
 	for mk in mark_pool:
 		mk.m.visible = false
 	bounce_ring.visible = false
+	if crowd.flash_mm != null:
+		crowd.flash_mm.visible = false
+	if hud.point_card != null:
+		hud.point_card.visible = false
 
 
 func dust_color(a: float) -> Color:
@@ -693,6 +705,7 @@ func _physics_process(dt: float) -> void :
 	if replaying:
 		_replay_tick(dt)
 		return
+	_perf_t0 = Time.get_ticks_usec()
 	if not demo:
 		sim.inp.x = Input.get_axis("move_left", "move_right")
 		sim.inp.y = Input.get_axis("move_down", "move_up")
@@ -745,6 +758,7 @@ func _physics_process(dt: float) -> void :
 		rigs[i].look_on = (sim.state == "play")
 		rigs[i].serve_toss = clampf(sim.ball.toss_t / 0.5, 0.0, 1.0) if (sim.state == "serve" and sim.M.server == i and sim.serve_stage == "toss") else -1.0
 		rigs[i].look_target = Vector3(sim.ball.x, sim.ball.y, sim.ball.z)
+		rigs[i].force_hide_racket(sim.state == "point" or sim.state == "over")
 		rigs[i].update_from_sim(sim.pl[i], dt)
 		shadows[i].position.x = sim.pl[i].x
 		shadows[i].position.z = sim.pl[i].z
@@ -1051,6 +1065,12 @@ func _physics_process(dt: float) -> void :
 		hud.serve_meter_update(sim.pl[0].charge)
 	elif not demo:
 		hud.serve_meter_hide()
+	_hitch_log_t = maxf(0.0, _hitch_log_t - dt)
+	var _el: float = (Time.get_ticks_usec() - _perf_t0) / 1000.0
+	var _fps: int = Engine.get_frames_per_second()
+	if (_el > 120.0 or (_fps > 0 and _fps < 5)) and _hitch_log_t <= 0.0:
+		_hitch_log_t = 3.0
+		print("HITCH physics ms=", snappedf(_el, 0.1), " fps=", _fps, " state=", sim.state, " rally=", sim.rally_hits, " ball_in_play=", sim.ball.in_play)
 
 func _snap(pl) -> Dictionary:
 	return {"x": pl.x, "z": pl.z, "near": pl.near, "speed": pl.speed, "run": pl.run, "kind": pl.kind, "swing": pl.swing, "want_t": pl.want_t, 
@@ -1264,10 +1284,17 @@ static func slide_time(surf: String, speed: float) -> float:
 
 func _update_rally_label(dt: float) -> void :
 	var live: int = sim.rally_hits if sim.state == "play" else 0
+	if live > _last_rally_live + 1:
+		print("RALLY_JUMP from ", _last_rally_live, " to ", live, " state=", sim.state)
+	_last_rally_live = live
 	if live >= 2:
+		if rally_shown < 2:
+			rally_shown = 2
+		elif rally_shown < live:
+			rally_shown += 1
 		rally_label.visible = true
 		rally_prefix.text = "RALLY:"
-		rally_value.text = "%02d" % live
+		rally_value.text = "%02d" % rally_shown
 		rally_label.modulate.a = 1.0
 	elif rally_change_t > 0.0:
 		rally_label.visible = true
@@ -1276,6 +1303,7 @@ func _update_rally_label(dt: float) -> void :
 		rally_value.text = "%02d" % rally_best
 		rally_label.modulate.a = minf(1.0, rally_change_t * 1.7)
 	else:
+		rally_shown = 0
 		rally_label.visible = false
 
 static func rally_count_txt(rally_hits: int) -> String:
@@ -1586,7 +1614,6 @@ func drain_events() -> void :
 				if not demo:
 					sfx.play("point_win" if ev.w == 0 else "point_lose")
 			"point":
-				hud.hide_speed()
 				hud.hide_play_feedback()
 				_closeup_delay = 0.6
 				rally_change_t = 0.0

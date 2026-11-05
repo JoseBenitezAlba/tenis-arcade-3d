@@ -172,12 +172,12 @@ static func build(surface: String, day_v = false) -> Node3D:
 	var court_len: = L + 7.6
 	var court_mat: = StandardMaterial3D.new()
 	court_mat.albedo_texture = TexGen.court_texture(surface, tod == 1)
-	court_mat.roughness = 1.0
-	court_mat.metallic_specular = 0.0
+	court_mat.roughness = 0.62
+	court_mat.metallic_specular = 0.1
 	var court: = MeshInstance3D.new()
 	var cb: = PlaneMesh.new()
 	cb.size = Vector2(14.4, court_len)
-	court_mat.roughness = 0.85
+	court_mat.roughness = 0.62
 	cb.material = court_mat
 	court.mesh = cb
 	court.position = Vector3(0, 0.06, (L + 3.6 - 4.0) / 2.0)
@@ -267,7 +267,7 @@ static func build(surface: String, day_v = false) -> Node3D:
 		root.add_child(seg)
 
 
-	var ad_names: = ["TENIS ARCADE", "PRO TOUR", "RACKETIA", "NITRO", "VOLTA", "COURT CLUB", "DEUCE", "TOPSPIN"]
+	var ad_names: = ["DEUCE", "COURT CLUB", "COURT", "TENNIS", "DEUCE", "COURT CLUB", "TENNIS", "COURT"]
 	var ad_cols: = [Color("#0c3a72"), Color("#11457f"), Color("#0a3568"), Color("#124a86"), Color("#0d3f78"), Color("#0b5d8f"), Color("#10406f"), Color("#0c3a72")]
 	var wall_z: = L + 5.2
 	var back_wall: = _box(40, 2.0, 0.4, _mat(Color("#0a2550")))
@@ -276,15 +276,42 @@ static func build(surface: String, day_v = false) -> Node3D:
 	var wall_trim: = _box(40, 0.08, 0.5, _mat(Color("#dbe8ff")))
 	wall_trim.position = Vector3(0, 2.02, wall_z + 0.02)
 	root.add_child(wall_trim)
-	var wall_brand: = Label3D.new()
-	wall_brand.text = "COURT CLUB"
-	wall_brand.font_size = 110
-	wall_brand.modulate = Color("#f4f8ff")
-	wall_brand.outline_size = 14
-	wall_brand.outline_modulate = Color(0.01, 0.05, 0.16, 0.9)
-	wall_brand.position = Vector3(0, 1.55, wall_z - 0.13)
-	wall_brand.rotation_degrees.y = 180
-	root.add_child(wall_brand)
+	for bx in [-2.1, 2.1]:
+		var brand: = Label3D.new()
+		brand.text = "COURT" if bx > 0.0 else "CLUB"
+		brand.font_size = 100
+		brand.modulate = Color("#f4f8ff")
+		brand.outline_size = 12
+		brand.outline_modulate = Color(0.01, 0.05, 0.16, 0.9)
+		brand.position = Vector3(bx, 1.55, wall_z - 0.13)
+		brand.rotation_degrees.y = 180
+		root.add_child(brand)
+	var emblem_ring: = MeshInstance3D.new()
+	var et: = TorusMesh.new()
+	et.inner_radius = 0.3
+	et.outer_radius = 0.4
+	et.ring_segments = 10
+	et.rings = 24
+	et.material = _mat(Color("#f4f8ff"))
+	emblem_ring.mesh = et
+	emblem_ring.position = Vector3(0, 1.55, wall_z - 0.18)
+	emblem_ring.rotation_degrees.x = 90.0
+	root.add_child(emblem_ring)
+	var emblem_ball: = MeshInstance3D.new()
+	var eb: = SphereMesh.new()
+	eb.radius = 0.17
+	eb.height = 0.34
+	eb.radial_segments = 20
+	eb.rings = 10
+	var ebm: = StandardMaterial3D.new()
+	ebm.albedo_color = Color("#d8f040")
+	ebm.emission_enabled = true
+	ebm.emission = Color("#d8f040")
+	ebm.emission_energy_multiplier = 0.5
+	eb.material = ebm
+	emblem_ball.mesh = eb
+	emblem_ball.position = Vector3(0, 1.55, wall_z - 0.14)
+	root.add_child(emblem_ball)
 	for bx in [-12.6, 12.6]:
 		var wall_side: = Label3D.new()
 		wall_side.text = "DEUCE" if bx < 0 else "PRO TOUR"
@@ -319,9 +346,10 @@ static func build(surface: String, day_v = false) -> Node3D:
 	var stand_dark: = _mat(Color("#070c17"))
 	var crowd_mat: = StandardMaterial3D.new()
 	crowd_mat.albedo_texture = TexGen.tier_texture()
-	crowd_mat.albedo_color = Color(0.72, 0.7, 0.68)
-	crowd_mat.uv1_scale = Vector3(12, 4, 1)
+	crowd_mat.albedo_color = Color(0.8, 0.81, 0.88)
+	crowd_mat.uv1_scale = Vector3(1, 1, 1)
 	crowd_mat.roughness = 1.0
+	crowd_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	crowd_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	var stands_far: = _box(44, 8.5, 6.0, stand_dark)
 	stands_far.position = Vector3(0, 6.25, wall_z + 11.0)
@@ -331,16 +359,16 @@ static func build(surface: String, day_v = false) -> Node3D:
 	fq.size = Vector2(44, 8.5)
 	fq.material = crowd_mat
 	far_face.mesh = fq
-	far_face.position = Vector3(0, 6.25, wall_z + 7.95)
+	far_face.position = Vector3(0, 6.25, wall_z + 7.3)
 	far_face.rotation.y = PI
 	root.add_child(far_face)
 	for ti in 4:
 		var ty: float = 2.3 + ti * 2.0
 		var ledge: = _box(44, 0.22, 0.75, stand_dark)
-		ledge.position = Vector3(0, ty, wall_z + 7.6)
+		ledge.position = Vector3(0, ty, wall_z + 7.0)
 		root.add_child(ledge)
 		var rail: = _box(44, 0.05, 0.05, _mat(Color("#6f7d92")))
-		rail.position = Vector3(0, ty + 0.58, wall_z + 7.28)
+		rail.position = Vector3(0, ty + 0.58, wall_z + 6.68)
 		root.add_child(rail)
 	var far_roof: = _box(46, 0.4, 7.0, stand_dark)
 	far_roof.position = Vector3(0, 10.6, wall_z + 12.0)
@@ -351,15 +379,21 @@ static func build(surface: String, day_v = false) -> Node3D:
 	ribbon_mat.emission = Color("#cfe6ff")
 	ribbon_mat.emission_energy_multiplier = 1.35
 	var walkway_mat: = _mat(Color("#1a2030"))
-	var mid_walk: = _box(43.5, 0.34, 1.15, walkway_mat)
-	mid_walk.position = Vector3(0, 5.55, wall_z + 7.0)
+	var mid_walk: = _box(43.5, 0.7, 2.0, walkway_mat)
+	mid_walk.position = Vector3(0, 6.25, wall_z + 6.6)
 	root.add_child(mid_walk)
 	var mid_rail: = _box(43.5, 0.05, 0.05, _mat(Color("#6f7d92")))
-	mid_rail.position = Vector3(0, 6.02, wall_z + 6.46)
+	mid_rail.position = Vector3(0, 6.7, wall_z + 5.55)
 	root.add_child(mid_rail)
 	var mid_ribbon: = _box(43.5, 0.06, 0.07, ribbon_mat)
-	mid_ribbon.position = Vector3(0, 5.36, wall_z + 6.4)
+	mid_ribbon.position = Vector3(0, 5.9, wall_z + 5.58)
 	root.add_child(mid_ribbon)
+	var roof_fascia: = _box(45.0, 0.6, 0.9, walkway_mat)
+	roof_fascia.position = Vector3(0, 10.25, wall_z + 7.05)
+	root.add_child(roof_fascia)
+	var roof_strip: = _box(45.0, 0.06, 0.08, ribbon_mat)
+	roof_strip.position = Vector3(0, 10.0, wall_z + 6.55)
+	root.add_child(roof_strip)
 	var roof_light: = StandardMaterial3D.new()
 	roof_light.albedo_color = Color("#fff2d0")
 	roof_light.emission_enabled = true
@@ -395,7 +429,7 @@ static func build(surface: String, day_v = false) -> Node3D:
 		var sz: = 8.9
 		while sz < L + 8.0:
 			var slbl: = Label3D.new()
-			slbl.text = ["DEUCE", "COURT CLUB", "PRO TOUR", "VOLTA"][si % 4]
+			slbl.text = ["DEUCE", "COURT CLUB", "COURT", "TENNIS"][si % 4]
 			slbl.font_size = 44
 			slbl.modulate = Color("#f2f6ff")
 			slbl.outline_size = 6
@@ -420,16 +454,16 @@ static func build(surface: String, day_v = false) -> Node3D:
 		sq.size = Vector2(34, 8.5)
 		sq.material = crowd_mat
 		side_face.mesh = sq
-		side_face.position = Vector3(sx - signf(sx) * 3.05, 6.25, L / 2.0)
+		side_face.position = Vector3(sx - signf(sx) * 3.55, 6.25, L / 2.0)
 		side_face.rotation.y = - signf(sx) * PI / 2.0
 		root.add_child(side_face)
 		for ti in 4:
 			var ty: float = 2.3 + ti * 2.0
 			var ledge: = _box(0.75, 0.22, 34.0, stand_dark)
-			ledge.position = Vector3(sx - signf(sx) * 3.35, ty, L / 2.0)
+			ledge.position = Vector3(sx - signf(sx) * 3.85, ty, L / 2.0)
 			root.add_child(ledge)
 			var rail: = _box(0.05, 0.05, 34.0, _mat(Color("#6f7d92")))
-			rail.position = Vector3(sx - signf(sx) * 3.63, ty + 0.58, L / 2.0)
+			rail.position = Vector3(sx - signf(sx) * 4.1, ty + 0.58, L / 2.0)
 			root.add_child(rail)
 		var side_roof: = _box(7.0, 0.4, 36.0, stand_dark)
 		side_roof.position = Vector3(sx, 10.6, L / 2.0)
@@ -505,11 +539,11 @@ static func build(surface: String, day_v = false) -> Node3D:
 				root.add_child(cone)
 				var halo: = Sprite3D.new()
 				halo.texture = glow_tex
-				halo.pixel_size = 0.055
+				halo.pixel_size = 0.06
 				halo.position = Vector3(tx, 11.0, tz)
 				halo.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 				halo.no_depth_test = true
-				halo.modulate = Color(1.0, 0.97, 0.86, 0.38)
+				halo.modulate = Color(1.0, 0.97, 0.86, 0.4)
 				halo.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 				root.add_child(halo)
 
@@ -545,10 +579,19 @@ static func build(surface: String, day_v = false) -> Node3D:
 	e.tonemap_exposure = 1.0 if tod == 0 else (1.04 if tod == 2 else 1.02)
 	if tod == 1:
 		e.glow_enabled = true
-		e.glow_intensity = 0.46
-		e.glow_bloom = 0.02
+		e.glow_intensity = 0.5
+		e.glow_bloom = 0.03
 		e.glow_blend_mode = Environment.GLOW_BLEND_MODE_ADDITIVE
-		e.glow_hdr_threshold = 0.95
+		e.glow_hdr_threshold = 0.9
+		e.adjustment_enabled = true
+		e.adjustment_brightness = 1.03
+		e.adjustment_contrast = 1.07
+		e.adjustment_saturation = 1.1
+		e.fog_enabled = true
+		e.fog_light_color = Color("#0a1530")
+		e.fog_light_energy = 0.45
+		e.fog_density = 0.0022
+		e.fog_sky_affect = 0.0
 	env.environment = e
 	root.add_child(env)
 
@@ -578,7 +621,7 @@ static func build(surface: String, day_v = false) -> Node3D:
 				root.add_child(spot)
 
 
-	var green: = _mat(Color("#1a5c3a"))
+	var staff_frame: = _mat(Color("#cfd5dd"))
 	var white: = _mat(Color("#e8e8e8"))
 
 	var chair: = Node3D.new()
@@ -592,7 +635,7 @@ static func build(surface: String, day_v = false) -> Node3D:
 			lc.top_radius = 0.035
 			lc.bottom_radius = 0.035
 			lc.height = 2.3
-			lc.material = green
+			lc.material = staff_frame
 			leg.mesh = lc
 			leg.position = Vector3(lx, 1.15, lz)
 			leg.rotation.z = lx * 0.12
@@ -600,20 +643,20 @@ static func build(surface: String, day_v = false) -> Node3D:
 			chair.add_child(leg)
 	for ry in [0.45, 1.25, 1.95]:
 		for rz in [-0.3, 0.3]:
-			var xrail: = _box(0.76, 0.035, 0.035, green)
+			var xrail: = _box(0.76, 0.035, 0.035, staff_frame)
 			xrail.position = Vector3(0, ry, rz)
 			chair.add_child(xrail)
 		for rx in [-0.35, 0.35]:
-			var zrail: = _box(0.035, 0.035, 0.64, green)
+			var zrail: = _box(0.035, 0.035, 0.64, staff_frame)
 			zrail.position = Vector3(rx, ry, 0)
 			chair.add_child(zrail)
 	var plat: = _box(0.9, 0.06, 0.8, white)
 	plat.position = Vector3(0, 2.0, 0)
 	chair.add_child(plat)
-	var seat: = _box(0.6, 0.08, 0.55, green)
+	var seat: = _box(0.6, 0.08, 0.55, staff_frame)
 	seat.position = Vector3(0, 2.1, 0)
 	chair.add_child(seat)
-	var sback: = _box(0.6, 0.5, 0.08, green)
+	var sback: = _box(0.6, 0.5, 0.08, staff_frame)
 	sback.position = Vector3(-0.28, 2.4, 0)
 	chair.add_child(sback)
 	var step1: = _box(0.5, 0.04, 0.15, white)
@@ -622,7 +665,7 @@ static func build(surface: String, day_v = false) -> Node3D:
 	var umpire_model: String = "res://models/OldClassy_Male.fbx"
 	if not ResourceLoader.exists(umpire_model):
 		umpire_model = "res://models/Casual_Hoodie.glb"
-	var umpire: = _fbx_figure(umpire_model, Color("#4a5f9e"), Color("#f0f0f0"), Color("#d9a37a"), "tennis/Sitting_Idle", Color("#8a8078"), 1.0)
+	var umpire: = _fbx_figure(umpire_model, Color("#1c2430"), Color("#151a22"), Color("#d9a37a"), "tennis/Sitting_Idle", Color("#2a2018"), 1.0)
 	umpire.scale = Vector3.ONE * 0.95
 	umpire.position = Vector3(0, 2.08, 0)
 	umpire.rotation.y = PI / 2.0
@@ -630,27 +673,25 @@ static func build(surface: String, day_v = false) -> Node3D:
 	var _watchers: = []
 	_watchers.append({"fig": umpire, "yaw": PI / 2.0, "body": 0.45})
 
-	var judge_cols: = [Color("#274070"), Color("#274070"), Color("#274070"), Color("#274070")]
-	var jpos: = [Vector3(-8.0, 0, -3.45), Vector3(8.0, 0, -3.45), Vector3(-6.7, 0, L + 3.45), Vector3(6.7, 0, L + 3.45)]
+	var judge_cols: = [Color("#2f6fb5"), Color("#2f6fb5"), Color("#2f6fb5"), Color("#2f6fb5")]
+	var jpos: = [Vector3(-8.4, 0, NZ - 2.0), Vector3(8.4, 0, NZ + 2.0), Vector3(-6.7, 0, L + 3.45), Vector3(6.7, 0, L + 3.45)]
 	for ji in 4:
-		if ji < 2:
-			continue
 		var jchair: = Node3D.new()
 		jchair.position = jpos[ji]
-		jchair.rotation.y = 0.0 if jpos[ji].z < NZ else PI
+		jchair.rotation.y = - signf(jpos[ji].x) * PI / 2.0
 		root.add_child(jchair)
 		for jlx in [-0.22, 0.22]:
 			for jlz in [-0.19, 0.19]:
-				var jleg: = _box(0.04, 0.4, 0.04, green)
+				var jleg: = _box(0.04, 0.4, 0.04, white)
 				jleg.position = Vector3(jlx, 0.2, jlz)
 				jchair.add_child(jleg)
-		var jseat: = _box(0.5, 0.06, 0.45, green)
+		var jseat: = _box(0.5, 0.06, 0.45, white)
 		jseat.position = Vector3(0, 0.42, 0)
 		jchair.add_child(jseat)
-		var jback: = _box(0.5, 0.4, 0.06, green)
+		var jback: = _box(0.5, 0.4, 0.06, _mat(Color("#8e2f2f")))
 		jback.position = Vector3(0, 0.62, -0.22)
 		jchair.add_child(jback)
-		var judge: = _fbx_figure("res://models/Suit_Male.fbx", judge_cols[ji], Color("#222a40"), Color("#c98d62"), "tennis/Sitting_Idle", Color("#3a3230"), 0.85)
+		var judge: = _fbx_figure("res://models/Suit_Male.fbx", judge_cols[ji], Color("#151518"), Color("#c98d62"), "tennis/Sitting_Idle", Color("#2a2018"), 0.85)
 		judge.scale = Vector3.ONE * 0.9
 		judge.position = Vector3(0, 0.39, 0.02)
 		jchair.add_child(judge)
@@ -659,7 +700,7 @@ static func build(surface: String, day_v = false) -> Node3D:
 
 	var kid_pos: = [Vector3(-5.9, 0, -2.95), Vector3(5.9, 0, -2.95), Vector3(-8.4, 0, L + 1.5), Vector3(8.4, 0, L + 1.5)]
 	for ki in 4:
-		var kid: = _fbx_figure("res://models/Casual_Hoodie.glb", Color("#5a3a7a"), Color("#1a1a22"), Color("#d9a37a"), "tennis/Crouch_Idle", Color("#2a2018"), 0.42)
+		var kid: = _fbx_figure("res://models/Casual_Hoodie.glb", Color("#2f6fb5"), Color("#f2f2f2"), Color("#d9a37a"), "tennis/Crouch_Idle", Color("#2a2018"), 0.42)
 		kid.scale = Vector3.ONE * 0.55
 		kid.position = kid_pos[ki]
 		kid.rotation.y = 0.0 if kid_pos[ki].z < NZ else PI
@@ -667,12 +708,18 @@ static func build(surface: String, day_v = false) -> Node3D:
 		_watchers.append({"fig": kid, "yaw": kid.rotation.y, "body": 0.25})
 
 	for kx in [-5.8, 5.8]:
-		var kpost: = _fbx_figure("res://models/Casual_Hoodie.glb", Color("#5a3a7a"), Color("#1a1a22"), Color("#d9a37a"), "tennis/Crouch_Idle", Color("#2a2018"), 0.42)
-		kpost.scale = Vector3.ONE * 0.55
+		var kpost: = _fbx_figure("res://models/Casual_Hoodie.glb", Color("#2f6fb5"), Color("#f2f2f2"), Color("#d9a37a"), "tennis/Crouch_Idle", Color("#2a2018"), 0.42)
+		kpost.scale = Vector3.ONE * 0.72
 		kpost.position = Vector3(kx * 1.129, 0, NZ + 0.2)
 		kpost.rotation.y = - signf(kx) * PI / 2.0
 		root.add_child(kpost)
 		_watchers.append({"fig": kpost, "yaw": kpost.rotation.y, "body": 0.25})
+	var kmid: = _fbx_figure("res://models/Casual_Hoodie.glb", Color("#2f6fb5"), Color("#f2f2f2"), Color("#d9a37a"), "tennis/Crouch_Idle", Color("#2a2018"), 0.42)
+	kmid.scale = Vector3.ONE * 0.72
+	kmid.position = Vector3(0, 0, NZ + 0.55)
+	kmid.rotation.y = PI
+	root.add_child(kmid)
+	_watchers.append({"fig": kmid, "yaw": kmid.rotation.y, "body": 0.25})
 
 	for s in [-1, 1]:
 		var bench: = Node3D.new()
@@ -686,7 +733,7 @@ static func build(surface: String, day_v = false) -> Node3D:
 		bback.position = Vector3(0, 0.65, -0.26)
 		bench.add_child(bback)
 		for bx in [-0.9, 0.9]:
-			var bleg: = _box(0.08, 0.45, 0.4, green)
+			var bleg: = _box(0.08, 0.45, 0.4, staff_frame)
 			bleg.position = Vector3(bx, 0.22, 0)
 			bench.add_child(bleg)
 		var bcanopy: = _box(2.3, 0.05, 1.0, _mat(Color("#e9eef4")))
@@ -733,6 +780,12 @@ static func build(surface: String, day_v = false) -> Node3D:
 		bottle.position = Vector3(-0.1, 0.61, 0.05)
 		bottle.name = "BenchBottle"
 		bench.add_child(bottle)
+		var cooler: = _box(0.5, 0.52, 0.38, _mat(Color("#f0c23a")))
+		cooler.position = Vector3(1.25, 0.27, 0.12)
+		bench.add_child(cooler)
+		var cooler_top: = _box(0.5, 0.06, 0.38, _mat(Color("#d9a52a")))
+		cooler_top.position = Vector3(1.25, 0.56, 0.12)
+		bench.add_child(cooler_top)
 
 
 	var bw: Node3D = load("res://scripts/ball_watcher.gd").new()

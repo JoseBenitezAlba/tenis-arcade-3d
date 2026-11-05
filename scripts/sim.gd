@@ -110,6 +110,7 @@ class Player extends RefCounted:
 
 class Ball extends RefCounted:
 	var serve_net: bool = false
+	var serve_token: int = -1
 	var dead_roll: bool = false
 	var departing_hitter: int = -1
 	var x: = 0.0
@@ -193,7 +194,8 @@ var M: = MatchState.new()
 var state: = "serve"
 var state_t: = 0.0
 var serve_fault: = 0
-var last_fault_time: = -99.0
+var serve_token: = 0
+var last_fault_token: = -1
 var serve_stage: = "ready"
 var cpu_serve_at: = 0.0
 var rut_t: = 0.0
@@ -276,6 +278,7 @@ func prep_serve() -> void :
 	rec.swing = 0.0
 	rec.pred_for = -1
 	ball.serve_net = false
+	ball.serve_token = -1
 	reset_serve_ball()
 	rally_hits = 0
 	serve_unreturned = false
@@ -308,6 +311,7 @@ func reset_serve_ball() -> void :
 	ball.serving = true
 	ball.bounces = 0
 	ball.last = -1
+	ball.serve_token = -1
 	ball.vx = 0.0
 	ball.vy = 0.0
 	ball.vz = 0.0
@@ -412,9 +416,9 @@ func award_point(w: int, why: String, sub: String) -> void :
 func fault(why: String) -> void :
 	if state != "serve":
 		return
-	if time - last_fault_time < 0.25:
+	if ball.serve_token < 0 or ball.serve_token == last_fault_token:
 		return
-	last_fault_time = time
+	last_fault_token = ball.serve_token
 	if serve_fault == 0:
 		stats[M.server].first_total += 1
 	serve_fault += 1
@@ -599,6 +603,24 @@ func do_hit(e: Player, kind: String, ai: bool) -> void :
 	var dz: = absf(ball.z - e.z)
 
 	var srv_ret_hit: bool = serve_unreturned and M.server != e.id
+	if srv_ret_hit and ball.bounces == 0 and state == "serve":
+		if ball.serve_net:
+			events.append({"t": "let"})
+			ball.in_play = false
+			prep_serve()
+			return
+		var s_pb: = predict_bounce()
+		if s_pb.get("ok", false):
+			var sv = pl[M.server]
+			var sdir: = 1.0 if sv.near else -1.0
+			var sbox: = - signf(sv.x)
+			var sz: float = s_pb.z
+			var sx: float = s_pb.x
+			var s_in_z: bool = (sz > NZ and sz <= NZ + 6.4 + BR) if sdir > 0 else (sz < NZ and sz >= NZ - 6.4 - BR)
+			var s_in_x: bool = absf(sx) <= 4.11 + BR and sx * sbox >= - BR
+			if not (s_in_z and s_in_x):
+				fault("Fuera del cuadro")
+				return
 	var in_spd: = Vector3(ball.vx, ball.vy, ball.vz).length()
 	var stretch: = maxf(0.0, dx - 0.8) + maxf(0.0, dz - 0.8)
 
@@ -610,6 +632,8 @@ func do_hit(e: Player, kind: String, ai: bool) -> void :
 
 	if ball.bounces == 0 and not serve_unreturned and absf(e.z - NZ) < 6.2 and ball.y > 0.8 and kind != "lob" and kind != "toplob" and kind != "drop":
 		kind = "volley"
+	if not ai and e.id == 0 and e.dive_t > 0.0 and (kind == "lob" or kind == "toplob"):
+		kind = "drive"
 
 
 	if ai and AIP.style == "counter" and kind == "drive" and stretch > 0.0 and ball.y > 0.6 and (e.kind_roll < 0.45) and ( not (srv_ret_hit and (stretch < 1.2))):
@@ -860,7 +884,10 @@ func do_hit(e: Player, kind: String, ai: bool) -> void :
 		var _forced: bool = dx > 1.15 or move_q > 1.05 or ball.y <= 0.85 or on_rise or tq in ["late", "early", "rise"]
 		var _lo: float = 30.6 if _forced else 37.5
 		var _hi: float = 33.3 if _forced else 43.1
-		_clamp_launch_speed(tx, tz, T, launch_y, nc_floor, _vcap, _lo, _hi, 0.18, 2.2)
+		var _tmin: float = 0.12 if _forced else 0.18
+		_clamp_launch_speed(tx, tz, T, launch_y, nc_floor, _vcap, _lo, _hi, _tmin, 2.2)
+	if ai and kind == "slice":
+		_clamp_launch_speed(tx, tz, T, launch_y, nc_floor, _vcap, 30.6, 42.0, 0.12, 2.2)
 	var spd: = Vector3(ball.vx, ball.vy, ball.vz).length()
 	ball.hot = clampf((spd - 24.0) / 20.0, 0.0, 1.0)
 	events.append({"t": "hit", "id": e.id, "kind": kind, "x": ball.x, "y": ball.y, "z": ball.z, "rise": on_rise, "perfect": perfect, "tper": aim.get("tper", false), "spd": spd, "charge": shot_charge, "tq": tq, "jam": srv_ret_hit and ball.serve_jam, "stretch": snappedf(stretch, 0.01)})
@@ -1287,6 +1314,8 @@ func do_serve(e: Player, q: float, stype: String = "") -> void :
 	rally_hits = 1
 
 func toss_ball() -> void :
+	serve_token += 1
+	ball.serve_token = serve_token
 	ball.held = false
 	ball.toss = true
 	ball.toss_t = 0.0
@@ -2043,15 +2072,6 @@ func human_control(e: Player, dt: float) -> void :
 			e.tvx = 0.0
 			e.tvz = 0.0
 	e.wait_serve = state == "serve" and M.server != e.id
-	if e.wait_serve and not e.charging and e.swing <= 0.0 and e.getup_t <= 0.0 and e.dive_t <= 0.0 and Vector2(inp.x, inp.y).length() < 0.25:
-		var rbp: = break_pos(e)
-		var rbx: float = rbp.x - e.x
-		var rbz: float = rbp.y - e.z
-		var rbd: float = Vector2(rbx, rbz).length()
-		if rbd > 0.12:
-			var rbv: float = minf(PS.speed * 0.65 * smv, rbd * 3.0)
-			e.tvx = rbx / rbd * rbv
-			e.tvz = rbz / rbd * rbv
 	if state == "play" and ball.last == e.id and not e.charging and e.swing <= 0.0 and e.want_t <= 0.0 and e.getup_t <= 0.0 and e.dive_t <= 0.0 and Vector2(inp.x, inp.y).length() < 0.25:
 		var rx: float = clampf(ball.x * 0.15, -0.8, 0.8)
 		var rdx: float = rx - e.x

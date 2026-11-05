@@ -15,10 +15,10 @@ const SHORTS_MODEL: = "res://models/Casual_Hoodie.glb"
 const LOOKS: = [
 	{"shirt": "#2b7cd3", "shorts": "#1c2833", "skin": "#b07850", "hair": "#3a2a18"}, 
 	{"shirt": "#f2f2f2", "shorts": "#3d5a80", "skin": "#a06b42", "hair": "#141414"}, 
-	{"shirt": "#f5f0e6", "shorts": "#22303c", "skin": "#8d5524", "hair": "#0d0d0d"}, 
+	{"shirt": "#c93a32", "shorts": "#f2f2f2", "skin": "#b07850", "hair": "#1a1a1a"},
 	{"shirt": "#f2a13c", "shorts": "#22303c", "skin": "#c98d62", "hair": "#7a4a1e"}, 
 ]
-const P0: = {"shirt": "#e23b3b", "shorts": "#f2f2f2", "skin": "#b07850", "hair": "#3a2a18"}
+const P0: = {"shirt": "#c93a32", "shorts": "#f2f2f2", "skin": "#b07850", "hair": "#2a1d12"}
 const CHAR_SCALE: = 1.083
 
 var ap: AnimationPlayer
@@ -275,6 +275,7 @@ static func shoe_dust_color(d: float) -> Color:
 
 const TRAIL_LIFE: = 0.09
 var racket_node: Node3D = null
+var racket_force_hidden: = false
 var swing_now: = 0.0
 var trail_pts: Array = []
 var trail_clock: = 0.0
@@ -339,6 +340,12 @@ func _whoosh_step(dt: float) -> void :
 func _trail_step(dt: float) -> void :
 	_whoosh_step(dt)
 	if racket_node == null:
+		return
+	if racket_force_hidden:
+		if trail_im != null:
+			trail_im.clear_surfaces()
+		if trail_mi != null:
+			trail_mi.visible = false
 		return
 	trail_clock += dt
 	if swing_now > 0.0:
@@ -497,7 +504,8 @@ func _build_racket() -> void :
 	rk.add_child(butt)
 
 	var graphite: = _mat(Color("#191b20"))
-	var frame_red: = _mat(Color("#d43a2c"))
+	var frame_red: = _mat(Color("#22262e"))
+	var trim_red: = _mat(Color("#c93a32"))
 	var throat_light: = _mat(Color("#cfd2d8"))
 	for sx in [-1.0, 1.0]:
 		var a: = Vector3(0, -0.225, 0)
@@ -533,7 +541,7 @@ func _build_racket() -> void :
 	tt.outer_radius = 0.22
 	tt.ring_segments = 8
 	tt.rings = 40
-	tt.material = throat_light
+	tt.material = trim_red
 	trim.mesh = tt
 	trim.rotation = Vector3(PI * 0.5, 0.0, 0.0)
 	trim.scale = Vector3(1.0, 1.0, 1.18)
@@ -629,6 +637,13 @@ func _bend_torso(k: float) -> void :
 			var q: = skel.get_bone_global_pose(bi).basis.get_rotation_quaternion()
 			skel.set_bone_global_pose_override(bi, Transform3D(Basis(q * Quaternion(Vector3.RIGHT, 0.45 * k)), skel.get_bone_global_pose(bi).origin), 1.0, true)
 
+func _twist_torso(angle: float) -> void :
+	for bn in ["Torso", "Abdomen"]:
+		var bi: = skel.find_bone(bn)
+		if bi >= 0:
+			var g: = skel.get_bone_global_pose(bi)
+			skel.set_bone_global_pose_override(bi, Transform3D(Basis(Vector3.UP, angle) * g.basis, g.origin), 1.0, true)
+
 func _ready_stance() -> void :
 	if skel == null:
 		return
@@ -654,6 +669,8 @@ func _ready_stance() -> void :
 		var fg: = skel.get_bone_global_pose(fi)
 		skel.set_bone_global_pose_override(fi, Transform3D(Basis(Vector3.RIGHT, -0.24) * fg.basis, fg.origin), 1.0, true)
 	_bend_torso(0.28)
+	_raise_arm(-0.62, "UpperArm.R")
+	_raise_arm(-0.18, "UpperArm.L")
 
 var celeb_t: = 0.0
 var celeb_name: = ""
@@ -710,7 +727,7 @@ func update_from_sim(e, dt: float) -> void :
 			rk_show_delay = 0
 		elif rk_show_delay > 0:
 			rk_show_delay -= 1
-		racket_node.visible = rk_show_delay <= 0 and state not in CELEB_ANIMS
+		racket_node.visible = not racket_force_hidden and rk_show_delay <= 0 and state not in CELEB_ANIMS
 	swing_now = e.swing
 	var _fatk: float = e.get("fat") if e.get("fat") != null else 0.0
 
@@ -730,7 +747,8 @@ func update_from_sim(e, dt: float) -> void :
 	_last_px = e.x
 	_last_pz = e.z
 
-	eff_sp = minf(e.speed, mvd / maxf(dt, 0.0001) * 1.15 + 0.35)
+	var target_sp: float = minf(e.speed, mvd / maxf(dt, 0.0001) * 1.15 + 0.35)
+	eff_sp = lerpf(eff_sp, target_sp, minf(1.0, dt * 14.0))
 	var target_pos: = Vector3(e.x, FOOT_LIFT, e.z)
 	# Reposiciones de saque/punto: deslizar en vez de teletransportar el rig.
 	if position.distance_to(target_pos) > 2.2:
@@ -814,6 +832,9 @@ func update_from_sim(e, dt: float) -> void :
 
 	if e.get("fatigue") != null and e.fatigue > 0.0 and e.speed < 0.5 and e.swing <= 0.0:
 		pitch += 0.16 * clampf(e.fatigue, 0.0, 1.0)
+	if eff_sp > 1.2 and e.swing <= 0.0 and (e.get("dive_t") == null or e.dive_t <= 0.0):
+		var fwd: float = e.vz * (1.0 if e.near else -1.0)
+		pitch += (0.055 if fwd > 0.0 else -0.02) * clampf(eff_sp / 6.5, 0.0, 1.0)
 	rotation.x = lerpf(rotation.x, pitch, minf(1.0, dt * 10.0))
 	rotation.z = lerpf(rotation.z, lean, minf(1.0, dt * 8.0))
 	var sp: float = clampf(e.speed / 6.0, 0.0, 1.0)
@@ -851,8 +872,11 @@ func update_from_sim(e, dt: float) -> void :
 		return
 	if serve_toss >= 0.0 and e.swing <= 0.0:
 
-		_play_seek("mocap/Servicio", lerpf(0.1, 0.55, clampf(serve_toss, 0.0, 1.0)))
+		var toss_k: float = clampf(serve_toss, 0.0, 1.0)
+		_play_seek("mocap/Servicio", lerpf(0.1, 0.55, toss_k))
 		_raise_arm(TOSS_ARM * _ease_out_cubic(clampf(serve_toss / 0.55, 0.0, 1.0)), "UpperArm.L")
+		position.y -= 0.055 * sin(toss_k * PI)
+		_twist_torso(-0.22 * sin(toss_k * PI))
 		return
 	if hold_swing and e.kind == "serve":
 
@@ -860,6 +884,8 @@ func update_from_sim(e, dt: float) -> void :
 
 		_raise_arm(TOSS_ARM * (1.0 - _ease_in_cubic(clampf((k - 0.2) / 0.5, 0.0, 1.0))), "UpperArm.L")
 		_raise_arm(SERVE_ARM * clampf(1.0 - absf(k - 0.55) / 0.3, 0.0, 1.0))
+		position.y += 0.075 * sin(clampf(k, 0.0, 1.0) * PI)
+		_twist_torso(0.3 * sin(clampf(k, 0.0, 1.0) * PI))
 	elif hold_swing:
 		var hs: String = e.hit_side if "hit_side" in e else "fore"
 		var sc: = _swing_clip(e.kind, hs)
@@ -976,6 +1002,16 @@ func _rk_rest(dt: float) -> void :
 	if rk_rest_k > 0.0:
 		var kk: float = rk_rest_k * rk_rest_k * (3.0 - 2.0 * rk_rest_k)
 		racket_node.rotation = Vector3(PI - RK_REST_A * kk, 0.0, RK_REST_Z * kk)
+
+func force_hide_racket(v: bool) -> void :
+	racket_force_hidden = v
+	if v:
+		if trail_im != null:
+			trail_im.clear_surfaces()
+		if trail_mi != null:
+			trail_mi.visible = false
+		if racket_node != null:
+			racket_node.visible = false
 
 func racket_hidden_now() -> bool:
 	return racket_node != null and not racket_node.visible

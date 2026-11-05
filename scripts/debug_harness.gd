@@ -17,7 +17,7 @@ const LATE: = {
 	"--looktest": "_looktest_harness", "--careershot": "_careershot_harness", 
 	"--faceshots": "_faceshots_harness", "--matchprobe": "_matchprobe_harness", 
 	"--shots": "_shots_harness", 
-	"--latshot": "_latshot_harness", "--ballshot": "_ballshot_harness", "--topshot": "_topshot_harness", "--celnight": "_celnight_harness", "--startshot": "_startshot_harness", "--prepshot": "_prepshot_harness", "--legshot": "_legshot_harness", "--rallylabel": "_rallylabel_harness", "--celshot": "_celshot_harness", "--rkshot": "_rkshot_harness", "--jshot": "_jshot_harness", "--seqshot": "_seqshot_harness", "--ppshot": "_ppshot_harness", "--cpuserve": "_cpuserve_harness", "--audit169": "_audit169_harness", "--cap171": "_cap171_harness", "--gday": "_gday_harness", "--matchmovie": "_matchmovie_harness", "--windupchk": "_windupchk_harness", "--prepcheck": "_prepcheck_harness", "--pose178": "_pose178_harness", "--net178": "_net178_harness", "--full178": "_full178_harness", 
+	"--latshot": "_latshot_harness", "--ballshot": "_ballshot_harness", "--topshot": "_topshot_harness", "--celnight": "_celnight_harness", "--startshot": "_startshot_harness", "--servepose": "_servepose_harness", "--prepshot": "_prepshot_harness", "--legshot": "_legshot_harness", "--rallylabel": "_rallylabel_harness", "--celshot": "_celshot_harness", "--rkshot": "_rkshot_harness", "--jshot": "_jshot_harness", "--seqshot": "_seqshot_harness", "--ppshot": "_ppshot_harness", "--cpuserve": "_cpuserve_harness", "--audit169": "_audit169_harness", "--cap171": "_cap171_harness", "--gday": "_gday_harness", "--matchmovie": "_matchmovie_harness", "--windupchk": "_windupchk_harness", "--prepcheck": "_prepcheck_harness", "--pose178": "_pose178_harness", "--net178": "_net178_harness", "--full178": "_full178_harness",
 	"--v31shots": "_v31shots", "--audit173": "_audit173_harness", 
 }
 
@@ -1267,6 +1267,42 @@ func _celnight_harness(args: Array) -> void :
 	print("CELNIGHT DONE ", got.keys())
 	get_tree().quit()
 
+
+
+func _servepose_harness(args: Array) -> void :
+	var i: = args.find("--servepose")
+	var out: String = args[i + 1] if i + 1 < args.size() else "/tmp/servepose"
+	DirAccess.make_dir_recursive_absolute(out)
+	m.menus.visible = false
+	m.match_view = MatchView.new()
+	m.match_view.set_meta("surface", "hard")
+	m.match_view.set_meta("tod", 1)
+	m.match_view.set_meta("cpu_look", 2)
+	m.match_view.set_meta("my_name", "TU")
+	m.match_view.set_meta("cpu_label", "CPU")
+	m.match_view.setup({"demo": false, "surface": "hard", "AIP": m.DIFF_PARAMS[0], "sets_to_win": 1})
+	m.match_view.sim.M.server = 0
+	m.match_view.sim.start_point()
+	add_child(m.match_view)
+	var jc: = Camera3D.new()
+	add_child(jc)
+	jc.fov = 34.0
+	jc.current = true
+	await _wait_sim(0.6)
+	var p0: Vector3 = m.match_view.rigs[0].global_position
+	jc.position = p0 + Vector3(2.4, 1.5, -3.4)
+	jc.look_at(p0 + Vector3(0, 1.0, 1.0))
+	await _grab(out + "/00_ready.png")
+	m.match_view.sim.inp.hit = true
+	for n in 10:
+		await _wait_sim(0.06)
+		await _grab(out + "/toss_%02d.png" % n)
+	m.match_view.sim.inp.hit = true
+	for n in 10:
+		await _wait_sim(0.05)
+		await _grab(out + "/hit_%02d.png" % n)
+	print("SERVEPOSE DONE")
+	get_tree().quit()
 
 func _startshot_harness(args: Array) -> void :
 	var i: = args.find("--startshot")
