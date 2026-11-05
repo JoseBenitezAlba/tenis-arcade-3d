@@ -10,12 +10,15 @@ const THEMES: = {
 	"hard": {"court": Color("#1e88e5"), "court2": Color("#1a7ad0"), "surround": Color("#7cb342"), "out": Color("#6aa83c"), "out2": Color("#548a2e"), "line": Color("#f4f6fa")},
 	"grass": {"court": Color("#31582c"), "court2": Color("#2d5029"), "surround": Color("#294a28"), "out": Color("#2f6330"), "out2": Color("#265122"), "line": Color("#f6f8f2")}, 
 }
+const NIGHT_THEMES: = {
+	"hard": {"court": Color("#2b6f9e"), "court2": Color("#245f88"), "surround": Color("#6f9e3a"), "out": Color("#5f8f34"), "out2": Color("#4f7a2c"), "line": Color("#f4f6fa")},
+}
 const L: = 23.77
 const NZ: = L / 2.0
 
 
-static func court_texture(surface: String) -> ImageTexture:
-	var T: Dictionary = THEMES[surface]
+static func court_texture(surface: String, night: bool = false) -> ImageTexture:
+	var T: Dictionary = NIGHT_THEMES[surface] if night and NIGHT_THEMES.has(surface) else THEMES[surface]
 	var w: = 1024
 	var h: = 2048
 	var img: = Image.create(w, h, false, Image.FORMAT_RGBA8)
@@ -102,8 +105,8 @@ static func court_texture(surface: String) -> ImageTexture:
 	img.generate_mipmaps()
 	return ImageTexture.create_from_image(img)
 
-static func ground_texture(surface: String) -> ImageTexture:
-	var T: Dictionary = THEMES[surface]
+static func ground_texture(surface: String, night: bool = false) -> ImageTexture:
+	var T: Dictionary = NIGHT_THEMES[surface] if night and NIGHT_THEMES.has(surface) else THEMES[surface]
 	var w: = 512
 	var h: = 512
 	var img: = Image.create(w, h, false, Image.FORMAT_RGBA8)
@@ -187,18 +190,24 @@ static func tier_texture() -> ImageTexture:
 	var w: = 512
 	var h: = 256
 	var img: = Image.create(w, h, false, Image.FORMAT_RGBA8)
-	img.fill(Color("#4a5266"))
+	img.fill(Color("#19181d"))
 	var rng: = RandomNumberGenerator.new()
 	rng.seed = 23
-	var seat_pal: = [Color("#5a6478"), Color("#566073"), Color("#4e586c"), Color("#6b6a72"), Color("#5e5a68")]
+	var seat_pal: = [Color("#2a2520"), Color("#332c25"), Color("#3b322a"), Color("#24262b"), Color("#2f2a24")]
+	var head_pal: = [Color("#8a6148"), Color("#a8795a"), Color("#6b4a36"), Color("#c08a62"), Color("#7a5a46")]
+	var accent_pal: = [Color("#7c2430"), Color("#c9b48a"), Color("#2b4f7a"), Color("#6a4a2a")]
 	for row in range(0, h, 16):
 
-		img.fill_rect(Rect2i(0, row, w, 5), Color("#6a7387"))
+		img.fill_rect(Rect2i(0, row, w, 4), Color("#2e2d33"))
 
 		for x in range(0, w, 7):
-			if rng.randf() < 0.75:
+			if rng.randf() < 0.78:
 				var c: Color = seat_pal[rng.randi() % seat_pal.size()]
+				if rng.randf() < 0.08:
+					c = accent_pal[rng.randi() % accent_pal.size()]
 				img.fill_rect(Rect2i(x, row + 7, 5, 7), c)
+				var hc: Color = head_pal[rng.randi() % head_pal.size()]
+				img.fill_rect(Rect2i(x + 1, row + 4, 3, 3), hc)
 	img.generate_mipmaps()
 	return ImageTexture.create_from_image(img)
 

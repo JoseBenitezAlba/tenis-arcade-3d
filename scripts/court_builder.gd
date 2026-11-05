@@ -157,7 +157,7 @@ static func build(surface: String, day_v = false) -> Node3D:
 
 
 	var ground_mat: = StandardMaterial3D.new()
-	ground_mat.albedo_texture = TexGen.ground_texture(surface)
+	ground_mat.albedo_texture = TexGen.ground_texture(surface, tod == 1)
 	ground_mat.uv1_scale = Vector3(4, 4, 4)
 	ground_mat.roughness = 0.95
 	var ground: = MeshInstance3D.new()
@@ -171,7 +171,7 @@ static func build(surface: String, day_v = false) -> Node3D:
 
 	var court_len: = L + 7.6
 	var court_mat: = StandardMaterial3D.new()
-	court_mat.albedo_texture = TexGen.court_texture(surface)
+	court_mat.albedo_texture = TexGen.court_texture(surface, tod == 1)
 	court_mat.roughness = 1.0
 	court_mat.metallic_specular = 0.0
 	var court: = MeshInstance3D.new()
@@ -316,14 +316,44 @@ static func build(surface: String, day_v = false) -> Node3D:
 
 
 
+	var stand_dark: = _mat(Color("#070c17"))
 	var crowd_mat: = StandardMaterial3D.new()
 	crowd_mat.albedo_texture = TexGen.tier_texture()
-	crowd_mat.albedo_color = Color(0.4, 0.4, 0.47)
-	crowd_mat.uv1_scale = Vector3(8, 3, 1)
+	crowd_mat.albedo_color = Color(0.24, 0.215, 0.2)
+	crowd_mat.uv1_scale = Vector3(12, 4, 1)
 	crowd_mat.roughness = 1.0
-	var stands_far: = _box(44, 8.5, 6.0, crowd_mat)
+	crowd_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	var stands_far: = _box(44, 8.5, 6.0, stand_dark)
 	stands_far.position = Vector3(0, 6.25, wall_z + 11.0)
 	root.add_child(stands_far)
+	var far_face: = MeshInstance3D.new()
+	var fq: = QuadMesh.new()
+	fq.size = Vector2(44, 8.5)
+	fq.material = crowd_mat
+	far_face.mesh = fq
+	far_face.position = Vector3(0, 6.25, wall_z + 7.95)
+	far_face.rotation.y = PI
+	root.add_child(far_face)
+	for ti in 4:
+		var ty: float = 2.3 + ti * 2.0
+		var ledge: = _box(44, 0.22, 0.75, stand_dark)
+		ledge.position = Vector3(0, ty, wall_z + 7.6)
+		root.add_child(ledge)
+		var rail: = _box(44, 0.05, 0.05, _mat(Color("#6f7d92")))
+		rail.position = Vector3(0, ty + 0.58, wall_z + 7.28)
+		root.add_child(rail)
+	var far_roof: = _box(46, 0.4, 7.0, stand_dark)
+	far_roof.position = Vector3(0, 10.6, wall_z + 12.0)
+	root.add_child(far_roof)
+	var roof_light: = StandardMaterial3D.new()
+	roof_light.albedo_color = Color("#fff2d0")
+	roof_light.emission_enabled = true
+	roof_light.emission = Color("#fff2d0")
+	roof_light.emission_energy_multiplier = 2.4
+	for lx in [-16.0, -5.0, 6.0, 17.0]:
+		var strip: = _box(2.4, 0.06, 0.18, roof_light)
+		strip.position = Vector3(lx, 10.37, wall_z + 9.4)
+		root.add_child(strip)
 	# Near end is a courtside advertising barrier with open stepped seating behind it.
 	for ni in 8:
 		var nx: float = -15.4 + ni * 4.4
@@ -367,9 +397,28 @@ static func build(surface: String, day_v = false) -> Node3D:
 		plinth.position = Vector3(0, 1.25, pz)
 		root.add_child(plinth)
 	for sx in [-24.0, 24.0]:
-		var stands_side: = _box(6.0, 8.5, 34.0, crowd_mat)
+		var stands_side: = _box(6.0, 8.5, 34.0, stand_dark)
 		stands_side.position = Vector3(sx, 6.25, L / 2.0)
 		root.add_child(stands_side)
+		var side_face: = MeshInstance3D.new()
+		var sq: = QuadMesh.new()
+		sq.size = Vector2(34, 8.5)
+		sq.material = crowd_mat
+		side_face.mesh = sq
+		side_face.position = Vector3(sx - signf(sx) * 3.05, 6.25, L / 2.0)
+		side_face.rotation.y = - signf(sx) * PI / 2.0
+		root.add_child(side_face)
+		for ti in 4:
+			var ty: float = 2.3 + ti * 2.0
+			var ledge: = _box(0.75, 0.22, 34.0, stand_dark)
+			ledge.position = Vector3(sx - signf(sx) * 3.35, ty, L / 2.0)
+			root.add_child(ledge)
+			var rail: = _box(0.05, 0.05, 34.0, _mat(Color("#6f7d92")))
+			rail.position = Vector3(sx - signf(sx) * 3.63, ty + 0.58, L / 2.0)
+			root.add_child(rail)
+		var side_roof: = _box(7.0, 0.4, 36.0, stand_dark)
+		side_roof.position = Vector3(sx, 10.6, L / 2.0)
+		root.add_child(side_roof)
 		var side_plinth: = _box(6.0, 2.5, 34.0, plinth_mat)
 		side_plinth.position = Vector3(sx, 1.25, L / 2.0)
 		root.add_child(side_plinth)
@@ -469,21 +518,21 @@ static func build(surface: String, day_v = false) -> Node3D:
 	e.sky = sky
 	e.background_mode = Environment.BG_SKY
 	e.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	e.ambient_light_energy = 0.46 if tod == 0 else (1.15 if tod == 2 else 0.72)
+	e.ambient_light_energy = 0.46 if tod == 0 else (1.15 if tod == 2 else 0.62)
 	e.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-	e.tonemap_exposure = 1.0 if tod == 0 else (1.04 if tod == 2 else 0.98)
+	e.tonemap_exposure = 1.0 if tod == 0 else (1.04 if tod == 2 else 0.93)
 	if tod == 1:
 		e.glow_enabled = true
-		e.glow_intensity = 0.5
-		e.glow_bloom = 0.08
+		e.glow_intensity = 0.38
+		e.glow_bloom = 0.05
 		e.glow_blend_mode = Environment.GLOW_BLEND_MODE_ADDITIVE
-		e.glow_hdr_threshold = 0.9
+		e.glow_hdr_threshold = 1.0
 	env.environment = e
 	root.add_child(env)
 
 	var sun: = DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-52, 168, 0) if tod != 2 else Vector3(-24, 148, 0)
-	sun.light_energy = 0.82 if tod == 0 else (1.25 if tod == 2 else 0.34)
+	sun.light_energy = 0.82 if tod == 0 else (1.25 if tod == 2 else 0.28)
 	sun.light_color = Color("#fff4e0") if tod == 0 else (Color("#ffc98a") if tod == 2 else Color("#c9d8ff"))
 	sun.shadow_enabled = tod != 1
 	sun.directional_shadow_max_distance = 65.0
@@ -502,7 +551,7 @@ static func build(surface: String, day_v = false) -> Node3D:
 				spot.spot_range = 52.0
 				spot.spot_angle = 80.0
 				spot.spot_attenuation = 0.2
-				spot.light_energy = 1.7
+				spot.light_energy = 1.45
 				spot.light_color = Color("#fff2d0")
 				root.add_child(spot)
 
