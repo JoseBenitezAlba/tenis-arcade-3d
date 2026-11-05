@@ -710,7 +710,7 @@ func update_from_sim(e, dt: float) -> void :
 			rk_show_delay = 0
 		elif rk_show_delay > 0:
 			rk_show_delay -= 1
-		racket_node.visible = rk_show_delay <= 0
+		racket_node.visible = rk_show_delay <= 0 and state not in CELEB_ANIMS
 	swing_now = e.swing
 	var _fatk: float = e.get("fat") if e.get("fat") != null else 0.0
 

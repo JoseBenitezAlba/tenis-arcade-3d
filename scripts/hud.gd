@@ -407,6 +407,17 @@ func hide_speed() -> void :
 		speed_label.visible = false
 
 
+func hide_play_feedback() -> void :
+	hide_popups()
+	hide_speed()
+	serve_meter_hide()
+	if hint != null:
+		hint.visible = false
+	if callout != null:
+		callout.visible = false
+		callout_t = 0.0
+
+
 static func glow_alpha(level: int, t: float) -> float:
 	return 0.0 if level < 2 else 0.55 + 0.35 * sin(t * 7.0)
 

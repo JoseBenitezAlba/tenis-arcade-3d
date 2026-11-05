@@ -193,8 +193,7 @@ var M: = MatchState.new()
 var state: = "serve"
 var state_t: = 0.0
 var serve_fault: = 0
-var serve_attempt: = 0
-var serve_faulted_attempt: = -1
+var last_fault_time: = -99.0
 var serve_stage: = "ready"
 var cpu_serve_at: = 0.0
 var rut_t: = 0.0
@@ -413,9 +412,9 @@ func award_point(w: int, why: String, sub: String) -> void :
 func fault(why: String) -> void :
 	if state != "serve":
 		return
-	if serve_faulted_attempt == serve_attempt:
+	if time - last_fault_time < 0.25:
 		return
-	serve_faulted_attempt = serve_attempt
+	last_fault_time = time
 	if serve_fault == 0:
 		stats[M.server].first_total += 1
 	serve_fault += 1
@@ -435,6 +434,9 @@ func fault(why: String) -> void :
 
 func _sim_flight(x0: float, y0: float, z0: float, vx0: float, vy0: float, vz0: float, tmax: float) -> Dictionary:
 	var r: = {"bounce_t": 99.0, "bounce_x": 0.0, "bounce_z": 0.0, "net_y": -1.0}
+	if not is_finite(tmax) or tmax <= 0.0:
+		return r
+	tmax = minf(tmax, 3.0)
 	var bx: = x0
 	var by: = y0
 	var bz: = z0
@@ -727,7 +729,7 @@ func do_hit(e: Player, kind: String, ai: bool) -> void :
 	if kind == "drive":
 		nc_floor = 1.02
 	elif kind == "slice":
-		nc_floor = 1.05 if (not ai and e.id == 0) else 1.2
+		nc_floor = 0.98 if (not ai and e.id == 0) else 1.2
 	elif kind == "drop" or kind == "volley":
 		nc_floor = 1.0
 	elif kind == "smash":
@@ -856,8 +858,8 @@ func do_hit(e: Player, kind: String, ai: bool) -> void :
 			_ic += 1
 	if not ai and not demo and e.id == 0 and kind in ["drive", "slice", "volley"]:
 		var _forced: bool = dx > 1.15 or move_q > 1.05 or ball.y <= 0.85 or on_rise or tq in ["late", "early", "rise"]
-		var _lo: float = 29.2 if _forced else 37.5
-		var _hi: float = 34.7 if _forced else 43.1
+		var _lo: float = 30.6 if _forced else 37.5
+		var _hi: float = 33.3 if _forced else 43.1
 		_clamp_launch_speed(tx, tz, T, launch_y, nc_floor, _vcap, _lo, _hi, 0.18, 2.2)
 	var spd: = Vector3(ball.vx, ball.vy, ball.vz).length()
 	ball.hot = clampf((spd - 24.0) / 20.0, 0.0, 1.0)
@@ -1291,7 +1293,6 @@ func toss_ball() -> void :
 	ball.vy = 10.5
 	ball.vx = 0.0
 	ball.vz = 0.0
-	serve_attempt += 1
 	serve_stage = "toss"
 	events.append({"t": "toss"})
 
@@ -2010,7 +2011,7 @@ func _in_hit_win(e: Player, bx: float, by: float, bz: float, gx: float, gz: floa
 
 	var behind: float = 0.55
 	if not demo and e.id == 0:
-		behind = 1.05 if e.dive_t <= 0.0 else 1.25
+		behind = 1.25 if e.dive_t <= 0.0 else 1.4
 	var h_behind: bool = (bz < e.z - behind) if e.near else (bz > e.z + behind)
 	return absf(bx - e.x) < gx and absf(bz - e.z) < gz and by < ymax and not h_behind
 
@@ -2165,7 +2166,7 @@ func human_control(e: Player, dt: float) -> void :
 				if ball.y > 2.15:
 					_rm = 2.7
 
-				_fire_now = _in_hit_win(e, ball.x, ball.y, ball.z, 2.0, 1.7, _rm) or _in_hit_win(e, (ball.x + ball.px) * 0.5, (ball.y + ball.py) * 0.5, (ball.z + ball.pz) * 0.5, 2.0, 1.7, _rm)
+				_fire_now = _in_hit_win(e, ball.x, ball.y, ball.z, 2.2, 1.9, _rm) or _in_hit_win(e, (ball.x + ball.px) * 0.5, (ball.y + ball.py) * 0.5, (ball.z + ball.pz) * 0.5, 2.2, 1.9, _rm)
 			if not _fire_now and state == "play" and ball.in_play and ball.last != e.id and ball.vz < 0.0:
 				pass
 			else:
@@ -2195,7 +2196,7 @@ func human_control(e: Player, dt: float) -> void :
 		var amax: = 2.35 if a_volley else 2.2
 		if ball.y > 2.15:
 			amax = 2.7
-		if _in_hit_win(e, ball.x, ball.y, ball.z, 2.0, 1.7, amax) or _in_hit_win(e, (ball.x + ball.px) * 0.5, (ball.y + ball.py) * 0.5, (ball.z + ball.pz) * 0.5, 2.0, 1.7, amax):
+		if _in_hit_win(e, ball.x, ball.y, ball.z, 2.2, 1.9, amax) or _in_hit_win(e, (ball.x + ball.px) * 0.5, (ball.y + ball.py) * 0.5, (ball.z + ball.pz) * 0.5, 2.2, 1.9, amax):
 			e.charging = false
 			e.charge_pow = 1.0 + 0.6 * e.charge
 			e.swing = 0.3
@@ -2207,8 +2208,8 @@ func human_control(e: Player, dt: float) -> void :
 		e.want_t -= dt
 		if ball.in_play and ball.last != e.id and ball.vz < 0 and e.cool <= 0.0 and state == "play" and e.getup_t <= 0.0:
 			_assist(e)
-			var hgx: = 2.0
-			var hgz: = 1.7
+			var hgx: = 2.2
+			var hgz: = 1.9
 			if e.dive_t > 0.0:
 				hgx = 2.35
 				hgz = 2.0

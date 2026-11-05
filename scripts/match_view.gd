@@ -49,7 +49,7 @@ var ring_pool: = []
 static func ring_params(spd: float) -> Vector2:
 
 	var f: = clampf(spd / 45.0, 0.0, 1.0)
-	return Vector2(0.6 + 1.0 * f, 0.8 + 0.2 * f)
+	return Vector2(minf(0.6 + 1.0 * f, 1.25), 0.8 + 0.2 * f)
 
 func _make_ring_tex() -> ImageTexture:
 	var img: = Image.create(64, 64, false, Image.FORMAT_RGBA8)
@@ -61,6 +61,8 @@ func _make_ring_tex() -> ImageTexture:
 	return ImageTexture.create_from_image(img)
 
 func spawn_ring(pos: Vector3, spd: float) -> void :
+	if sim.state == "point" or sim.state == "over":
+		return
 	var rp: = ring_params(spd)
 	for r in ring_pool:
 		if r.life <= 0.0:
@@ -84,13 +86,18 @@ func _tick_rings(dt: float) -> void :
 			sfx.play("whoosh", wv * (1.0 if ri == 0 else 0.6), clampf(0.85 + rg.whoosh_pending * 0.008, 0.9, 1.2))
 			rg.whoosh_pending = 0.0
 	for r in ring_pool:
+		if sim.state == "point" or sim.state == "over":
+			r.life = 0.0
+			r.m.visible = false
+			continue
 		if r.life > 0.0:
 			r.life -= dt
 			if r.life <= 0.0:
 				r.m.visible = false
 			else:
 				var f: float = 1.0 - r.life / r.max
-				r.m.scale = Vector3.ONE * (r.rad * 2.0) * (0.25 + 0.75 * sqrt(f))
+				var sc: float = minf((r.rad * 2.0) * (0.25 + 0.75 * sqrt(f)), 2.5)
+				r.m.scale = Vector3(sc, sc, sc)
 				var c: Color = Color(1.0, 0.97, 0.8, r.a0 * (1.0 - f))
 				r.mat.albedo_color = c
 var dust_trail: = 0.0
@@ -160,6 +167,7 @@ var hitstop_t: = 0.0
 var ball_squash: = 0.0
 var _point_winner: = -1
 var _closeup_ok: = false
+var _closeup_delay: = 0.0
 var _was_closeup: = false
 var _tut_n: = 0
 var _idle_ball_t: = 0.0
@@ -511,6 +519,44 @@ func _ready() -> void :
 	guard.mv = self
 	guard.process_mode = Node.PROCESS_MODE_ALWAYS
 	add_child(guard)
+	call_deferred("_prewarm_effects")
+
+
+func _prewarm_effects() -> void :
+	var far: = Vector3(0.0, -30.0, 0.0)
+	for t in trail:
+		t.m.position = far
+		t.m.scale = Vector3.ONE * 0.01
+		t.m.visible = true
+	for f in flashes:
+		f.m.position = far
+		f.m.scale = Vector3.ONE * 0.01
+		f.m.visible = true
+	for d in dust_pool:
+		d.m.position = far
+		d.m.scale = Vector3.ONE * 0.01
+		d.m.visible = true
+	for r in ring_pool:
+		r.m.position = far
+		r.m.scale = Vector3.ONE * 0.01
+		r.m.visible = true
+	for mk in mark_pool:
+		mk.m.position = far
+		mk.m.visible = true
+	bounce_ring.position = far
+	bounce_ring.visible = true
+	await get_tree().process_frame
+	for t in trail:
+		t.m.visible = false
+	for f in flashes:
+		f.m.visible = false
+	for d in dust_pool:
+		d.m.visible = false
+	for r in ring_pool:
+		r.m.visible = false
+	for mk in mark_pool:
+		mk.m.visible = false
+	bounce_ring.visible = false
 
 
 func dust_color(a: float) -> Color:
@@ -863,7 +909,8 @@ func _physics_process(dt: float) -> void :
 			else:
 				sk.mat.albedo_color.a = clampf(sk.life / sk.max, 0.0, 1.0) * 0.7
 
-	var closeup: bool = (sim.state == "point" or sim.state == "over") and _point_winner >= 0 and _point_winner <= 1 and (_closeup_ok or sim.state == "over")
+	_closeup_delay = maxf(0.0, _closeup_delay - dt)
+	var closeup: bool = (sim.state == "point" or sim.state == "over") and _point_winner >= 0 and _point_winner <= 1 and (_closeup_ok or sim.state == "over") and _closeup_delay <= 0.0
 	var goal_pos: Vector3
 	var goal_fov: float
 	var goal_look: Vector3
@@ -1005,7 +1052,7 @@ func _update_bounce_ring() -> void :
 	bounce_ring.position.x = pb.x
 	bounce_ring.position.z = pb.z
 	var k: float = clampf(pb.t / 1.1, 0.0, 1.0)
-	var sc: float = lerpf(0.35, 1.0, k)
+	var sc: float = clampf(lerpf(0.35, 1.0, k), 0.1, 1.25)
 	bounce_ring.scale = Vector3(sc, 1, sc)
 	if surface == "clay":
 
@@ -1518,10 +1565,21 @@ func drain_events() -> void :
 					sfx.play("point_win" if ev.w == 0 else "point_lose")
 			"point":
 				hud.hide_speed()
+				hud.hide_play_feedback()
+				_closeup_delay = 0.6
+				rally_change_t = 0.0
+				if rally_label != null:
+					rally_label.visible = false
 				bounce_ring.visible = false
 				for r in ring_pool:
 					r.life = 0.0
 					r.m.visible = false
+				for d in dust_pool:
+					d.life = 0.0
+					d.m.visible = false
+				for mk in mark_pool:
+					mk.life = 0.0
+					mk.m.visible = false
 				_point_winner = ev.get("w", -1)
 				_closeup_ok = ev.txt in ["JUEGO", "SET", "PARTIDO"]
 				_fatigue = fatigue_from_rally(sim.rally_hits)
@@ -1535,10 +1593,10 @@ func drain_events() -> void :
 					sfx.play("applause", clampf(0.5 + sim.rally_hits * 0.03, 0.5, 0.95))
 				if sim.rally_hits > rally_best:
 					rally_best = sim.rally_hits
-				if sim.rally_hits >= 3:
+				if sim.rally_hits >= 3 and not _closeup_ok:
 					rally_change_t = 1.4
 				var rct: String = rally_count_txt(sim.rally_hits)
-				if rct != "" and ev.txt == "PUNTO":
+				if rct != "" and ev.txt == "PUNTO" and not _closeup_ok:
 					hud.popup_side(rct, Color("#9ad4ff"))
 
 				if sim.rally_hits == 1 and ev.txt == "PUNTO":
@@ -1612,6 +1670,8 @@ func drain_events() -> void :
 					hud.show_banner(ev.txt, ev.sub, bcol, big)
 					banner_dur = 2.2 if ev.txt == "SET" else (1.8 if ev.txt == "JUEGO" else 1.2)
 					banner_t = banner_dur
+				if _closeup_ok:
+					hud.hide_play_feedback()
 
 
 
