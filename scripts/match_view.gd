@@ -120,7 +120,9 @@ var rally_prefix: Label
 var rally_value: Label
 var rally_best: = 0
 var rally_shown: = 0
+var rally_hold_t: = 0.0
 var _last_rally_live: = 0
+var serve_speed_hold: = 0.0
 var _meter_hold: = 0.0
 var rally_change_t: = 0.0
 var mark_pool: = []
@@ -692,6 +694,7 @@ func _physics_process(dt: float) -> void :
 		hitstop_t -= dt
 	else:
 		sim.update(dt)
+	serve_speed_hold = maxf(0.0, serve_speed_hold - dt)
 	drain_events()
 	if ( not demo or replay_test) and sim.state not in ["point", "over"] and sim.ball.in_play:
 		rec.append({"b": Vector3(sim.ball.x, sim.ball.y, sim.ball.z), "p0": _snap(sim.pl[0]), "p1": _snap(sim.pl[1])})
@@ -728,6 +731,7 @@ func _physics_process(dt: float) -> void :
 		rigs[i].look_on = (sim.state == "play")
 		rigs[i].serve_toss = clampf(sim.ball.toss_t / 0.5, 0.0, 1.0) if (sim.state == "serve" and sim.M.server == i and sim.serve_stage == "toss") else -1.0
 		rigs[i].look_target = Vector3(sim.ball.x, sim.ball.y, sim.ball.z)
+		rigs[i].serve_ready = sim.state == "serve" and sim.M.server == i and sim.serve_stage == "ready"
 		rigs[i].force_hide_racket(sim.state == "point" or sim.state == "over")
 		rigs[i].update_from_sim(sim.pl[i], dt)
 		shadows[i].position.x = sim.pl[i].x
@@ -1267,10 +1271,13 @@ func _update_rally_label(dt: float) -> void :
 		print("RALLY_JUMP from ", _last_rally_live, " to ", live, " state=", sim.state)
 	_last_rally_live = live
 	if live >= 2:
+		rally_hold_t = maxf(0.0, rally_hold_t - dt)
 		if rally_shown < 2:
 			rally_shown = 2
-		elif rally_shown < live:
+			rally_hold_t = 0.12
+		elif rally_shown < live and rally_hold_t <= 0.0:
 			rally_shown += 1
+			rally_hold_t = 0.12
 		hud.set_rally_line(true, "RALLY:", "%02d" % rally_shown)
 		rally_label.modulate.a = 1.0
 	elif rally_change_t > 0.0:
@@ -1279,6 +1286,7 @@ func _update_rally_label(dt: float) -> void :
 		rally_label.modulate.a = minf(1.0, rally_change_t * 1.7)
 	else:
 		rally_shown = 0
+		rally_hold_t = 0.0
 		hud.set_rally_line(false, "", "")
 
 static func rally_count_txt(rally_hits: int) -> String:
@@ -1416,7 +1424,7 @@ func drain_events() -> void :
 					hitstop_t = maxf(hitstop_t, 0.05)
 					shake = maxf(shake, 0.16)
 				var hkmh: int = int(round(ev.get("spd", 0.0) * HIT_KMH_K))
-				if hkmh > 0 and not demo:
+				if hkmh > 0 and not demo and serve_speed_hold <= 0.0:
 					hud.show_speed_kmh(hkmh, false)
 				var perfect: bool = ev.get("perfect", false) and ev.id == 0 and not demo
 				var tper: bool = ev.get("tper", false) and ev.id == 0 and not demo
@@ -1516,6 +1524,7 @@ func drain_events() -> void :
 				var skmh: int = int(round(ev.get("spd", 0.0) * SERVE_KMH_K))
 				if skmh > 0 and not demo:
 					hud.show_speed_kmh(skmh, true)
+					serve_speed_hold = 0.9
 				if ev.get("q", 0.0) >= 0.88:
 					hitstop_t = 0.05
 				sfx.play("hit_big" if (ev.get("q", 0.0) >= 0.88) else "hit", 1.2)

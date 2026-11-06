@@ -23,7 +23,6 @@ var serve_meter: Control
 var serve_needle: ColorRect
 var serve_fill: ColorRect
 var serve_lock_t: = 0.0
-var speed_label: Label
 var speed_t: = 0.0
 var rs_panel: PanelContainer
 var rs_prefix: Label
@@ -231,22 +230,6 @@ func _ready() -> void :
 	serve_meter.add_child(mlab)
 
 
-	speed_label = Label.new()
-	speed_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	speed_label.position = Vector2(1280 - 330, 646)
-	speed_label.size = Vector2(316, 30)
-	speed_label.add_theme_font_size_override("font_size", 20)
-	speed_label.add_theme_color_override("font_color", Color.WHITE)
-	speed_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.75))
-	speed_label.add_theme_constant_override("outline_size", 6)
-	speed_label.visible = false
-	var sp_bg: = StyleBoxFlat.new()
-	sp_bg.bg_color = Color(0.10, 0.13, 0.07, 0.7)
-	sp_bg.set_corner_radius_all(8)
-	sp_bg.content_margin_left = 10
-	sp_bg.content_margin_right = 10
-	speed_label.add_theme_stylebox_override("normal", sp_bg)
-	add_child(speed_label)
 
 	rs_panel = PanelContainer.new()
 	rs_panel.position = Vector2(996, 624)
@@ -493,8 +476,6 @@ func hide_speed() -> void :
 	if rs_speed_row != null:
 		rs_speed_row.visible = false
 	_update_rs_visible()
-	if speed_label != null:
-		speed_label.visible = false
 
 
 func hide_play_feedback() -> void :

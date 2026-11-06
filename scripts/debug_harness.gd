@@ -17,7 +17,7 @@ const LATE: = {
 	"--looktest": "_looktest_harness", "--careershot": "_careershot_harness", 
 	"--faceshots": "_faceshots_harness", "--matchprobe": "_matchprobe_harness", 
 	"--shots": "_shots_harness", 
-	"--latshot": "_latshot_harness", "--ballshot": "_ballshot_harness", "--topshot": "_topshot_harness", "--celnight": "_celnight_harness", "--startshot": "_startshot_harness", "--servepose": "_servepose_harness", "--gameshot": "_gameshot_harness", "--prepshot": "_prepshot_harness", "--legshot": "_legshot_harness", "--rallylabel": "_rallylabel_harness", "--celshot": "_celshot_harness", "--rkshot": "_rkshot_harness", "--jshot": "_jshot_harness", "--seqshot": "_seqshot_harness", "--ppshot": "_ppshot_harness", "--cpuserve": "_cpuserve_harness", "--audit169": "_audit169_harness", "--cap171": "_cap171_harness", "--gday": "_gday_harness", "--matchmovie": "_matchmovie_harness", "--windupchk": "_windupchk_harness", "--prepcheck": "_prepcheck_harness", "--pose178": "_pose178_harness", "--net178": "_net178_harness", "--full178": "_full178_harness",
+	"--latshot": "_latshot_harness", "--ballshot": "_ballshot_harness", "--topshot": "_topshot_harness", "--celnight": "_celnight_harness", "--startshot": "_startshot_harness", "--servepose": "_servepose_harness", "--gameshot": "_gameshot_harness", "--faulttest": "_faulttest_harness", "--prepshot": "_prepshot_harness", "--legshot": "_legshot_harness", "--rallylabel": "_rallylabel_harness", "--celshot": "_celshot_harness", "--rkshot": "_rkshot_harness", "--jshot": "_jshot_harness", "--seqshot": "_seqshot_harness", "--ppshot": "_ppshot_harness", "--cpuserve": "_cpuserve_harness", "--audit169": "_audit169_harness", "--cap171": "_cap171_harness", "--gday": "_gday_harness", "--matchmovie": "_matchmovie_harness", "--windupchk": "_windupchk_harness", "--prepcheck": "_prepcheck_harness", "--pose178": "_pose178_harness", "--net178": "_net178_harness", "--full178": "_full178_harness",
 	"--v31shots": "_v31shots", "--audit173": "_audit173_harness", 
 }
 
@@ -1269,6 +1269,36 @@ func _celnight_harness(args: Array) -> void :
 
 
 
+
+
+func _faulttest_harness(args: Array) -> void :
+	var sim: = TennisSim.new(false, m.DIFF_PARAMS[1], {"speed": 7.0, "T": 1.0, "err": 1.0}, "CPU", 1)
+	sim.surface = "grass"
+	sim.start_point()
+	var dt: float = 1.0 / 60.0
+	sim.inp.hit = true
+	sim.update(dt)
+	for i in 90:
+		sim.update(dt)
+		sim.events.clear()
+	var ok1: bool = sim.M.pts == [0, 0] and sim.serve_fault == 1 and sim.state == "serve"
+	sim.inp.hit = true
+	sim.update(dt)
+	var saw_serve: = false
+	var bad_df: = false
+	for i in 40:
+		sim.update(dt)
+		if sim.serve_stage == "toss" and sim.ball.toss_t > 0.42:
+			sim.inp.hit = true
+		for ev in sim.events:
+			if ev.t == "serve":
+				saw_serve = true
+				print("SERVE_KMH ", snappedf(ev.get("spd", 0.0) * 3.6, 0.1))
+			if ev.t == "point" and ev.get("txt", "") == "DOBLE FALTA" and not saw_serve:
+				bad_df = true
+		sim.events.clear()
+	print("FAULTTEST first_ok=", ok1, " second_serve=", saw_serve, " bad_df=", bad_df)
+	get_tree().quit(0 if ok1 and saw_serve and not bad_df else 1)
 
 func _gameshot_harness(args: Array) -> void :
 	var i: = args.find("--gameshot")

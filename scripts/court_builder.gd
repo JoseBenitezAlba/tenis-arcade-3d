@@ -346,7 +346,7 @@ static func build(surface: String, day_v = false) -> Node3D:
 	var stand_dark: = _mat(Color("#070c17"))
 	var crowd_mat: = StandardMaterial3D.new()
 	crowd_mat.albedo_texture = TexGen.tier_texture()
-	crowd_mat.albedo_color = Color(0.8, 0.81, 0.88)
+	crowd_mat.albedo_color = Color(0.6, 0.61, 0.66)
 	crowd_mat.uv1_scale = Vector3(1, 1, 1)
 	crowd_mat.roughness = 1.0
 	crowd_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
@@ -418,15 +418,18 @@ static func build(surface: String, day_v = false) -> Node3D:
 		root.add_child(near_label)
 	var side_wall_mat: = _mat(Color("#123f7a"))
 	var side_trim_mat: = _mat(Color("#dbe8ff"))
-	for sx in [-9.7, 9.7]:
-		var side_wall: = _box(0.16, 0.75, 18.5, side_wall_mat)
-		side_wall.position = Vector3(sx, 0.375, 17.75)
+	for sx in [-12.0, 12.0]:
+		var side_wall: = _box(0.16, 0.9, 30.0, side_wall_mat)
+		side_wall.position = Vector3(sx, 0.45, 13.0)
 		root.add_child(side_wall)
-		var side_trim: = _box(0.2, 0.06, 18.5, side_trim_mat)
-		side_trim.position = Vector3(sx, 0.78, 17.75)
+		var side_trim: = _box(0.2, 0.06, 30.0, side_trim_mat)
+		side_trim.position = Vector3(sx, 0.92, 13.0)
 		root.add_child(side_trim)
+		var outer: = _box(12.0, 0.02, 30.0, _mat(Color("#1d3a1e")))
+		outer.position = Vector3(signf(sx) * 18.0, 0.02, 13.0)
+		root.add_child(outer)
 		var si: = 0
-		var sz: = 8.9
+		var sz: = -1.0
 		while sz < L + 8.0:
 			var slbl: = Label3D.new()
 			slbl.text = ["DEUCE", "COURT CLUB", "COURT", "TENNIS"][si % 4]

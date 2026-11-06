@@ -6,12 +6,19 @@ extends RefCounted
 
 static func spec(nz: float) -> Array:
 	return [
-		[Vector3(0.0, 0.055, nz + 0.3), Vector2(13.4, 0.9), 0.16], 
-		[Vector3(-7.0, 0.055, nz), Vector2(1.5, 1.4), 0.3], 
-		[Vector3(9.6, 0.055, nz), Vector2(2.4, 1.2), 0.26], 
-		[Vector3(-9.6, 0.055, nz), Vector2(2.4, 1.2), 0.26], 
-		[Vector3(-6.4, 0.055, nz), Vector2(0.5, 0.5), 0.3], 
-		[Vector3(6.4, 0.055, nz), Vector2(0.5, 0.5), 0.3], 
+		[Vector3(0.0, 0.055, nz + 0.3), Vector2(13.4, 0.9), 0.16],
+		[Vector3(-7.0, 0.055, nz), Vector2(1.5, 1.4), 0.3],
+		[Vector3(10.8, 0.055, nz), Vector2(2.6, 1.4), 0.3],
+		[Vector3(-10.8, 0.055, nz), Vector2(2.6, 1.4), 0.3],
+		[Vector3(-8.4, 0.055, nz - 2.0), Vector2(0.9, 0.9), 0.3],
+		[Vector3(8.4, 0.055, nz + 2.0), Vector2(0.9, 0.9), 0.3],
+		[Vector3(-6.7, 0.055, 27.22), Vector2(0.8, 0.8), 0.28],
+		[Vector3(6.7, 0.055, 27.22), Vector2(0.8, 0.8), 0.28],
+		[Vector3(-5.8, 0.055, nz + 0.2), Vector2(0.6, 0.6), 0.3],
+		[Vector3(5.8, 0.055, nz + 0.2), Vector2(0.6, 0.6), 0.3],
+		[Vector3(0.0, 0.055, nz + 0.55), Vector2(0.6, 0.6), 0.28],
+		[Vector3(-6.4, 0.055, nz), Vector2(0.5, 0.5), 0.3],
+		[Vector3(6.4, 0.055, nz), Vector2(0.5, 0.5), 0.3],
 	]
 
 static func add_to(parent: Node3D, tex: Texture2D, nz: float) -> int:

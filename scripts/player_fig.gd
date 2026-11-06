@@ -644,6 +644,31 @@ func _twist_torso(angle: float) -> void :
 			var g: = skel.get_bone_global_pose(bi)
 			skel.set_bone_global_pose_override(bi, Transform3D(Basis(Vector3.UP, angle) * g.basis, g.origin), 1.0, true)
 
+func _serve_knees(k: float) -> void :
+	if skel == null or k <= 0.01:
+		return
+	for side in [["UpperLeg.L", 1.0], ["UpperLeg.R", -1.0]]:
+		var bi: = skel.find_bone(_bone_name(skel, side[0]))
+		if bi < 0:
+			continue
+		var g: = skel.get_bone_global_pose(bi)
+		var rot: = Basis(Vector3.RIGHT, -0.38 * k) * Basis(Vector3.BACK, 0.10 * k * float(side[1]))
+		skel.set_bone_global_pose_override(bi, Transform3D(rot * g.basis, g.origin), 1.0, true)
+	skel.force_update_all_bone_transforms()
+	for bn in ["LowerLeg.L", "LowerLeg.R"]:
+		var li: = skel.find_bone(_bone_name(skel, bn))
+		if li < 0:
+			continue
+		var lg: = skel.get_bone_global_pose(li)
+		skel.set_bone_global_pose_override(li, Transform3D(Basis(Vector3.RIGHT, 0.55 * k) * lg.basis, lg.origin), 1.0, true)
+	skel.force_update_all_bone_transforms()
+	for fn in ["Foot.L", "Foot.R"]:
+		var fi: = skel.find_bone(_bone_name(skel, fn))
+		if fi < 0:
+			continue
+		var fg: = skel.get_bone_global_pose(fi)
+		skel.set_bone_global_pose_override(fi, Transform3D(Basis(Vector3.RIGHT, -0.22 * k) * fg.basis, fg.origin), 1.0, true)
+
 func _ready_stance() -> void :
 	if skel == null:
 		return
@@ -652,7 +677,7 @@ func _ready_stance() -> void :
 		if bi < 0:
 			continue
 		var g: = skel.get_bone_global_pose(bi)
-		var rot: = Basis(Vector3.RIGHT, -0.36) * Basis(Vector3.BACK, 0.34 * float(side[1]))
+		var rot: = Basis(Vector3.RIGHT, -0.32) * Basis(Vector3.BACK, 0.14 * float(side[1]))
 		skel.set_bone_global_pose_override(bi, Transform3D(rot * g.basis, g.origin), 1.0, true)
 	skel.force_update_all_bone_transforms()
 	for bn in ["LowerLeg.L", "LowerLeg.R"]:
@@ -660,14 +685,14 @@ func _ready_stance() -> void :
 		if li < 0:
 			continue
 		var lg: = skel.get_bone_global_pose(li)
-		skel.set_bone_global_pose_override(li, Transform3D(Basis(Vector3.RIGHT, 0.52) * lg.basis, lg.origin), 1.0, true)
+		skel.set_bone_global_pose_override(li, Transform3D(Basis(Vector3.RIGHT, 0.40) * lg.basis, lg.origin), 1.0, true)
 	skel.force_update_all_bone_transforms()
 	for fn in ["Foot.L", "Foot.R"]:
 		var fi: = skel.find_bone(_bone_name(skel, fn))
 		if fi < 0:
 			continue
 		var fg: = skel.get_bone_global_pose(fi)
-		skel.set_bone_global_pose_override(fi, Transform3D(Basis(Vector3.RIGHT, -0.28) * fg.basis, fg.origin), 1.0, true)
+		skel.set_bone_global_pose_override(fi, Transform3D(Basis(Vector3.RIGHT, -0.14) * fg.basis, fg.origin), 1.0, true)
 	_bend_torso(0.28)
 	_raise_arm(-0.62, "UpperArm.R")
 	_raise_arm(-0.18, "UpperArm.L")
@@ -675,6 +700,7 @@ func _ready_stance() -> void :
 var celeb_t: = 0.0
 var celeb_name: = ""
 var rk_show_delay: = 0
+var serve_ready: = false
 const CELEB_ANIMS: = ["Wave", "Punch_Right", "Punch_Left", "Sword_Slash", "HitRecieve", "HitRecieve_2"]
 var had_windup: = false
 
@@ -750,6 +776,9 @@ func update_from_sim(e, dt: float) -> void :
 	var target_sp: float = minf(e.speed, mvd / maxf(dt, 0.0001) * 1.15 + 0.35)
 	eff_sp = lerpf(eff_sp, target_sp, minf(1.0, dt * 14.0))
 	var target_pos: = Vector3(e.x, FOOT_LIFT, e.z)
+	var rig_gap: float = position.distance_to(target_pos)
+	if rig_gap > 0.8 and e.swing <= 0.0:
+		eff_sp = maxf(eff_sp, minf(rig_gap * 4.0, 6.0))
 	# Reposiciones de saque/punto: deslizar en vez de teletransportar el rig.
 	if position.distance_to(target_pos) > 2.2:
 		position = position.lerp(target_pos, minf(1.0, dt * 11.0))
@@ -799,8 +828,12 @@ func update_from_sim(e, dt: float) -> void :
 	var _visual_elapsed: float = (0.4 if e.kind == "serve" else 0.34) - e.swing
 	var _moving_recovery: bool = e.kind != "serve" and _visual_elapsed >= 0.1 and eff_sp > 0.4
 	var _sw: bool = e.swing > 0.0 and not _moving_recovery
+	var _serve_pose: bool = serve_ready or serve_toss >= 0.0 or (e.kind == "serve" and e.swing > 0.0)
+	var face_target: float = facing
+	if _serve_pose:
+		face_target = facing + (0.65 if e.near else -0.65)
 	if not _sw:
-		rotation.y = lerp_angle(rotation.y, facing, minf(1.0, dt * 9.0))
+		rotation.y = lerp_angle(rotation.y, face_target, minf(1.0, dt * 9.0))
 
 	var lean: = 0.0
 	if e.speed > 3.5 and absf(e.vx) > absf(e.vz):
@@ -875,7 +908,8 @@ func update_from_sim(e, dt: float) -> void :
 		var toss_k: float = clampf(serve_toss, 0.0, 1.0)
 		_play_seek("mocap/Servicio", lerpf(0.1, 0.55, toss_k))
 		_raise_arm(TOSS_ARM * _ease_out_cubic(clampf(serve_toss / 0.55, 0.0, 1.0)), "UpperArm.L")
-		position.y -= 0.055 * sin(toss_k * PI)
+		position.y -= 0.10 * sin(toss_k * PI)
+		_serve_knees(0.85 * sin(toss_k * PI))
 		_twist_torso(-0.22 * sin(toss_k * PI))
 		return
 	if hold_swing and e.kind == "serve":
@@ -884,8 +918,10 @@ func update_from_sim(e, dt: float) -> void :
 
 		_raise_arm(TOSS_ARM * (1.0 - _ease_in_cubic(clampf((k - 0.2) / 0.5, 0.0, 1.0))), "UpperArm.L")
 		_raise_arm(SERVE_ARM * clampf(1.0 - absf(k - 0.55) / 0.3, 0.0, 1.0))
-		position.y += 0.075 * sin(clampf(k, 0.0, 1.0) * PI)
-		_twist_torso(0.3 * sin(clampf(k, 0.0, 1.0) * PI))
+		var _sk: float = clampf(k, 0.0, 1.0)
+		position.y += 0.18 * sin(_sk * PI)
+		position.z += (0.35 if e.near else -0.35) * sin(_sk * PI)
+		_twist_torso(0.3 * sin(_sk * PI))
 	elif hold_swing:
 		var hs: String = e.hit_side if "hit_side" in e else "fore"
 		var sc: = _swing_clip(e.kind, hs)
@@ -949,7 +985,7 @@ func update_from_sim(e, dt: float) -> void :
 		_play("Idle_Sword")
 	elif eff_sp > 0.9 and eff_sp <= 5.5 and absf(e.vx) > absf(e.vz) * 1.15:
 
-		_play("Run_Left" if e.vx > 0.0 else "Run_Right", clampf(eff_sp / 3.9, 0.65, 1.5))
+		_play("Run_Left" if e.vx > 0.0 else "Run_Right", clampf(eff_sp / 3.4, 0.65, 1.6))
 	elif eff_sp > 1.6 and ((e.vz < 0.0) if e.near else (e.vz > 0.0)) and absf(e.vz) > absf(e.vx) * 0.7:
 
 		_play("Run_Back", clampf(eff_sp / 5.0, 0.7, 1.4))
@@ -960,7 +996,7 @@ func update_from_sim(e, dt: float) -> void :
 	elif eff_sp > 1.6 and absf(e.vx) > absf(e.vz) * 1.2:
 
 
-		_play("Run_Left" if e.vx > 0.0 else "Run_Right", clampf(eff_sp / 3.9, 0.7, 1.3))
+		_play("Run_Left" if e.vx > 0.0 else "Run_Right", clampf(eff_sp / 3.4, 0.7, 1.4))
 	elif eff_sp > 0.4:
 
 		_play("Walk", clampf(eff_sp / 2.2, 0.8, 1.6))

@@ -8,7 +8,7 @@ const LINE_W_SIDE: = 0.11
 const THEMES: = {
 	"clay": {"court": Color("#bd5c26"), "court2": Color("#b4551f"), "surround": Color("#a34e1d"), "out": Color("#2a5741"), "out2": Color("#1e4434"), "line": Color("#f6f1e6")}, 
 	"hard": {"court": Color("#1e88e5"), "court2": Color("#1a7ad0"), "surround": Color("#7cb342"), "out": Color("#6aa83c"), "out2": Color("#548a2e"), "line": Color("#f4f6fa")},
-	"grass": {"court": Color("#31582c"), "court2": Color("#2d5029"), "surround": Color("#294a28"), "out": Color("#2f6330"), "out2": Color("#265122"), "line": Color("#f6f8f2")}, 
+	"grass": {"court": Color("#3f7a36"), "court2": Color("#3a7133"), "surround": Color("#1e3a1f"), "out": Color("#234524"), "out2": Color("#1b3a1d"), "line": Color("#f6f8f2")},
 }
 const NIGHT_THEMES: = {
 	"hard": {"court": Color("#38627a"), "court2": Color("#325a70"), "surround": Color("#688a3e"), "out": Color("#5b7d38"), "out2": Color("#4b6a30"), "line": Color("#f4f6fa")},
@@ -41,10 +41,10 @@ static func court_texture(surface: String, night: bool = false) -> ImageTexture:
 		while z < L + 3.6:
 			if k % 2 == 1:
 				var y0: = int(py_of.call(max(z, -0.05)))
-				var y1: = int(py_of.call(min(z + 1.4, L + 0.05)))
+				var y1: = int(py_of.call(min(z + 3.0, L + 0.05)))
 				if y1 > y0:
 					img.fill_rect(Rect2i(ix0, y0, ix1 - ix0, y1 - y0), T.court2)
-			z += 1.4
+			z += 6.0
 			k += 1
 
 	var rng: = RandomNumberGenerator.new()

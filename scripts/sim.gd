@@ -718,6 +718,8 @@ func do_hit(e: Player, kind: String, ai: bool) -> void :
 	ball.kind = kind
 	var tz: = NZ + dir * (2.2 + d * (L / 2.0 - 2.2))
 	if not ai and e.id == 0 and kind in ["drive", "slice", "volley"]:
+		var tx_margin: float = 0.15 if absf(e.aim_lx) > 0.82 else 0.45
+		tx = clampf(tx, -4.115 + tx_margin, 4.115 - tx_margin)
 		var extreme: bool = absf(e.aim_lx) > 0.82
 		var margin: float = 0.35 if extreme else (1.0 if kind == "volley" else 1.2)
 		if e.near:
@@ -2511,7 +2513,7 @@ func update(dt: float) -> void :
 	var sub: = 2
 	for i in sub:
 		step_ball(dt / sub)
-	var point_window: = 2.0 if demo else 2.1
+	var point_window: = 2.0 if demo else 2.8
 	if state == "point" and state_t > point_window:
 		if match_over and not demo:
 			if not over_sent:
