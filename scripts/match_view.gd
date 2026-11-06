@@ -39,7 +39,7 @@ var fill_light: DirectionalLight3D
 var night_mode: bool = false
 
 const CAM_MODES: = [
-	{"pos": Vector3(0, 2.1, -7.3), "fov": 45.0, "look_y": 1.05},
+	{"pos": Vector3(0, 3.3, -8.3), "fov": 40.0, "look_y": 0.95},
 	{"pos": Vector3(0, 5.7, -10.7), "fov": 42.0, "look_y": 0.85},
 ]
 var cam_mode: = 0
@@ -450,39 +450,9 @@ func _ready() -> void :
 	hud = MatchHUD.new()
 	hud.cam = cam
 	add_child(hud)
-	rally_label = PanelContainer.new()
-	rally_label.position = Vector2(1004, 642)
-	var _rsb: = StyleBoxFlat.new()
-	_rsb.bg_color = Color(0.07, 0.09, 0.05, 0.78)
-	_rsb.border_color = Color(1, 1, 1, 0.85)
-	_rsb.set_border_width_all(2)
-	_rsb.set_corner_radius_all(8)
-	_rsb.content_margin_left = 14
-	_rsb.content_margin_right = 14
-	_rsb.content_margin_top = 4
-	_rsb.content_margin_bottom = 5
-	rally_label.add_theme_stylebox_override("panel", _rsb)
-	var _rh: = HBoxContainer.new()
-	_rh.add_theme_constant_override("separation", 8)
-	rally_label.add_child(_rh)
-	rally_prefix = Label.new()
-	rally_prefix.text = "RALLY:"
-	rally_prefix.add_theme_font_size_override("font_size", 24)
-	rally_prefix.add_theme_font_override("font", hud.ui_bold)
-	rally_prefix.add_theme_color_override("font_color", Color.WHITE)
-	rally_prefix.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
-	rally_prefix.add_theme_constant_override("outline_size", 4)
-	_rh.add_child(rally_prefix)
-	rally_value = Label.new()
-	rally_value.text = "00"
-	rally_value.add_theme_font_size_override("font_size", 24)
-	rally_value.add_theme_font_override("font", hud.ui_bold)
-	rally_value.add_theme_color_override("font_color", Color("#ffd23f"))
-	rally_value.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
-	rally_value.add_theme_constant_override("outline_size", 4)
-	_rh.add_child(rally_value)
-	rally_label.visible = false
-	hud.add_child(rally_label)
+	rally_label = hud.rs_panel
+	rally_prefix = hud.rs_prefix
+	rally_value = hud.rs_value
 	hud.set_names(get_meta("my_name", "TÚ"), get_meta("cpu_label", "CPU"))
 	hud.update_score(sim.M)
 	touch_ui = false
@@ -949,26 +919,35 @@ func _physics_process(dt: float) -> void :
 	if closeup:
 		var wp = sim.pl[_point_winner]
 		var other = sim.pl[1 - _point_winner]
-		var side_x: float = - signf(wp.x) * 3.0 if absf(wp.x) > 0.6 else 3.0
-		var cam_z: float
-		if wp.near:
-			cam_z = wp.z - 5.2 if wp.z > NZ - 7.0 else wp.z + 5.2
+		if _closeup_ok:
+			var side: float = 0.9 if wp.x >= 0.0 else -0.9
+			var front: float = 1.0 if wp.near else -1.0
+			goal_pos = Vector3(clampf(wp.x + side, -5.0, 5.0), 2.0, wp.z + front * 4.0)
+			goal_look = Vector3(wp.x, 1.15, wp.z)
+			goal_fov = 40.0
+			if Vector2(goal_pos.x - other.x, goal_pos.z - other.z).length() < 2.2:
+				goal_pos.x = clampf(wp.x - side, -5.0, 5.0)
 		else:
-			cam_z = wp.z + 5.2 if wp.z < NZ + 7.0 else wp.z - 5.2
-		var base_x: float = clampf(wp.x + side_x, -5.0, 5.0)
-		var alt_x: float = clampf(wp.x - side_x, -5.0, 5.0)
-		var candidates: Array = [
-			Vector3(base_x, 2.7, cam_z),
-			Vector3(alt_x, 2.7, cam_z),
-			Vector3(base_x, 3.5, cam_z + (2.2 if wp.near else -2.2)),
-		]
-		goal_pos = candidates[0]
-		for c in candidates:
-			if Vector2(c.x - other.x, c.z - other.z).length() > 2.6:
-				goal_pos = c
-				break
-		goal_fov = 40.0
-		goal_look = Vector3(wp.x, 1.15, wp.z)
+			var side_x: float = - signf(wp.x) * 3.0 if absf(wp.x) > 0.6 else 3.0
+			var cam_z: float
+			if wp.near:
+				cam_z = wp.z - 5.2 if wp.z > NZ - 7.0 else wp.z + 5.2
+			else:
+				cam_z = wp.z + 5.2 if wp.z < NZ + 7.0 else wp.z - 5.2
+			var base_x: float = clampf(wp.x + side_x, -5.0, 5.0)
+			var alt_x: float = clampf(wp.x - side_x, -5.0, 5.0)
+			var candidates: Array = [
+				Vector3(base_x, 2.7, cam_z),
+				Vector3(alt_x, 2.7, cam_z),
+				Vector3(base_x, 3.5, cam_z + (2.2 if wp.near else -2.2)),
+			]
+			goal_pos = candidates[0]
+			for c in candidates:
+				if Vector2(c.x - other.x, c.z - other.z).length() > 2.6:
+					goal_pos = c
+					break
+			goal_fov = 40.0
+			goal_look = Vector3(wp.x, 1.15, wp.z)
 	else:
 
 
@@ -1292,19 +1271,15 @@ func _update_rally_label(dt: float) -> void :
 			rally_shown = 2
 		elif rally_shown < live:
 			rally_shown += 1
-		rally_label.visible = true
-		rally_prefix.text = "RALLY:"
-		rally_value.text = "%02d" % rally_shown
+		hud.set_rally_line(true, "RALLY:", "%02d" % rally_shown)
 		rally_label.modulate.a = 1.0
 	elif rally_change_t > 0.0:
-		rally_label.visible = true
 		rally_change_t = maxf(0.0, rally_change_t - dt)
-		rally_prefix.text = "MEJOR:"
-		rally_value.text = "%02d" % rally_best
+		hud.set_rally_line(true, "MEJOR:", "%02d" % rally_best)
 		rally_label.modulate.a = minf(1.0, rally_change_t * 1.7)
 	else:
 		rally_shown = 0
-		rally_label.visible = false
+		hud.set_rally_line(false, "", "")
 
 static func rally_count_txt(rally_hits: int) -> String:
 	if rally_hits >= 10:
@@ -1526,6 +1501,7 @@ func drain_events() -> void :
 				if ev.kind == "smash" or ev.get("stretch", 0.0) >= 1.3 or charged >= 1.3:
 					sfx.play("grunt", 0.55 if ev.id == 0 else 0.35, randf_range(0.9, 1.12))
 			"serve":
+				hud.hide_banner()
 				_srv_bounce_ok = false
 				if _hot_level() >= 1 and not _serve_armed:
 					sfx.play("murmur", 0.8)
@@ -1591,6 +1567,7 @@ func drain_events() -> void :
 				dust_trail = dust_trail_time(surface, ev.v)
 				spawn_mark(Vector3(ev.x, 0.0, ev.z))
 			"let":
+				hud.hide_popups()
 				hud.popup("LET", Vector3(sim.ball.x, 0.0, sim.ball.z), Color("#ffffff"))
 				hud.show_banner("LET", "se repite el saque", Color("#ffffff"))
 				banner_dur = 1.2
@@ -1618,17 +1595,19 @@ func drain_events() -> void :
 				_closeup_delay = 0.6
 				rally_change_t = 0.0
 				if rally_label != null:
-					rally_label.visible = false
-				bounce_ring.visible = false
-				for r in ring_pool:
-					r.life = 0.0
-					r.m.visible = false
-				for d in dust_pool:
-					d.life = 0.0
-					d.m.visible = false
-				for mk in mark_pool:
-					mk.life = 0.0
-					mk.m.visible = false
+					hud.set_rally_line(false, "", "")
+				var keep_trace: bool = ev.txt in ["FUERA", "RED"]
+				if not keep_trace:
+					bounce_ring.visible = false
+					for r in ring_pool:
+						r.life = 0.0
+						r.m.visible = false
+					for d in dust_pool:
+						d.life = 0.0
+						d.m.visible = false
+					for mk in mark_pool:
+						mk.life = 0.0
+						mk.m.visible = false
 				_point_winner = ev.get("w", -1)
 				_closeup_ok = ev.txt in ["JUEGO", "SET", "PARTIDO"]
 				_fatigue = fatigue_from_rally(sim.rally_hits)
@@ -1711,13 +1690,14 @@ func drain_events() -> void :
 						hud.popup_side("¡PELOTAS NUEVAS!", BALL_YEL)
 				var bcol: Color = Color("#ffd23f") if ev.txt == "SET" else (Color("#7dffa8") if ev.w == 0 else Color("#ff9c9c"))
 				var big: bool = ev.txt in ["JUEGO", "SET", "PARTIDO"]
-				if ev.txt == "PUNTO":
-					hud.show_point_card(ev.w == 0, _pts_line())
-					banner_dur = 1.2
-					banner_t = banner_dur
-				else:
+				if not (ev.txt in ["JUEGO", "SET", "PARTIDO"]):
+					hud.show_point_card(ev.w == 0, _pts_line(), "" if ev.txt == "PUNTO" else ev.txt)
+				if ev.txt != "PUNTO":
 					hud.show_banner(ev.txt, ev.sub, bcol, big)
 					banner_dur = 2.2 if ev.txt == "SET" else (1.8 if ev.txt == "JUEGO" else 1.2)
+					banner_t = banner_dur
+				else:
+					banner_dur = 1.2
 					banner_t = banner_dur
 				if _closeup_ok:
 					hud.hide_play_feedback()
@@ -1726,6 +1706,7 @@ func drain_events() -> void :
 
 				rec.clear()
 			"fault":
+				hud.hide_popups()
 				sfx.play("fault")
 				hud.hide_speed()
 				hud.serve_meter_hide()

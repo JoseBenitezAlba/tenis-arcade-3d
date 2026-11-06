@@ -25,6 +25,15 @@ var serve_fill: ColorRect
 var serve_lock_t: = 0.0
 var speed_label: Label
 var speed_t: = 0.0
+var rs_panel: PanelContainer
+var rs_prefix: Label
+var rs_value: Label
+var rs_rally_row: HBoxContainer
+var rs_speed_row: HBoxContainer
+var rs_speed_title: Label
+var rs_speed_val: Label
+var rs_rally_vis: = false
+var rs_speed_vis: = false
 var point_card: PanelContainer
 var score_panel: PanelContainer
 var score_sb: StyleBoxFlat
@@ -33,6 +42,7 @@ var _glow_t: = 0.0
 var ui_bold: FontVariation
 var point_card_title: Label
 var point_card_pts: Label
+var point_card_reason: Label
 var point_card_t: = 0.0
 
 func _ready() -> void :
@@ -238,6 +248,75 @@ func _ready() -> void :
 	speed_label.add_theme_stylebox_override("normal", sp_bg)
 	add_child(speed_label)
 
+	rs_panel = PanelContainer.new()
+	rs_panel.position = Vector2(996, 624)
+	var rsb: = StyleBoxFlat.new()
+	rsb.bg_color = Color(0.10, 0.13, 0.07, 0.82)
+	rsb.border_color = Color(1, 1, 1, 0.85)
+	rsb.set_border_width_all(2)
+	rsb.set_corner_radius_all(8)
+	rsb.content_margin_left = 12
+	rsb.content_margin_right = 12
+	rsb.content_margin_top = 5
+	rsb.content_margin_bottom = 6
+	rs_panel.add_theme_stylebox_override("panel", rsb)
+	add_child(rs_panel)
+	var rsv: = VBoxContainer.new()
+	rsv.add_theme_constant_override("separation", 1)
+	rs_panel.add_child(rsv)
+	rs_rally_row = HBoxContainer.new()
+	rs_rally_row.add_theme_constant_override("separation", 7)
+	rsv.add_child(rs_rally_row)
+	rs_prefix = Label.new()
+	rs_prefix.text = "RALLY:"
+	rs_prefix.add_theme_font_size_override("font_size", 22)
+	rs_prefix.add_theme_font_override("font", ui_bold)
+	rs_prefix.add_theme_color_override("font_color", Color.WHITE)
+	rs_prefix.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
+	rs_prefix.add_theme_constant_override("outline_size", 4)
+	rs_rally_row.add_child(rs_prefix)
+	rs_value = Label.new()
+	rs_value.text = "00"
+	rs_value.add_theme_font_size_override("font_size", 22)
+	rs_value.add_theme_font_override("font", ui_bold)
+	rs_value.add_theme_color_override("font_color", Color("#ffd23f"))
+	rs_value.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
+	rs_value.add_theme_constant_override("outline_size", 4)
+	rs_rally_row.add_child(rs_value)
+	rs_speed_row = HBoxContainer.new()
+	rs_speed_row.add_theme_constant_override("separation", 6)
+	rs_speed_row.visible = false
+	rsv.add_child(rs_speed_row)
+	rs_speed_title = Label.new()
+	rs_speed_title.text = "VELOCIDAD:"
+	rs_speed_title.add_theme_font_size_override("font_size", 15)
+	rs_speed_title.add_theme_color_override("font_color", Color("#dfe8ff"))
+	rs_speed_title.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
+	rs_speed_title.add_theme_constant_override("outline_size", 3)
+	rs_speed_row.add_child(rs_speed_title)
+	rs_speed_val = Label.new()
+	rs_speed_val.text = "0 km/h"
+	rs_speed_val.add_theme_font_size_override("font_size", 15)
+	rs_speed_val.add_theme_font_override("font", ui_bold)
+	rs_speed_val.add_theme_color_override("font_color", Color("#b9ff6a"))
+	rs_speed_val.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
+	rs_speed_val.add_theme_constant_override("outline_size", 3)
+	rs_speed_row.add_child(rs_speed_val)
+	rs_panel.visible = false
+
+func set_rally_line(vis: bool, prefix: String, value: String) -> void :
+	rs_rally_vis = vis
+	rs_rally_row.visible = vis
+	if vis:
+		rs_prefix.text = prefix
+		rs_value.text = value
+		rs_panel.modulate.a = 1.0
+	_update_rs_visible()
+
+func _update_rs_visible() -> void :
+	if rs_panel != null:
+		rs_panel.visible = rs_rally_vis or rs_speed_vis
+
 func set_names(n0: String, n1: String) -> void :
 	name_labels[0].set_meta("base", n0.to_upper().substr(0, 14))
 	name_labels[1].set_meta("base", n1.to_upper().substr(0, 16))
@@ -253,7 +332,7 @@ func update_score(M) -> void :
 		var base: String = name_labels[i].get_meta("base")
 		name_labels[i].text = ("● " if M.server == i else "") + base
 
-func show_point_card(mine: bool, pts: String) -> void :
+func show_point_card(mine: bool, pts: String, reason: String = "") -> void :
 
 	if point_card == null:
 		point_card = PanelContainer.new()
@@ -285,10 +364,17 @@ func show_point_card(mine: bool, pts: String) -> void :
 		point_card_pts.add_theme_font_size_override("font_size", 22)
 		point_card_pts.add_theme_color_override("font_color", Color("#ffd23f"))
 		vb.add_child(point_card_pts)
+		point_card_reason = Label.new()
+		point_card_reason.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		point_card_reason.add_theme_font_size_override("font_size", 16)
+		point_card_reason.add_theme_color_override("font_color", Color("#ffb3a6"))
+		vb.add_child(point_card_reason)
 		add_child(point_card)
 	var nm: String = name_labels[0].get_meta("base") if mine else name_labels[1].get_meta("base")
 	point_card_title.text = "PUNTO  " + nm
 	point_card_pts.text = pts
+	point_card_reason.text = reason
+	point_card_reason.visible = reason != ""
 	point_card.visible = true
 	point_card.modulate.a = 1.0
 	point_card_t = 1.5
@@ -392,15 +478,21 @@ func serve_meter_hide() -> void :
 
 func show_speed_kmh(kmh: int, is_serve: bool) -> void :
 	kmh = clampi(kmh, 0, 245)
-
-	speed_label.text = ("SAQUE  %d km/h" % kmh) if is_serve else ("VELOCIDAD  %d km/h" % kmh)
-	speed_label.visible = true
-	speed_label.modulate.a = 1.0
+	rs_speed_vis = true
+	rs_speed_row.visible = true
+	rs_speed_title.text = "SAQUE:" if is_serve else "VELOCIDAD:"
+	rs_speed_val.text = "%d km/h" % kmh
+	rs_panel.modulate.a = 1.0
+	_update_rs_visible()
 	speed_t = 2.2
 
 
 func hide_speed() -> void :
 	speed_t = 0.0
+	rs_speed_vis = false
+	if rs_speed_row != null:
+		rs_speed_row.visible = false
+	_update_rs_visible()
 	if speed_label != null:
 		speed_label.visible = false
 
@@ -482,9 +574,10 @@ func _process(dt: float) -> void :
 	if speed_t > 0.0:
 		speed_t -= dt
 		if speed_t <= 0.0:
-			speed_label.visible = false
-		elif speed_t < 0.6:
-			speed_label.modulate.a = speed_t / 0.6
+			rs_speed_vis = false
+			if rs_speed_row != null:
+				rs_speed_row.visible = false
+			_update_rs_visible()
 	if replay_tag != null and replay_tag.visible:
 		replay_t += dt
 		replay_tag.modulate.a = 1.0 if fmod(replay_t, 0.9) < 0.6 else 0.35
@@ -494,12 +587,6 @@ func _process(dt: float) -> void :
 			side_popup.visible = false
 		elif side_popup_t < 0.5:
 			side_popup.modulate.a = side_popup_t / 0.5
-	if speed_t > 0.0:
-		speed_t -= dt
-		if speed_t <= 0.0:
-			speed_label.visible = false
-		elif speed_t < 0.6:
-			speed_label.modulate.a = speed_t / 0.6
 	if point_card_t > 0.0:
 		point_card_t -= dt
 		if point_card != null:

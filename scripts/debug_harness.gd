@@ -17,7 +17,7 @@ const LATE: = {
 	"--looktest": "_looktest_harness", "--careershot": "_careershot_harness", 
 	"--faceshots": "_faceshots_harness", "--matchprobe": "_matchprobe_harness", 
 	"--shots": "_shots_harness", 
-	"--latshot": "_latshot_harness", "--ballshot": "_ballshot_harness", "--topshot": "_topshot_harness", "--celnight": "_celnight_harness", "--startshot": "_startshot_harness", "--servepose": "_servepose_harness", "--prepshot": "_prepshot_harness", "--legshot": "_legshot_harness", "--rallylabel": "_rallylabel_harness", "--celshot": "_celshot_harness", "--rkshot": "_rkshot_harness", "--jshot": "_jshot_harness", "--seqshot": "_seqshot_harness", "--ppshot": "_ppshot_harness", "--cpuserve": "_cpuserve_harness", "--audit169": "_audit169_harness", "--cap171": "_cap171_harness", "--gday": "_gday_harness", "--matchmovie": "_matchmovie_harness", "--windupchk": "_windupchk_harness", "--prepcheck": "_prepcheck_harness", "--pose178": "_pose178_harness", "--net178": "_net178_harness", "--full178": "_full178_harness",
+	"--latshot": "_latshot_harness", "--ballshot": "_ballshot_harness", "--topshot": "_topshot_harness", "--celnight": "_celnight_harness", "--startshot": "_startshot_harness", "--servepose": "_servepose_harness", "--gameshot": "_gameshot_harness", "--prepshot": "_prepshot_harness", "--legshot": "_legshot_harness", "--rallylabel": "_rallylabel_harness", "--celshot": "_celshot_harness", "--rkshot": "_rkshot_harness", "--jshot": "_jshot_harness", "--seqshot": "_seqshot_harness", "--ppshot": "_ppshot_harness", "--cpuserve": "_cpuserve_harness", "--audit169": "_audit169_harness", "--cap171": "_cap171_harness", "--gday": "_gday_harness", "--matchmovie": "_matchmovie_harness", "--windupchk": "_windupchk_harness", "--prepcheck": "_prepcheck_harness", "--pose178": "_pose178_harness", "--net178": "_net178_harness", "--full178": "_full178_harness",
 	"--v31shots": "_v31shots", "--audit173": "_audit173_harness", 
 }
 
@@ -1268,6 +1268,34 @@ func _celnight_harness(args: Array) -> void :
 	get_tree().quit()
 
 
+
+
+func _gameshot_harness(args: Array) -> void :
+	var i: = args.find("--gameshot")
+	var out: String = args[i + 1] if i + 1 < args.size() else "/tmp/gameshot"
+	DirAccess.make_dir_recursive_absolute(out)
+	m.menus.visible = false
+	m.match_view = MatchView.new()
+	m.match_view.set_meta("surface", "hard")
+	m.match_view.set_meta("tod", 1)
+	m.match_view.set_meta("cpu_look", 2)
+	m.match_view.set_meta("my_name", "TÚ")
+	m.match_view.set_meta("cpu_label", "CPU")
+	m.match_view.setup({"demo": false, "surface": "hard", "AIP": m.DIFF_PARAMS[1], "PS": {"speed": 7.0, "T": 1.0, "err": 1.0}, "sets_to_win": 1})
+	add_child(m.match_view)
+	await _wait_sim(0.5)
+	var sim = m.match_view.sim
+	sim.state = "play"
+	sim.M.server = 0
+	sim.M.pts = [3, 0]
+	sim.M.games = [0, 0]
+	sim.award_point(0, "PUNTO", "")
+	await _wait_sim(0.5)
+	await _grab(out + "/00_cut.png")
+	await _wait_sim(0.6)
+	await _grab(out + "/01_celeb.png")
+	print("GAMESHOT DONE")
+	get_tree().quit()
 
 func _servepose_harness(args: Array) -> void :
 	var i: = args.find("--servepose")

@@ -652,7 +652,7 @@ func _ready_stance() -> void :
 		if bi < 0:
 			continue
 		var g: = skel.get_bone_global_pose(bi)
-		var rot: = Basis(Vector3.RIGHT, -0.30) * Basis(Vector3.BACK, 0.20 * float(side[1]))
+		var rot: = Basis(Vector3.RIGHT, -0.36) * Basis(Vector3.BACK, 0.34 * float(side[1]))
 		skel.set_bone_global_pose_override(bi, Transform3D(rot * g.basis, g.origin), 1.0, true)
 	skel.force_update_all_bone_transforms()
 	for bn in ["LowerLeg.L", "LowerLeg.R"]:
@@ -660,14 +660,14 @@ func _ready_stance() -> void :
 		if li < 0:
 			continue
 		var lg: = skel.get_bone_global_pose(li)
-		skel.set_bone_global_pose_override(li, Transform3D(Basis(Vector3.RIGHT, 0.45) * lg.basis, lg.origin), 1.0, true)
+		skel.set_bone_global_pose_override(li, Transform3D(Basis(Vector3.RIGHT, 0.52) * lg.basis, lg.origin), 1.0, true)
 	skel.force_update_all_bone_transforms()
 	for fn in ["Foot.L", "Foot.R"]:
 		var fi: = skel.find_bone(_bone_name(skel, fn))
 		if fi < 0:
 			continue
 		var fg: = skel.get_bone_global_pose(fi)
-		skel.set_bone_global_pose_override(fi, Transform3D(Basis(Vector3.RIGHT, -0.24) * fg.basis, fg.origin), 1.0, true)
+		skel.set_bone_global_pose_override(fi, Transform3D(Basis(Vector3.RIGHT, -0.28) * fg.basis, fg.origin), 1.0, true)
 	_bend_torso(0.28)
 	_raise_arm(-0.62, "UpperArm.R")
 	_raise_arm(-0.18, "UpperArm.L")
