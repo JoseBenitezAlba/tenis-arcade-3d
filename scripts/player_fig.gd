@@ -919,7 +919,7 @@ func update_from_sim(e, dt: float) -> void :
 		_raise_arm(TOSS_ARM * (1.0 - _ease_in_cubic(clampf((k - 0.2) / 0.5, 0.0, 1.0))), "UpperArm.L")
 		_raise_arm(SERVE_ARM * clampf(1.0 - absf(k - 0.55) / 0.3, 0.0, 1.0))
 		var _sk: float = clampf(k, 0.0, 1.0)
-		position.y += 0.18 * sin(_sk * PI)
+		position.y += 0.22 * sin(_sk * PI)
 		position.z += (0.35 if e.near else -0.35) * sin(_sk * PI)
 		_twist_torso(0.3 * sin(_sk * PI))
 	elif hold_swing:
@@ -1012,8 +1012,20 @@ func update_from_sim(e, dt: float) -> void :
 	_apply_gaze()
 	_rk_rest(dt)
 	if state in CELEB_ANIMS:
+		_celebration_legs()
 		_celebration_grip()
 
+
+func _celebration_legs() -> void :
+	if skel == null:
+		return
+	for side in [["UpperLeg.L", 1.0], ["UpperLeg.R", -1.0]]:
+		var bi: = skel.find_bone(_bone_name(skel, side[0]))
+		if bi < 0:
+			continue
+		var g: = skel.get_bone_global_pose(bi)
+		var rot: = Basis(Vector3.BACK, 0.22 * float(side[1]))
+		skel.set_bone_global_pose_override(bi, Transform3D(rot * g.basis, g.origin), 1.0, true)
 
 func _celebration_grip() -> void :
 	if racket_node == null:

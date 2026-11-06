@@ -210,6 +210,7 @@ static func rut_y(t: float) -> float:
 	return 0.3 + 0.65 * (cos(b * TAU) * 0.5 + 0.5)
 var time: = 0.0
 var rally_hits: = 0
+var rally_start_hit: = 0
 var last_rally_hitter: = -1
 var serve_unreturned: = false
 var match_over: = false
@@ -283,6 +284,7 @@ func prep_serve() -> void :
 	ball.serve_token = -1
 	reset_serve_ball()
 	rally_hits = 0
+	rally_start_hit = ball.hit_id
 	last_rally_hitter = -1
 	serve_unreturned = false
 	for p in pl:
@@ -610,6 +612,13 @@ func do_hit(e: Player, kind: String, ai: bool) -> void :
 	var dz: = absf(ball.z - e.z)
 	var was_dive: bool = e.dive_t > 0.0
 
+	if not ai and e.id == M.server and state == "serve" and serve_stage == "toss":
+		var sq: float = 1.0 - clampf(absf(ball.toss_t - 0.5) / 0.45, 0.0, 1.0)
+		if sq <= 0.0 or ball.y < 2.1:
+			fault("SIN CONTACTO")
+		else:
+			do_serve(e, sq, "")
+		return
 	var srv_ret_hit: bool = serve_unreturned and M.server != e.id
 	if srv_ret_hit and ball.bounces == 0 and state == "serve":
 		if ball.serve_net:
@@ -875,9 +884,8 @@ func do_hit(e: Player, kind: String, ai: bool) -> void :
 	ball.serving = false
 	ball.in_play = true
 	ball.hit_id += 1
-	if e.id != last_rally_hitter:
-		rally_hits += 1
-		last_rally_hitter = e.id
+	rally_hits = ball.hit_id - rally_start_hit + 1
+	last_rally_hitter = e.id
 	serve_unreturned = false
 	e.swing = 0.34
 
@@ -910,7 +918,7 @@ func do_hit(e: Player, kind: String, ai: bool) -> void :
 			_ic += 1
 	if not ai and not demo and e.id == 0 and kind in ["drive", "slice", "volley"]:
 		var _forced: bool = dx > 1.15 or move_q > 1.05 or ball.y <= 0.85 or on_rise or tq in ["late", "early", "rise"]
-		var _lo: float = 30.6 if _forced else 37.5
+		var _lo: float = 31.94 if _forced else 37.5
 		var _hi: float = 33.3 if _forced else 43.1
 		var _tmin: float = 0.12 if _forced else 0.18
 		if was_dive:
@@ -920,6 +928,13 @@ func do_hit(e: Player, kind: String, ai: bool) -> void :
 		_clamp_launch_speed(tx, tz, T, launch_y, nc_floor, _vcap, _lo, _hi, _tmin, 2.2)
 	if ai and kind == "slice":
 		_clamp_launch_speed(tx, tz, T, launch_y, nc_floor, _vcap, 30.6, 42.0, 0.12, 2.2)
+	if not ai and e.id == 0 and kind not in ["lob", "toplob", "drop"]:
+		var _sp0: float = Vector3(ball.vx, ball.vy, ball.vz).length()
+		if _sp0 < 31.94:
+			var _f: float = 31.94 / maxf(_sp0, 0.01)
+			ball.vx *= _f
+			ball.vy *= _f
+			ball.vz *= _f
 	var spd: = Vector3(ball.vx, ball.vy, ball.vz).length()
 	ball.hot = clampf((spd - 24.0) / 20.0, 0.0, 1.0)
 	events.append({"t": "hit", "id": e.id, "kind": kind, "x": ball.x, "y": ball.y, "z": ball.z, "rise": on_rise, "perfect": perfect, "tper": aim.get("tper", false), "spd": spd, "charge": shot_charge, "tq": tq, "jam": srv_ret_hit and ball.serve_jam, "stretch": snappedf(stretch, 0.01)})
@@ -1344,6 +1359,7 @@ func do_serve(e: Player, q: float, stype: String = "") -> void :
 		sr_other.split_t = 0.32
 	serve_stage = "hit"
 	rally_hits = 1
+	rally_start_hit = ball.hit_id
 	last_rally_hitter = e.id
 
 func toss_ball() -> void :

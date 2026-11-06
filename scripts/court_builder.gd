@@ -662,6 +662,22 @@ static func build(surface: String, day_v = false) -> Node3D:
 	var sback: = _box(0.6, 0.5, 0.08, staff_frame)
 	sback.position = Vector3(-0.28, 2.4, 0)
 	chair.add_child(sback)
+	var desk: = _box(0.6, 0.05, 0.35, staff_frame)
+	desk.position = Vector3(0.42, 2.35, 0.0)
+	chair.add_child(desk)
+	var canopy: = MeshInstance3D.new()
+	var cm: = CylinderMesh.new()
+	cm.top_radius = 0.85
+	cm.bottom_radius = 0.85
+	cm.height = 0.05
+	cm.radial_segments = 20
+	cm.material = white
+	canopy.mesh = cm
+	canopy.position = Vector3(0, 3.4, 0)
+	chair.add_child(canopy)
+	var pole: = _box(0.04, 1.1, 0.04, staff_frame)
+	pole.position = Vector3(0, 2.85, 0)
+	chair.add_child(pole)
 	var step1: = _box(0.5, 0.04, 0.15, white)
 	step1.position = Vector3(0.45, 1.0, 0)
 	chair.add_child(step1)
@@ -669,7 +685,7 @@ static func build(surface: String, day_v = false) -> Node3D:
 	if not ResourceLoader.exists(umpire_model):
 		umpire_model = "res://models/Casual_Hoodie.glb"
 	var umpire: = _fbx_figure(umpire_model, Color("#1c2430"), Color("#151a22"), Color("#d9a37a"), "tennis/Sitting_Idle", Color("#2a2018"), 1.0)
-	umpire.scale = Vector3.ONE * 0.95
+	umpire.scale = Vector3.ONE * 1.28
 	umpire.position = Vector3(0, 2.08, 0)
 	umpire.rotation.y = PI / 2.0
 	chair.add_child(umpire)
@@ -695,6 +711,8 @@ static func build(surface: String, day_v = false) -> Node3D:
 		jback.position = Vector3(0, 0.62, -0.22)
 		jchair.add_child(jback)
 		var judge: = _fbx_figure("res://models/Suit_Male.fbx", judge_cols[ji], Color("#151518"), Color("#c98d62"), "tennis/Sitting_Idle", Color("#2a2018"), 0.85)
+		judge.set_script(load("res://scripts/line_judge.gd"))
+		judge.add_to_group("line_judges")
 		judge.scale = Vector3.ONE * 0.9
 		judge.position = Vector3(0, 0.39, 0.02)
 		jchair.add_child(judge)
@@ -703,7 +721,7 @@ static func build(surface: String, day_v = false) -> Node3D:
 
 	var kid_pos: = [Vector3(-5.9, 0, -2.95), Vector3(5.9, 0, -2.95), Vector3(-8.4, 0, L + 1.5), Vector3(8.4, 0, L + 1.5)]
 	for ki in 4:
-		var kid: = _fbx_figure("res://models/Casual_Hoodie.glb", Color("#2f6fb5"), Color("#f2f2f2"), Color("#d9a37a"), "tennis/Crouch_Idle", Color("#2a2018"), 0.42)
+		var kid: = _fbx_figure("res://models/Casual_Hoodie.glb", Color("#2f6fb5"), Color("#f2f2f2"), Color("#d9a37a"), "Idle_Sword", Color("#2a2018"), 0.42)
 		kid.scale = Vector3.ONE * 0.55
 		kid.position = kid_pos[ki]
 		kid.rotation.y = 0.0 if kid_pos[ki].z < NZ else PI
@@ -711,13 +729,13 @@ static func build(surface: String, day_v = false) -> Node3D:
 		_watchers.append({"fig": kid, "yaw": kid.rotation.y, "body": 0.25})
 
 	for kx in [-5.8, 5.8]:
-		var kpost: = _fbx_figure("res://models/Casual_Hoodie.glb", Color("#2f6fb5"), Color("#f2f2f2"), Color("#d9a37a"), "tennis/Crouch_Idle", Color("#2a2018"), 0.42)
+		var kpost: = _fbx_figure("res://models/Casual_Hoodie.glb", Color("#2f6fb5"), Color("#f2f2f2"), Color("#d9a37a"), "Idle_Sword", Color("#2a2018"), 0.42)
 		kpost.scale = Vector3.ONE * 0.72
-		kpost.position = Vector3(kx * 1.129, 0, NZ + 0.2)
+		kpost.position = Vector3(signf(kx) * 8.1, 0, NZ + 0.35)
 		kpost.rotation.y = - signf(kx) * PI / 2.0
 		root.add_child(kpost)
 		_watchers.append({"fig": kpost, "yaw": kpost.rotation.y, "body": 0.25})
-	var kmid: = _fbx_figure("res://models/Casual_Hoodie.glb", Color("#2f6fb5"), Color("#f2f2f2"), Color("#d9a37a"), "tennis/Crouch_Idle", Color("#2a2018"), 0.42)
+	var kmid: = _fbx_figure("res://models/Casual_Hoodie.glb", Color("#2f6fb5"), Color("#f2f2f2"), Color("#d9a37a"), "Idle_Sword", Color("#2a2018"), 0.42)
 	kmid.scale = Vector3.ONE * 0.72
 	kmid.position = Vector3(0, 0, NZ + 0.55)
 	kmid.rotation.y = PI

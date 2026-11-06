@@ -154,7 +154,7 @@ func _ready() -> void :
 
 	side_popup = Label.new()
 	side_popup.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	side_popup.position = Vector2(1280 - 320, 340)
+	side_popup.position = Vector2(1280 - 320, 196)
 	side_popup.size = Vector2(290, 40)
 	side_popup.add_theme_font_size_override("font_size", 26)
 	side_popup.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
@@ -170,10 +170,6 @@ func _ready() -> void :
 	callout.add_theme_font_override("font", ui_bold)
 	callout.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.95))
 	callout.add_theme_constant_override("outline_size", 12)
-	callout.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.55))
-	callout.add_theme_constant_override("shadow_offset_x", 3)
-	callout.add_theme_constant_override("shadow_offset_y", 3)
-	callout.add_theme_constant_override("shadow_outline_size", 6)
 	callout.visible = false
 	add_child(callout)
 

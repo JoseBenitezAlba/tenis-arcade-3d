@@ -736,6 +736,8 @@ func _physics_process(dt: float) -> void :
 		rigs[i].update_from_sim(sim.pl[i], dt)
 		shadows[i].position.x = sim.pl[i].x
 		shadows[i].position.z = sim.pl[i].z
+		var _shk: float = 1.0 if sim.state in ["point", "over"] else 1.55
+		shadows[i].scale = Vector3(PLAYER_SHADOW_K * _shk, PLAYER_SHADOW_K * 0.95, 1.0)
 		brake_cd[i] = maxf(0.0, brake_cd[i] - dt)
 		var pv = sim.pl[i]
 		if pv.speed > 3.0 and randf() < dt * (9.0 if surface == "clay" else 2.0):
@@ -1409,6 +1411,11 @@ static func spin_axis(vx: float, vz: float) -> Vector3:
 static func step_interval(spd: float) -> float:
 	return clampf(0.46 - spd * 0.035, 0.2, 0.45)
 
+func _call_line_judges(x: float) -> void :
+	for lj in get_tree().get_nodes_in_group("line_judges"):
+		if lj.has_method("call_out"):
+			lj.call_out(x)
+
 func drain_events() -> void :
 	for ev in sim.events:
 		match ev.t:
@@ -1619,8 +1626,12 @@ func drain_events() -> void :
 						mk.m.visible = false
 				_point_winner = ev.get("w", -1)
 				_closeup_ok = ev.txt in ["JUEGO", "SET", "PARTIDO"]
+				if _closeup_ok:
+					hud.hide_speed()
 				_fatigue = fatigue_from_rally(sim.rally_hits)
 				var is_err: bool = ev.txt in ["FUERA", "RED", "DOBLE FALTA"]
+				if ev.txt in ["FUERA", "RED"]:
+					_call_line_judges(sim.ball.x)
 				crowd.react(is_err)
 
 
@@ -1716,6 +1727,7 @@ func drain_events() -> void :
 				rec.clear()
 			"fault":
 				hud.hide_popups()
+				_call_line_judges(sim.ball.x)
 				sfx.play("fault")
 				hud.hide_speed()
 				hud.serve_meter_hide()
