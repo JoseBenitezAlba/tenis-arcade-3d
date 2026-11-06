@@ -920,7 +920,6 @@ func update_from_sim(e, dt: float) -> void :
 		_raise_arm(SERVE_ARM * clampf(1.0 - absf(k - 0.55) / 0.3, 0.0, 1.0))
 		var _sk: float = clampf(k, 0.0, 1.0)
 		position.y += 0.22 * sin(_sk * PI)
-		position.z += (0.35 if e.near else -0.35) * sin(_sk * PI)
 		_twist_torso(0.3 * sin(_sk * PI))
 	elif hold_swing:
 		var hs: String = e.hit_side if "hit_side" in e else "fore"

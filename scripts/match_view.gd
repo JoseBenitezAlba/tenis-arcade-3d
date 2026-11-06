@@ -1531,7 +1531,7 @@ func drain_events() -> void :
 				var skmh: int = int(round(ev.get("spd", 0.0) * SERVE_KMH_K))
 				if skmh > 0 and not demo:
 					hud.show_speed_kmh(skmh, true)
-					serve_speed_hold = 0.9
+					serve_speed_hold = 0.5
 				if ev.get("q", 0.0) >= 0.88:
 					hitstop_t = 0.05
 				sfx.play("hit_big" if (ev.get("q", 0.0) >= 0.88) else "hit", 1.2)

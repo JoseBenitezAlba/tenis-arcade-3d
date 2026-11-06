@@ -16,7 +16,6 @@ static func spec(nz: float) -> Array:
 		[Vector3(6.7, 0.055, 27.22), Vector2(0.8, 0.8), 0.28],
 		[Vector3(-5.8, 0.055, nz + 0.2), Vector2(0.6, 0.6), 0.3],
 		[Vector3(5.8, 0.055, nz + 0.2), Vector2(0.6, 0.6), 0.3],
-		[Vector3(0.0, 0.055, nz + 0.55), Vector2(0.6, 0.6), 0.28],
 		[Vector3(-6.4, 0.055, nz), Vector2(0.5, 0.5), 0.3],
 		[Vector3(6.4, 0.055, nz), Vector2(0.5, 0.5), 0.3],
 	]

@@ -928,10 +928,11 @@ func do_hit(e: Player, kind: String, ai: bool) -> void :
 		_clamp_launch_speed(tx, tz, T, launch_y, nc_floor, _vcap, _lo, _hi, _tmin, 2.2)
 	if ai and kind == "slice":
 		_clamp_launch_speed(tx, tz, T, launch_y, nc_floor, _vcap, 30.6, 42.0, 0.12, 2.2)
-	if not ai and e.id == 0 and kind not in ["lob", "toplob", "drop"]:
+	if not ai and e.id == 0 and kind not in ["lob", "toplob"]:
+		var _min_sp: float = 29.17 if kind == "drop" else 31.94
 		var _sp0: float = Vector3(ball.vx, ball.vy, ball.vz).length()
-		if _sp0 < 31.94:
-			var _f: float = 31.94 / maxf(_sp0, 0.01)
+		if _sp0 < _min_sp:
+			var _f: float = _min_sp / maxf(_sp0, 0.01)
 			ball.vx *= _f
 			ball.vy *= _f
 			ball.vz *= _f
@@ -1349,6 +1350,10 @@ func do_serve(e: Player, q: float, stype: String = "") -> void :
 		stats[e.id].first_total += 1
 	stats[e.id].max_serve = maxi(stats[e.id].max_serve, int(round(sspd * 3.6)))
 	events.append({"t": "serve", "id": e.id, "q": q, "spd": sspd, "x": ball.x, "y": ball.y, "z": ball.z})
+	if e.near:
+		e.z += 0.35
+	else:
+		e.z -= 0.35
 
 
 
@@ -1514,10 +1519,11 @@ func step_ball(dt: float) -> void :
 		ball.y += ball.vy * dt
 		ball.x = sv.x + 0.28
 		ball.z = sv.z + 0.3 * sdir
-		if ball.vy < 0.0 and ball.y < 1.2:
+		if ball.vy < 0.0 and ball.y <= 0.25:
 			ball.toss = false
 			ball.vy = 0.0
 			ball.held = true
+			ball.y = 0.25
 			fault("Saque no golpeado")
 		return
 	if not ball.in_play and state != "point":
@@ -2520,7 +2526,7 @@ func update(dt: float) -> void :
 	if state == "serve" and (demo or M.server == 1) and cpu_serve_at > 0.0 and time > cpu_serve_at:
 		if serve_stage == "ready":
 			toss_ball()
-			cpu_serve_at = time + 0.3 + randf_range(0.0, 0.08)
+			cpu_serve_at = time + 0.55 + randf_range(0.0, 0.08)
 		elif serve_stage == "toss":
 			do_serve(pl[M.server], 0.75 + randf_range(0.0, 0.25))
 			cpu_serve_at = 0.0

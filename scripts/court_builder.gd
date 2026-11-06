@@ -721,7 +721,7 @@ static func build(surface: String, day_v = false) -> Node3D:
 
 	var kid_pos: = [Vector3(-5.9, 0, -2.95), Vector3(5.9, 0, -2.95), Vector3(-8.4, 0, L + 1.5), Vector3(8.4, 0, L + 1.5)]
 	for ki in 4:
-		var kid: = _fbx_figure("res://models/Casual_Hoodie.glb", Color("#2f6fb5"), Color("#f2f2f2"), Color("#d9a37a"), "Idle_Sword", Color("#2a2018"), 0.42)
+		var kid: = _fbx_figure("res://models/Casual_Hoodie.glb", Color("#2f6fb5"), Color("#f2f2f2"), Color("#d9a37a"), "Idle", Color("#2a2018"), 0.42)
 		kid.scale = Vector3.ONE * 0.55
 		kid.position = kid_pos[ki]
 		kid.rotation.y = 0.0 if kid_pos[ki].z < NZ else PI
@@ -729,18 +729,12 @@ static func build(surface: String, day_v = false) -> Node3D:
 		_watchers.append({"fig": kid, "yaw": kid.rotation.y, "body": 0.25})
 
 	for kx in [-5.8, 5.8]:
-		var kpost: = _fbx_figure("res://models/Casual_Hoodie.glb", Color("#2f6fb5"), Color("#f2f2f2"), Color("#d9a37a"), "Idle_Sword", Color("#2a2018"), 0.42)
+		var kpost: = _fbx_figure("res://models/Casual_Hoodie.glb", Color("#2f6fb5"), Color("#f2f2f2"), Color("#d9a37a"), "Idle", Color("#2a2018"), 0.42)
 		kpost.scale = Vector3.ONE * 0.72
 		kpost.position = Vector3(signf(kx) * 8.1, 0, NZ + 0.35)
 		kpost.rotation.y = - signf(kx) * PI / 2.0
 		root.add_child(kpost)
 		_watchers.append({"fig": kpost, "yaw": kpost.rotation.y, "body": 0.25})
-	var kmid: = _fbx_figure("res://models/Casual_Hoodie.glb", Color("#2f6fb5"), Color("#f2f2f2"), Color("#d9a37a"), "Idle_Sword", Color("#2a2018"), 0.42)
-	kmid.scale = Vector3.ONE * 0.72
-	kmid.position = Vector3(0, 0, NZ + 0.55)
-	kmid.rotation.y = PI
-	root.add_child(kmid)
-	_watchers.append({"fig": kmid, "yaw": kmid.rotation.y, "body": 0.25})
 
 	for s in [-1, 1]:
 		var bench: = Node3D.new()
