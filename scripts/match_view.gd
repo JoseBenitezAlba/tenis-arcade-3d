@@ -732,7 +732,7 @@ func _physics_process(dt: float) -> void :
 		rigs[i].serve_toss = clampf(sim.ball.toss_t / 0.5, 0.0, 1.0) if (sim.state == "serve" and sim.M.server == i and sim.serve_stage == "toss") else -1.0
 		rigs[i].look_target = Vector3(sim.ball.x, sim.ball.y, sim.ball.z)
 		rigs[i].serve_ready = sim.state == "serve" and sim.M.server == i and sim.serve_stage == "ready"
-		rigs[i].force_hide_racket(sim.state == "point" or sim.state == "over")
+		rigs[i].force_hide_racket((sim.state == "point" or sim.state == "over") and i != _point_winner)
 		rigs[i].update_from_sim(sim.pl[i], dt)
 		shadows[i].position.x = sim.pl[i].x
 		shadows[i].position.z = sim.pl[i].z

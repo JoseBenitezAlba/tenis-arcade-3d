@@ -359,7 +359,6 @@ func award_point(w: int, why: String, sub: String) -> void :
 	var txt: = why
 	var sb: = sub
 	var brk: = false
-	events.append({"t": "sfx_point", "w": w})
 	if M.tb:
 
 		M.tb_pts[w] += 1

@@ -36,6 +36,7 @@ var rs_speed_vis: = false
 var point_card: PanelContainer
 var score_panel: PanelContainer
 var score_sb: StyleBoxFlat
+var header_games: Label
 var _glow_level: = 0
 var _glow_t: = 0.0
 var ui_bold: FontVariation
@@ -75,6 +76,25 @@ func _ready() -> void :
 	grid.add_theme_constant_override("h_separation", 14)
 	grid.add_theme_constant_override("v_separation", 2)
 	panel.add_child(grid)
+	var h0: = Label.new()
+	h0.text = ""
+	h0.custom_minimum_size = Vector2(188, 0)
+	h0.add_theme_font_size_override("font_size", 11)
+	grid.add_child(h0)
+	header_games = Label.new()
+	header_games.text = "JUEGOS"
+	header_games.custom_minimum_size = Vector2(92, 0)
+	header_games.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	header_games.add_theme_font_size_override("font_size", 11)
+	header_games.add_theme_color_override("font_color", Color("#8ea2d8"))
+	grid.add_child(header_games)
+	var h2: = Label.new()
+	h2.text = "PTS"
+	h2.custom_minimum_size = Vector2(42, 0)
+	h2.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	h2.add_theme_font_size_override("font_size", 11)
+	h2.add_theme_color_override("font_color", Color("#8ea2d8"))
+	grid.add_child(h2)
 	for i in 2:
 		var nm: = Label.new()
 		nm.add_theme_font_size_override("font_size", 19)
@@ -304,9 +324,11 @@ func set_names(n0: String, n1: String) -> void :
 
 func update_score(M) -> void :
 	var in_tb: bool = "tb" in M and M.tb
+	var one_set: bool = M.sets_to_win == 1
+	if header_games != null:
+		header_games.text = "JUEGOS" if one_set else "SETS/J"
 	for i in 2:
-		score_rows[i][0].text = "%d - %d" % [M.sets[i], M.games[i]]
-
+		score_rows[i][0].text = str(M.games[i]) if one_set else "%d - %d" % [M.sets[i], M.games[i]]
 		score_rows[i][1].text = str(M.tb_pts[i]) if in_tb else PT[mini(3, M.pts[i])]
 		var base: String = name_labels[i].get_meta("base")
 		name_labels[i].text = ("● " if M.server == i else "") + base

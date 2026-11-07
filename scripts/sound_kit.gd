@@ -13,29 +13,29 @@ func _ready() -> void :
 	streams["skid"] = _mix([{"n": 0.1, "vol": 0.35}], [{"f": 300.0, "d": 0.1, "vol": 0.1, "slide": -140.0, "w": "tri"}], 0.12)
 
 
-	streams["bounce_clay"] = _mix([{"n": 0.09, "vol": 0.22}], [{"f": 92.0, "d": 0.08, "vol": 0.14, "slide": -30.0}])
+	streams["bounce_clay"] = _mix([{"n": 0.03, "vol": 0.5, "atk": 0.001}], [{"f": 330.0, "d": 0.03, "vol": 0.16, "slide": -180.0, "w": "tri"}, {"f": 96.0, "d": 0.07, "vol": 0.14, "slide": -30.0}], 0.09)
 	streams["skid_clay"] = _mix([{"n": 0.18, "vol": 0.4, "atk": 0.03}], [{"f": 240.0, "d": 0.16, "vol": 0.08, "slide": -120.0, "w": "tri"}], 0.18)
 
-	streams["bounce_grass"] = _mix([{"n": 0.04, "vol": 0.16}], [{"f": 150.0, "d": 0.03, "vol": 0.08, "slide": -50.0}])
+	streams["bounce_grass"] = _mix([{"n": 0.02, "vol": 0.32, "atk": 0.001}], [{"f": 230.0, "d": 0.02, "vol": 0.1, "slide": -120.0, "w": "tri"}, {"f": 120.0, "d": 0.04, "vol": 0.08, "slide": -35.0}], 0.06)
 	streams["skid_grass"] = _mix([{"n": 0.07, "vol": 0.2}], [{"f": 340.0, "d": 0.07, "vol": 0.06, "slide": -160.0, "w": "tri"}], 0.08)
 
 
 	streams["step"] = _mix([{"n": 0.03, "vol": 0.18}], [{"f": 180.0, "d": 0.03, "vol": 0.06, "slide": -60.0, "w": "tri"}], 0.045)
 	streams["step_clay"] = _mix([{"n": 0.05, "vol": 0.13, "atk": 0.01}], [{"f": 140.0, "d": 0.04, "vol": 0.05, "slide": -40.0, "w": "tri"}], 0.06)
 	streams["step_grass"] = _mix([{"n": 0.025, "vol": 0.1}], [{"f": 200.0, "d": 0.02, "vol": 0.04, "slide": -50.0, "w": "tri"}], 0.035)
-	streams["hit_weak"] = _mix([{"n": 0.06, "vol": 0.3}], [{"f": 140.0, "d": 0.07, "vol": 0.18, "slide": -50.0, "w": "tri"}, {"f": 70.0, "d": 0.08, "vol": 0.22, "slide": -15.0}])
-	streams["hit"] = _mix([{"n": 0.1, "vol": 0.55}], [{"f": 175.0, "d": 0.09, "vol": 0.28, "slide": -80.0, "w": "tri"}, {"f": 82.0, "d": 0.12, "vol": 0.4, "slide": -22.0}])
+	streams["hit_weak"] = _mix([{"n": 0.02, "vol": 0.55, "atk": 0.001}], [{"f": 430.0, "d": 0.02, "vol": 0.2, "slide": -280.0, "w": "tri"}, {"f": 150.0, "d": 0.06, "vol": 0.2, "slide": -50.0}, {"f": 82.0, "d": 0.07, "vol": 0.22, "slide": -15.0}], 0.1)
+	streams["hit"] = _mix([{"n": 0.026, "vol": 0.82, "atk": 0.001}], [{"f": 760.0, "d": 0.026, "vol": 0.34, "slide": -520.0, "w": "tri"}, {"f": 190.0, "d": 0.07, "vol": 0.3, "slide": -90.0}, {"f": 86.0, "d": 0.1, "vol": 0.34, "slide": -18.0}], 0.13)
 
-	streams["hit_charge"] = _mix([{"n": 0.07, "vol": 0.95}], [{"f": 240.0, "d": 0.06, "vol": 0.45, "slide": -160.0, "w": "tri"}, {"f": 95.0, "d": 0.09, "vol": 0.5, "slide": -30.0}])
-	streams["hit_big"] = _mix([{"n": 0.13, "vol": 0.85}], [{"f": 190.0, "d": 0.11, "vol": 0.4, "slide": -110.0, "w": "tri"}, {"f": 72.0, "d": 0.16, "vol": 0.55, "slide": -18.0}])
-	streams["bounce"] = _mix([{"n": 0.06, "vol": 0.25}], [{"f": 120.0, "d": 0.05, "vol": 0.12, "slide": -40.0}])
-	streams["net"] = _mix([{"n": 0.18, "vol": 0.3}], [{"f": 90.0, "d": 0.2, "vol": 0.2, "slide": -40.0}])
-	streams["serve"] = _mix([], [{"f": 700.0, "d": 0.08, "vol": 0.08, "slide": 300.0}])
+	streams["hit_charge"] = _mix([{"n": 0.032, "vol": 1.0, "atk": 0.001}], [{"f": 900.0, "d": 0.03, "vol": 0.42, "slide": -620.0, "w": "tri"}, {"f": 210.0, "d": 0.08, "vol": 0.38, "slide": -100.0}, {"f": 92.0, "d": 0.11, "vol": 0.45, "slide": -24.0}], 0.14)
+	streams["hit_big"] = _mix([{"n": 0.038, "vol": 1.0, "atk": 0.001}], [{"f": 830.0, "d": 0.034, "vol": 0.46, "slide": -580.0, "w": "tri"}, {"f": 195.0, "d": 0.1, "vol": 0.38, "slide": -105.0}, {"f": 76.0, "d": 0.16, "vol": 0.52, "slide": -16.0}], 0.17)
+	streams["bounce"] = _mix([{"n": 0.018, "vol": 0.5, "atk": 0.001}], [{"f": 640.0, "d": 0.018, "vol": 0.16, "slide": -360.0, "w": "tri"}, {"f": 150.0, "d": 0.055, "vol": 0.14, "slide": -40.0}], 0.08)
+	streams["net"] = _mix([{"n": 0.15, "vol": 0.55, "atk": 0.002}], [{"f": 430.0, "d": 0.03, "vol": 0.18, "slide": -280.0, "w": "tri"}, {"f": 95.0, "d": 0.16, "vol": 0.22, "slide": -40.0}], 0.2)
+	streams["serve"] = _mix([{"n": 0.22, "vol": 0.09, "atk": 0.05}], [{"f": 520.0, "d": 0.2, "vol": 0.02, "slide": -300.0, "w": "tri"}], 0.22)
 	streams["fault"] = _mix([], [{"f": 200.0, "d": 0.25, "vol": 0.08, "slide": -60.0, "w": "saw"}])
 	streams["click"] = _mix([], [{"f": 900.0, "d": 0.04, "vol": 0.05, "w": "square"}])
-	streams["point_win"] = _mix_seq([[523.0, 0.12], [659.0, 0.12], [784.0, 0.2]], 0.08)
+	streams["point_win"] = _claps(0.75)
 	streams["match_win"] = _mix_seq([[523.25, 0.11], [659.25, 0.11], [783.99, 0.11], [783.99, 0.11], [1046.5, 0.55]], 0.11)
-	streams["point_lose"] = _mix_seq([[300.0, 0.2], [220.0, 0.3]], 0.07, -70.0)
+	streams["point_lose"] = _mix([{"n": 0.8, "vol": 0.16, "atk": 0.1}], [{"f": 230.0, "d": 0.8, "vol": 0.04, "slide": -90.0, "w": "tri"}], 0.8)
 
 	streams["murmur"] = _mix([{"n": 2.0, "vol": 0.16, "atk": 0.7}], [{"f": 240.0, "d": 2.0, "vol": 0.05, "slide": -60.0, "w": "tri"}], 2.0)
 	streams["ovation"] = _mix([{"n": 2.6, "vol": 0.55, "atk": 0.06}], [{"f": 320.0, "d": 2.6, "vol": 0.1, "slide": -120.0, "w": "tri"}], 2.6)
@@ -43,16 +43,16 @@ func _ready() -> void :
 	streams["dive"] = _mix([{"n": 0.24, "vol": 0.3, "atk": 0.05}], [{"f": 300.0, "d": 0.2, "vol": 0.1, "slide": -180.0, "w": "tri"}], 0.24)
 
 
-	streams["hit_perfect"] = _mix([{"n": 0.08, "vol": 1.0}], [{"f": 330.0, "d": 0.07, "vol": 0.5, "slide": -210.0, "w": "tri"}, {"f": 88.0, "d": 0.14, "vol": 0.6, "slide": -20.0}])
+	streams["hit_perfect"] = _mix([{"n": 0.03, "vol": 1.0, "atk": 0.001}], [{"f": 980.0, "d": 0.03, "vol": 0.5, "slide": -720.0, "w": "tri"}, {"f": 220.0, "d": 0.08, "vol": 0.42, "slide": -130.0}, {"f": 90.0, "d": 0.14, "vol": 0.55, "slide": -18.0}], 0.16)
 
 	streams["hit_drop"] = _mix([{"n": 0.05, "vol": 0.22}], [{"f": 150.0, "d": 0.06, "vol": 0.14, "slide": -40.0, "w": "tri"}])
 
 
 	streams["grunt"] = _mix([{"n": 0.13, "vol": 0.3, "atk": 0.015}], [{"f": 260.0, "d": 0.13, "vol": 0.16, "slide": -90.0, "w": "saw"}, {"f": 620.0, "d": 0.1, "vol": 0.06, "slide": -200.0, "w": "tri"}], 0.14)
 
-	streams["hit_slice"] = _mix([{"n": 0.14, "vol": 0.38, "atk": 0.02}], [{"f": 210.0, "d": 0.1, "vol": 0.16, "slide": -130.0, "w": "saw"}])
+	streams["hit_slice"] = _mix([{"n": 0.06, "vol": 0.5, "atk": 0.003}], [{"f": 520.0, "d": 0.025, "vol": 0.18, "slide": -340.0, "w": "tri"}, {"f": 300.0, "d": 0.09, "vol": 0.14, "slide": -150.0, "w": "saw"}, {"f": 120.0, "d": 0.08, "vol": 0.18, "slide": -30.0}], 0.12)
 
-	streams["hit_volley"] = _mix([{"n": 0.05, "vol": 0.6}], [{"f": 230.0, "d": 0.05, "vol": 0.3, "slide": -90.0, "w": "tri"}, {"f": 100.0, "d": 0.07, "vol": 0.3, "slide": -25.0}])
+	streams["hit_volley"] = _mix([{"n": 0.022, "vol": 0.8, "atk": 0.001}], [{"f": 700.0, "d": 0.022, "vol": 0.3, "slide": -420.0, "w": "tri"}, {"f": 200.0, "d": 0.055, "vol": 0.28, "slide": -80.0}, {"f": 95.0, "d": 0.06, "vol": 0.26, "slide": -22.0}], 0.09)
 
 	streams["crowd_ooh"] = _mix([{"n": 1.1, "vol": 0.2, "atk": 0.12}], [{"f": 330.0, "d": 1.1, "vol": 0.1, "slide": -120.0, "w": "tri"}], 1.1)
 
@@ -69,7 +69,7 @@ func _ready() -> void :
 
 	streams["ambience"] = _ambience(4.0)
 
-	streams["tape"] = _mix([{"n": 0.12, "vol": 0.3, "atk": 0.005}], [{"f": 500.0, "d": 0.1, "vol": 0.12, "slide": -260.0, "w": "tri"}], 0.13)
+	streams["tape"] = _mix([{"n": 0.07, "vol": 0.5, "atk": 0.002}], [{"f": 720.0, "d": 0.03, "vol": 0.2, "slide": -420.0, "w": "tri"}, {"f": 500.0, "d": 0.08, "vol": 0.1, "slide": -220.0, "w": "tri"}], 0.11)
 
 	streams["drum"] = _drum(1.9)
 

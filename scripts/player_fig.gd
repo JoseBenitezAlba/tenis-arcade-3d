@@ -755,7 +755,7 @@ func update_from_sim(e, dt: float) -> void :
 			rk_show_delay = 0
 		elif rk_show_delay > 0:
 			rk_show_delay -= 1
-		racket_node.visible = not racket_force_hidden and rk_show_delay <= 0 and state not in CELEB_ANIMS
+		racket_node.visible = not racket_force_hidden and rk_show_delay <= 0
 	swing_now = e.swing
 	if serve_toss >= 0.0:
 		_serve_was_swing = false
