@@ -402,6 +402,8 @@ func set_hint(t: String) -> void :
 	hint.text = t
 
 func popup_side(txt: String, color: Color) -> void :
+	if callout != null and callout.visible:
+		return
 	side_popup.text = txt
 	side_popup.add_theme_color_override("font_color", color)
 	side_popup.visible = true

@@ -701,6 +701,8 @@ var celeb_t: = 0.0
 var celeb_name: = ""
 var rk_show_delay: = 0
 var serve_ready: = false
+var serve_follow_t: = 0.0
+var _serve_was_swing: = false
 const CELEB_ANIMS: = ["Wave", "Punch_Right", "Punch_Left", "Sword_Slash", "HitRecieve", "HitRecieve_2"]
 var had_windup: = false
 
@@ -755,6 +757,13 @@ func update_from_sim(e, dt: float) -> void :
 			rk_show_delay -= 1
 		racket_node.visible = not racket_force_hidden and rk_show_delay <= 0 and state not in CELEB_ANIMS
 	swing_now = e.swing
+	if serve_toss >= 0.0:
+		_serve_was_swing = false
+	elif e.kind == "serve" and e.swing > 0.0:
+		_serve_was_swing = true
+	elif _serve_was_swing and e.kind == "serve" and e.swing <= 0.0:
+		_serve_was_swing = false
+		serve_follow_t = 0.25
 	var _fatk: float = e.get("fat") if e.get("fat") != null else 0.0
 
 
@@ -921,6 +930,12 @@ func update_from_sim(e, dt: float) -> void :
 		var _sk: float = clampf(k, 0.0, 1.0)
 		position.y += 0.22 * sin(_sk * PI)
 		_twist_torso(0.3 * sin(_sk * PI))
+	elif serve_follow_t > 0.0 and e.swing <= 0.0:
+		serve_follow_t = maxf(0.0, serve_follow_t - dt)
+		_play("Idle_Sword", 1.0)
+		_apply_gaze()
+		_rk_rest(dt)
+		return
 	elif hold_swing:
 		var hs: String = e.hit_side if "hit_side" in e else "fore"
 		var sc: = _swing_clip(e.kind, hs)

@@ -17,7 +17,7 @@ const LATE: = {
 	"--looktest": "_looktest_harness", "--careershot": "_careershot_harness", 
 	"--faceshots": "_faceshots_harness", "--matchprobe": "_matchprobe_harness", 
 	"--shots": "_shots_harness", 
-	"--latshot": "_latshot_harness", "--ballshot": "_ballshot_harness", "--topshot": "_topshot_harness", "--celnight": "_celnight_harness", "--startshot": "_startshot_harness", "--servepose": "_servepose_harness", "--gameshot": "_gameshot_harness", "--faulttest": "_faulttest_harness", "--prepshot": "_prepshot_harness", "--legshot": "_legshot_harness", "--rallylabel": "_rallylabel_harness", "--celshot": "_celshot_harness", "--rkshot": "_rkshot_harness", "--jshot": "_jshot_harness", "--seqshot": "_seqshot_harness", "--ppshot": "_ppshot_harness", "--cpuserve": "_cpuserve_harness", "--audit169": "_audit169_harness", "--cap171": "_cap171_harness", "--gday": "_gday_harness", "--matchmovie": "_matchmovie_harness", "--windupchk": "_windupchk_harness", "--prepcheck": "_prepcheck_harness", "--pose178": "_pose178_harness", "--net178": "_net178_harness", "--full178": "_full178_harness",
+	"--latshot": "_latshot_harness", "--ballshot": "_ballshot_harness", "--topshot": "_topshot_harness", "--celnight": "_celnight_harness", "--startshot": "_startshot_harness", "--servepose": "_servepose_harness", "--gameshot": "_gameshot_harness", "--faulttest": "_faulttest_harness", "--prepshot": "_prepshot_harness", "--legshot": "_legshot_harness", "--rallylabel": "_rallylabel_harness", "--celshot": "_celshot_harness", "--rkshot": "_rkshot_harness", "--jshot": "_jshot_harness", "--seqshot": "_seqshot_harness", "--ppshot": "_ppshot_harness", "--cpuserve": "_cpuserve_harness", "--cpuserveclose": "_cpuserveclose_harness", "--audit169": "_audit169_harness", "--cap171": "_cap171_harness", "--gday": "_gday_harness", "--matchmovie": "_matchmovie_harness", "--windupchk": "_windupchk_harness", "--prepcheck": "_prepcheck_harness", "--pose178": "_pose178_harness", "--net178": "_net178_harness", "--full178": "_full178_harness",
 	"--v31shots": "_v31shots", "--audit173": "_audit173_harness", 
 }
 
@@ -1638,6 +1638,35 @@ func _ppshot_harness(args: Array) -> void :
 			await get_tree().process_frame
 		print("PP ", n, " sim=", m.match_view.sim.state, " ball=", m.match_view.sim.ball.x, " ", m.match_view.sim.ball.y, " ", m.match_view.sim.ball.z, " vis=", m.match_view.ball_mesh.visible, " scale=", m.match_view.ball_mesh.scale, " pb=", m.match_view._pb_active)
 		await _grab(out + "/p%d.png" % n)
+	get_tree().quit()
+
+
+func _cpuserveclose_harness(args: Array) -> void :
+	var i: = args.find("--cpuserveclose")
+	var out: String = args[i + 1] if i + 1 < args.size() else "/tmp/cpuserveclose"
+	DirAccess.make_dir_recursive_absolute(out)
+	m.menus.visible = false
+	m.match_view = MatchView.new()
+	m.match_view.set_meta("surface", "hard")
+	m.match_view.set_meta("tod", 1)
+	m.match_view.set_meta("cpu_look", 2)
+	m.match_view.set_meta("my_name", "TÚ")
+	m.match_view.set_meta("cpu_label", "CPU")
+	m.match_view.setup({"demo": false, "surface": "hard", "AIP": m.DIFF_PARAMS[1], "PS": {"speed": 7.0, "T": 1.0, "err": 1.0}, "sets_to_win": 1})
+	m.match_view.sim.M.server = 1
+	m.match_view.sim.prep_serve()
+	add_child(m.match_view)
+	var jc: = Camera3D.new()
+	add_child(jc)
+	jc.fov = 34.0
+	jc.current = true
+	var p1: Vector3 = m.match_view.rigs[1].global_position
+	jc.position = p1 + Vector3(2.2, 1.5, -4.0)
+	jc.look_at(p1 + Vector3(0, 1.0, 0))
+	for n in 18:
+		await _wait_sim(0.2)
+		await _grab(out + "/f%02d.png" % n)
+	print("CPUSERVE CLOSE DONE")
 	get_tree().quit()
 
 func _cpuserve_harness(args: Array) -> void :

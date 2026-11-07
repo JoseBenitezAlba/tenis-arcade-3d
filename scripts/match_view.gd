@@ -1626,8 +1626,7 @@ func drain_events() -> void :
 						mk.m.visible = false
 				_point_winner = ev.get("w", -1)
 				_closeup_ok = ev.txt in ["JUEGO", "SET", "PARTIDO"]
-				if _closeup_ok:
-					hud.hide_speed()
+				hud.hide_speed()
 				_fatigue = fatigue_from_rally(sim.rally_hits)
 				var is_err: bool = ev.txt in ["FUERA", "RED", "DOBLE FALTA"]
 				if ev.txt in ["FUERA", "RED"]:

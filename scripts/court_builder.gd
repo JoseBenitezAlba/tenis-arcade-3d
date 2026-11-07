@@ -240,6 +240,20 @@ static func build(surface: String, day_v = false) -> Node3D:
 	var strap: = _box(0.075, 0.92, 0.04, strap_mat)
 	strap.position = Vector3(0, 0.46, NZ)
 	root.add_child(strap)
+	var nsh_mat: = StandardMaterial3D.new()
+	nsh_mat.albedo_texture = TexGen.shadow_texture()
+	nsh_mat.albedo_color = Color(0, 0, 0, 0.38)
+	nsh_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	nsh_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	nsh_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	var nsh: = MeshInstance3D.new()
+	var nshq: = QuadMesh.new()
+	nshq.size = Vector2(13.4, 0.9)
+	nshq.material = nsh_mat
+	nsh.mesh = nshq
+	nsh.rotation_degrees.x = -90.0
+	nsh.position = Vector3(0, 0.071, NZ + 0.15)
+	root.add_child(nsh)
 
 
 
@@ -693,7 +707,7 @@ static func build(surface: String, day_v = false) -> Node3D:
 	_watchers.append({"fig": umpire, "yaw": PI / 2.0, "body": 0.45})
 
 	var judge_cols: = [Color("#2f6fb5"), Color("#2f6fb5"), Color("#2f6fb5"), Color("#2f6fb5")]
-	var jpos: = [Vector3(-8.4, 0, NZ - 2.0), Vector3(8.4, 0, NZ + 2.0), Vector3(-6.7, 0, L + 3.45), Vector3(6.7, 0, L + 3.45)]
+	var jpos: = [Vector3(-8.4, 0, NZ - 2.0), Vector3(6.9, 0, NZ + 2.0), Vector3(-6.7, 0, L + 3.45), Vector3(5.2, 0, L + 3.45)]
 	for ji in 4:
 		var jchair: = Node3D.new()
 		jchair.position = jpos[ji]
