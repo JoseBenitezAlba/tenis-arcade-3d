@@ -76,6 +76,38 @@ func _ready() -> void :
 
 	streams["grunt"] = _mix([{"n": 0.1, "vol": 0.2, "atk": 0.01}], [{"f": 130.0, "d": 0.15, "vol": 0.5, "slide": -45.0, "w": "saw"}, {"f": 262.0, "d": 0.11, "vol": 0.22, "slide": -70.0, "w": "tri"}], 0.17)
 
+	_load_samples()
+
+func _load_samples() -> void :
+	var files: = {
+		"hit_01": "res://assets/audio/tennis_hit_01.mp3",
+		"hit_02": "res://assets/audio/tennis_hit_02.mp3",
+		"bounce": "res://assets/audio/tennis_bounce.mp3",
+		"net": "res://assets/audio/tennis_net.mp3",
+	}
+	var smp: = {}
+	for k in files:
+		if ResourceLoader.exists(files[k]):
+			smp[k] = load(files[k])
+	if smp.is_empty():
+		return
+	var h1 = smp.get("hit_01")
+	var h2 = smp.get("hit_02", h1)
+	if h1 != null:
+		streams["hit"] = h1
+		streams["hit_weak"] = h1
+		streams["hit_perfect"] = h1
+		streams["hit_slice"] = h1
+		streams["hit_volley"] = h1
+	if h2 != null:
+		streams["hit_big"] = h2
+		streams["hit_charge"] = h2
+	if smp.get("bounce") != null:
+		streams["bounce"] = smp["bounce"]
+	if smp.get("net") != null:
+		streams["net"] = smp["net"]
+		streams["tape"] = smp["net"]
+
 func _mix(noises: Array, tones: Array, dur: = 0.3) -> AudioStreamWAV:
 	var n: = int(RATE * dur)
 	var data: = PackedByteArray()
@@ -259,6 +291,8 @@ func play(name: String, vol: float = 1.0, pitch: float = 1.0) -> void :
 	p.stream = streams[name]
 	p.volume_db = linear_to_db(max(vol, 0.01))
 	p.pitch_scale = pitch
+	if p.stream is AudioStreamMP3 and (name.begins_with("hit") or name == "bounce"):
+		p.pitch_scale *= rng.randf_range(0.94, 1.06)
 	p.finished.connect(p.queue_free)
 	add_child(p)
 	p.play()
