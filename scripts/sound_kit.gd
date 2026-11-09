@@ -33,6 +33,7 @@ func _ready() -> void :
 	streams["serve"] = _mix([{"n": 0.22, "vol": 0.09, "atk": 0.05}], [{"f": 520.0, "d": 0.2, "vol": 0.02, "slide": -300.0, "w": "tri"}], 0.22)
 	streams["fault"] = _mix([], [{"f": 200.0, "d": 0.25, "vol": 0.08, "slide": -60.0, "w": "saw"}])
 	streams["click"] = _mix([], [{"f": 900.0, "d": 0.04, "vol": 0.05, "w": "square"}])
+	streams["judge"] = _mix_seq([[660.0, 0.07], [880.0, 0.1]], 0.1)
 	streams["point_win"] = _claps(0.75)
 	streams["match_win"] = _mix_seq([[523.25, 0.11], [659.25, 0.11], [783.99, 0.11], [783.99, 0.11], [1046.5, 0.55]], 0.11)
 	streams["point_lose"] = _mix([{"n": 0.8, "vol": 0.16, "atk": 0.1}], [{"f": 230.0, "d": 0.8, "vol": 0.04, "slide": -90.0, "w": "tri"}], 0.8)

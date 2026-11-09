@@ -158,6 +158,8 @@ func _start_match(cfg: Dictionary) -> void :
 	match_view.match_finished.connect(_on_match_finished)
 	match_view.quit_to_menu.connect(_to_menu)
 	await get_tree().process_frame
+	if DisplayServer.get_name() != "headless":
+		await RenderingServer.frame_post_draw
 	menus.visible = false
 	if old and is_instance_valid(old):
 		old.queue_free()

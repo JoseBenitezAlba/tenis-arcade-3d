@@ -763,7 +763,7 @@ func update_from_sim(e, dt: float) -> void :
 		_serve_was_swing = true
 	elif _serve_was_swing and e.kind == "serve" and e.swing <= 0.0:
 		_serve_was_swing = false
-		serve_follow_t = 0.18
+		serve_follow_t = 0.15
 	var _fatk: float = e.get("fat") if e.get("fat") != null else 0.0
 
 

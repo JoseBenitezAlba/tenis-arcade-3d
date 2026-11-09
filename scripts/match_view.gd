@@ -23,6 +23,8 @@ var ball_mat: StandardMaterial3D
 var seam_mat: StandardMaterial3D
 var clay_tint: = 0.0
 var leg_dust: = 0.0
+var _prev_p0_spd: = 0.0
+var _brake_cool: = 0.0
 var ball_shadow: MeshInstance3D
 var ball_seam: MeshInstance3D
 var shadows: = []
@@ -694,6 +696,14 @@ func _physics_process(dt: float) -> void :
 		hitstop_t -= dt
 	else:
 		sim.update(dt)
+	_brake_cool = maxf(0.0, _brake_cool - dt)
+	var p0 = sim.pl[0]
+	if _prev_p0_spd > 4.2 and p0.speed < 1.6 and _brake_cool <= 0.0 and sim.state in ["play", "serve"]:
+		_brake_cool = 0.55
+		spawn_dust(Vector3(p0.x, 0.06, p0.z), 4, dust_color(0.7), 1.3)
+		var sk: String = sfx.surf_name("skid", surface)
+		sfx.play(sk, 0.55)
+	_prev_p0_spd = p0.speed
 	serve_speed_hold = maxf(0.0, serve_speed_hold - dt)
 	drain_events()
 	if ( not demo or replay_test) and sim.state not in ["point", "over"] and sim.ball.in_play:
@@ -1248,11 +1258,13 @@ static func crowd_point_plan(txt: String, rally_hits: int) -> Array:
 	var out: = []
 
 
-	if txt == "PUNTO" and rally_hits >= 14:
-		out.append(["ovation", 0.9])
-	if txt == "PUNTO" and rally_hits >= 3 and rally_hits < 8:
+	if txt == "PUNTO" and rally_hits >= 10:
+		out.append(["ovation", clampf(0.72 + rally_hits * 0.012, 0.72, 1.0)])
+		if rally_hits >= 16:
+			out.append(["applause", 0.9])
+	if txt == "PUNTO" and rally_hits >= 3 and rally_hits < 10:
 
-		out.append(["applause", clampf(0.2 + rally_hits * 0.03, 0.2, 0.45)])
+		out.append(["applause", clampf(0.24 + rally_hits * 0.035, 0.24, 0.6)])
 	elif txt == "JUEGO":
 		out.append(["ovation", 0.8])
 	elif txt == "SET":
@@ -1463,7 +1475,16 @@ func drain_events() -> void :
 						hs = "hit_slice"
 					elif ev.kind == "volley":
 						hs = "hit_volley"
-					sfx.play(hs, 1.0, clampf(0.85 + ev.get("spd", 25.0) * 0.008, 0.9, 1.2))
+					var _kmh: float = float(hkmh)
+					var _pitch: float = clampf(0.88 + _kmh / 140.0 * 0.22, 0.88, 1.14)
+					var _vol: float = clampf(0.72 + _kmh / 180.0 * 0.48, 0.72, 1.2)
+					if _kmh < 95.0:
+						hs = "hit_weak"
+					elif _kmh >= 150.0:
+						hs = "hit_big"
+					sfx.play(hs, _vol, _pitch)
+					if _kmh >= 140.0:
+						sfx.play("hit_charge", clampf(_vol * 0.55, 0.4, 0.8), 0.92)
 				if ev.kind == "smash":
 					shake = 0.34
 					sfx.play("grunt", grunt_hit_vol(0.0, ev.kind), 0.94 + 0.08 * float(ev.id))
@@ -1528,7 +1549,11 @@ func drain_events() -> void :
 					serve_speed_hold = 0.5
 				if ev.get("q", 0.0) >= 0.88:
 					hitstop_t = 0.05
-				sfx.play("hit_big" if (ev.get("q", 0.0) >= 0.88) else "hit", 1.2)
+				var _skmh: float = float(skmh)
+				var _spitch: float = clampf(0.90 + _skmh / 200.0 * 0.16, 0.90, 1.12)
+				sfx.play("hit_big" if _skmh >= 175.0 else "hit", 1.2, _spitch)
+				if _skmh >= 185.0:
+					sfx.play("hit_charge", 0.7, 0.9)
 				var gs: float = grunt_serve_vol(ev.get("q", 0.0))
 				if gs > 0.0:
 					sfx.play("grunt", gs, 0.97 + 0.06 * float(ev.get("id", 0)))
@@ -1578,6 +1603,7 @@ func drain_events() -> void :
 				spawn_mark(Vector3(ev.x, 0.0, ev.z))
 			"let":
 				hud.hide_popups()
+				sfx.play("judge", 0.45, 0.92)
 				hud.popup("LET", Vector3(sim.ball.x, 0.0, sim.ball.z), Color("#ffffff"))
 				hud.show_banner("LET", "se repite el saque", Color("#ffffff"))
 				banner_dur = 1.2
@@ -1679,6 +1705,8 @@ func drain_events() -> void :
 					for r in rigs:
 						r.set_sweat(sweat_v)
 
+				if ev.txt in ["JUEGO", "SET", "PARTIDO"]:
+					sfx.play("judge", 0.55, 1.05)
 				if ev.txt == "JUEGO" and ev.get("brk", false):
 					hud.popup_big("¡BREAK!", Color("#ffd23f"))
 					sfx.play("ovation", 0.9)
@@ -1723,6 +1751,7 @@ func drain_events() -> void :
 			"fault":
 				hud.hide_popups()
 				_call_line_judges(sim.ball.x)
+				sfx.play("judge", 0.4, 0.85)
 				sfx.play("fault")
 				hud.hide_speed()
 				hud.serve_meter_hide()
