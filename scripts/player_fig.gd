@@ -763,7 +763,7 @@ func update_from_sim(e, dt: float) -> void :
 		_serve_was_swing = true
 	elif _serve_was_swing and e.kind == "serve" and e.swing <= 0.0:
 		_serve_was_swing = false
-		serve_follow_t = 0.25
+		serve_follow_t = 0.18
 	var _fatk: float = e.get("fat") if e.get("fat") != null else 0.0
 
 
@@ -917,9 +917,9 @@ func update_from_sim(e, dt: float) -> void :
 		var toss_k: float = clampf(serve_toss, 0.0, 1.0)
 		_play_seek("mocap/Servicio", lerpf(0.1, 0.55, toss_k))
 		_raise_arm(TOSS_ARM * _ease_out_cubic(clampf(serve_toss / 0.55, 0.0, 1.0)), "UpperArm.L")
-		position.y -= 0.10 * sin(toss_k * PI)
-		_serve_knees(0.85 * sin(toss_k * PI))
-		_twist_torso(-0.22 * sin(toss_k * PI))
+		position.y -= 0.17 * sin(toss_k * PI)
+		_serve_knees(1.05 * sin(toss_k * PI))
+		_twist_torso(-0.26 * sin(toss_k * PI))
 		return
 	if hold_swing and e.kind == "serve":
 
@@ -928,8 +928,8 @@ func update_from_sim(e, dt: float) -> void :
 		_raise_arm(TOSS_ARM * (1.0 - _ease_in_cubic(clampf((k - 0.2) / 0.5, 0.0, 1.0))), "UpperArm.L")
 		_raise_arm(SERVE_ARM * clampf(1.0 - absf(k - 0.55) / 0.3, 0.0, 1.0))
 		var _sk: float = clampf(k, 0.0, 1.0)
-		position.y += 0.22 * sin(_sk * PI)
-		_twist_torso(0.3 * sin(_sk * PI))
+		position.y += 0.3 * sin(_sk * PI)
+		_twist_torso(0.32 * sin(_sk * PI))
 	elif serve_follow_t > 0.0 and e.swing <= 0.0:
 		serve_follow_t = maxf(0.0, serve_follow_t - dt)
 		_play("Idle_Sword", 1.0)

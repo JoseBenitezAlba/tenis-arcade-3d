@@ -706,9 +706,9 @@ static func build(surface: String, day_v = false) -> Node3D:
 	var _watchers: = []
 	_watchers.append({"fig": umpire, "yaw": PI / 2.0, "body": 0.45})
 
-	var judge_cols: = [Color("#2f6fb5"), Color("#2f6fb5"), Color("#2f6fb5"), Color("#2f6fb5")]
-	var jpos: = [Vector3(-8.4, 0, NZ - 2.0), Vector3(6.9, 0, NZ + 2.0), Vector3(-6.7, 0, L + 3.45), Vector3(5.2, 0, L + 3.45)]
-	for ji in 4:
+	var judge_cols: = [Color("#2f6fb5"), Color("#2f6fb5")]
+	var jpos: = [Vector3(-9.0, 0, NZ - 2.4), Vector3(9.0, 0, NZ + 2.4)]
+	for ji in 2:
 		var jchair: = Node3D.new()
 		jchair.position = jpos[ji]
 		jchair.rotation.y = - signf(jpos[ji].x) * PI / 2.0
@@ -733,12 +733,12 @@ static func build(surface: String, day_v = false) -> Node3D:
 		_watchers.append({"fig": judge, "yaw": jchair.rotation.y, "body": 0.35})
 
 
-	var kid_pos: = [Vector3(-5.9, 0, -2.95), Vector3(5.9, 0, -2.95), Vector3(-8.4, 0, L + 1.5), Vector3(8.4, 0, L + 1.5)]
-	for ki in 4:
-		var kid: = _fbx_figure("res://models/Casual_Hoodie.glb", Color("#2f6fb5"), Color("#f2f2f2"), Color("#d9a37a"), "Idle", Color("#2a2018"), 0.42)
-		kid.scale = Vector3.ONE * 0.55
+	var kid_pos: = [Vector3(-7.4, 0, NZ + 0.15), Vector3(7.4, 0, NZ + 0.15)]
+	for ki in 2:
+		var kid: = _fbx_figure("res://models/Casual_Hoodie.glb", Color("#2f6fb5"), Color("#f2f2f2"), Color("#d9a37a"), "Idle_Neutral", Color("#2a2018"), 0.42)
+		kid.scale = Vector3.ONE * 0.58
 		kid.position = kid_pos[ki]
-		kid.rotation.y = 0.0 if kid_pos[ki].z < NZ else PI
+		kid.rotation.y = PI / 2.0 if kid_pos[ki].x < 0.0 else - PI / 2.0
 		root.add_child(kid)
 		_watchers.append({"fig": kid, "yaw": kid.rotation.y, "body": 0.25})
 

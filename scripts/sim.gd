@@ -147,11 +147,14 @@ class AIParams extends RefCounted:
 	var miss: = 0.15
 
 	var risk: = 0.5
+	var attack: = 0.0
+	var serve_lo: = 47.2
+	var serve_hi: = 51.0
 
 	var style: = ""
 	static func from_dict(d: Dictionary) -> AIParams:
 		var p: = AIParams.new()
-		for k in ["speed", "react", "err", "miss", "risk"]:
+		for k in ["speed", "react", "err", "miss", "risk", "attack", "serve_lo", "serve_hi"]:
 			if d.has(k):
 				p.set(k, float(d[k]))
 		if d.has("style"):
@@ -614,12 +617,13 @@ func do_hit(e: Player, kind: String, ai: bool) -> void :
 	var dz: = absf(ball.z - e.z)
 	var was_dive: bool = e.dive_t > 0.0
 
-	if not ai and e.id == M.server and state == "serve" and serve_stage == "toss":
-		var sq: float = 1.0 - clampf(absf(ball.toss_t - 0.5) / 0.45, 0.0, 1.0)
-		if sq <= 0.0 or ball.y < 2.1:
-			fault("SIN CONTACTO")
-		else:
-			do_serve(e, sq, "")
+	if e.id == M.server and state == "serve" and serve_stage != "rally":
+		if serve_stage == "toss" and ball.toss:
+			var sq: float = 1.0 - clampf(absf(ball.toss_t - 0.5) / 0.45, 0.0, 1.0)
+			if sq <= 0.02 or ball.y < 1.9:
+				fault("SIN CONTACTO")
+			else:
+				do_serve(e, maxf(sq, 0.4), "")
 		return
 	var srv_ret_hit: bool = serve_unreturned and M.server != e.id
 	if srv_ret_hit and ball.bounces == 0 and state == "serve":
@@ -728,18 +732,18 @@ func do_hit(e: Player, kind: String, ai: bool) -> void :
 	ball.spin = {"drop": -1.0, "lob": 0.25, "smash": 0.5, "slice": -0.75, "volley": 0.3, "toplob": 1.1}.get(kind, 0.85)
 	ball.kind = kind
 	var tz: = NZ + dir * (2.2 + d * (L / 2.0 - 2.2))
-	if not ai and e.id == 0 and kind in ["drive", "slice", "volley"]:
+	if not ai and e.id == 0 and kind not in ["drop", "lob", "toplob"]:
 		var tx_margin: float = 0.15 if absf(e.aim_lx) > 0.82 else 0.45
 		tx = clampf(tx, -4.115 + tx_margin, 4.115 - tx_margin)
 		var extreme: bool = absf(e.aim_lx) > 0.82
 		var margin: float = 0.35 if extreme else (1.0 if kind == "volley" else 1.2)
 		if e.near:
 			var zmax: float = L - margin
-			var zmin: float = maxf(ball.z + 1.2, NZ + 1.0)
+			var zmin: float = maxf(ball.z + 1.6, NZ + 1.4)
 			tz = zmax if zmin > zmax else clampf(tz, zmin, zmax)
 		else:
 			var zmin2: float = margin
-			var zmax2: float = minf(ball.z - 1.2, NZ - 1.0)
+			var zmax2: float = minf(ball.z - 1.6, NZ - 1.4)
 			tz = zmin2 if zmax2 < zmin2 else clampf(tz, zmin2, zmax2)
 	if kind == "drive" or kind == "slice":
 		# Ritmo constante por distancia: T escala con la distancia real al objetivo
@@ -932,6 +936,13 @@ func do_hit(e: Player, kind: String, ai: bool) -> void :
 		_clamp_launch_speed(tx, tz, T, launch_y, nc_floor, _vcap, 29.17, 34.0, 0.08, 2.2)
 	if ai and kind == "slice":
 		_clamp_launch_speed(tx, tz, T, launch_y, nc_floor, _vcap, 30.6, 42.0, 0.12, 2.2)
+	if kind in ["drive", "slice", "volley", "smash"]:
+		var _floor_sp: float = Vector3(ball.vx, ball.vy, ball.vz).length()
+		if _floor_sp < 31.94:
+			var _ff: float = 31.94 / maxf(_floor_sp, 0.01)
+			ball.vx *= _ff
+			ball.vy *= _ff
+			ball.vz *= _ff
 	var spd: = Vector3(ball.vx, ball.vy, ball.vz).length()
 	ball.hot = clampf((spd - 24.0) / 20.0, 0.0, 1.0)
 	events.append({"t": "hit", "id": e.id, "kind": kind, "x": ball.x, "y": ball.y, "z": ball.z, "rise": on_rise, "perfect": perfect, "tper": aim.get("tper", false), "spd": spd, "charge": shot_charge, "tq": tq, "jam": srv_ret_hit and ball.serve_jam, "stretch": snappedf(stretch, 0.01)})
@@ -1005,12 +1016,13 @@ func _ai_aim(e: Player, opp: Player, kind: String, stretch: float, move_q: float
 
 
 
-	var aggro: float = clampf(0.15 + rally_hits * 0.12, 0.15, 0.55 + 0.4 * D.risk)
+	var aggro: float = clampf(0.15 + rally_hits * 0.12 + D.attack * 0.65, 0.15, 0.85)
 	if kind != "drop" and kind != "lob" and clear_chance and randf() < aggro:
 		if reversing:
-			tx = clampf( - signf(opp.vx) * randf_range(2.8, 3.8), -3.9, 3.9)
+			tx = clampf( - signf(opp.vx) * randf_range(2.8, 3.9), -3.9, 3.9)
 		else:
-			tx = clampf(signf(tx) * randf_range(2.8, 3.8), -3.9, 3.9)
+			var _lo: float = 2.8 + 0.4 * D.attack
+			tx = clampf(signf(tx) * randf_range(_lo, 3.9), -3.9, 3.9)
 		T *= 0.85 - 0.12 * D.risk
 		d = minf(d + 0.12, 1.0)
 		tx += randn() * D.err * 0.5
@@ -1319,9 +1331,15 @@ func do_serve(e: Player, q: float, stype: String = "") -> void :
 
 	var sspd: = Vector3(ball.vx, ball.vy, ball.vz).length()
 	if e.id == 1:
-		var _slo: float = randf_range(47.2, 51.0) if serve_fault == 0 else randf_range(37.5, 40.0)
-		var _shi: float = 54.2 if serve_fault == 0 else 43.1
+		var _slo: float = randf_range(AIP.serve_lo, AIP.serve_hi) if serve_fault == 0 else randf_range(37.5, 40.0)
+		var _shi: float = AIP.serve_hi + 3.2 if serve_fault == 0 else 43.1
 		sspd = _clamp_launch_speed(tx, NZ + dir * tzr, serve_T, max(ball.y, 2.0), 1.06, 0.0, _slo, _shi, 0.18, 1.6)
+		if AIP.attack >= 0.35 and sspd < AIP.serve_lo:
+			var _sf: float = AIP.serve_lo / maxf(sspd, 0.01)
+			ball.vx *= _sf
+			ball.vy *= _sf
+			ball.vz *= _sf
+			sspd = Vector3(ball.vx, ball.vy, ball.vz).length()
 	elif not demo and e.id == 0:
 		var _first: bool = serve_fault == 0
 		var _kick: bool = stype == "slice" or stype == "kick"
@@ -1338,7 +1356,7 @@ func do_serve(e: Player, q: float, stype: String = "") -> void :
 	ball.toss = false
 	ball.serving = true
 	ball.hit_id += 1
-	e.swing = 0.4 if e.id == 0 else 0.26
+	e.swing = 0.28 if e.id == 0 else 0.26
 	e.kind = "serve"
 	ball.kind = "serve"
 	if serve_fault == 0:
@@ -1861,10 +1879,10 @@ func ai_control(e: Player, dt: float) -> void :
 				var alive_d: bool = ball.bounces >= 1 or (pbd.ok and absf(pbd.x) <= 4.115 and pbd.z >= 0.0 and pbd.z <= L)
 				var gap: float = dpd - D.speed * 1.48 * maxf(t_est - 0.12, 0.0)
 				var _spd_in: float = Vector3(ball.vx, ball.vy, ball.vz).length()
-				var _show_dive: bool = gap > 0.4 and dpd < 5.2 and _spd_in > 32.0 and ball.kind in ["drive", "volley"] and e.kind_roll < 0.5
-				if alive_d and t_est > 0.12 and t_est < 0.85 and absf(ball.x - e.x) > 2.3 and ((gap > 1.0 and dpd < 5.2) or _show_dive):
+				var _show_dive: bool = gap > 1.2 and dpd < 5.2 and _spd_in > 34.0 and ball.kind in ["drive", "volley"] and e.kind_roll < 0.35
+				if alive_d and t_est > 0.12 and t_est < 0.8 and absf(ball.x - e.x) > 2.9 and ((gap > 1.6 and dpd < 5.2) or _show_dive):
 					e.dive_t = 0.55
-					e.dive_cool = 2.4
+					e.dive_cool = 3.2
 					e.dive_for = ball.hit_id
 					e.react = 0.0
 					var dl: = maxf(dpd, 0.1)
@@ -2093,12 +2111,12 @@ func _in_hit_win(e: Player, bx: float, by: float, bz: float, gx: float, gz: floa
 
 	var behind: float = 0.55
 	if not demo and e.id == 0:
-		behind = 2.0 if e.dive_t <= 0.0 else 2.1
+		behind = 2.4 if e.dive_t <= 0.0 else 2.5
 	var h_behind: bool = (bz < e.z - behind) if e.near else (bz > e.z + behind)
 	var lat: float = gx
 	var bh_side: float = 1.0 if e.near else -1.0
 	if (bx - e.x) * bh_side > 0.0:
-		lat += 0.4
+		lat += 0.45
 	return absf(bx - e.x) < lat and absf(bz - e.z) < gz and by < ymax and not h_behind
 
 func human_control(e: Player, dt: float) -> void :
@@ -2148,9 +2166,9 @@ func human_control(e: Player, dt: float) -> void :
 		var h_gap: float = bdist - PS.speed * maxf(tta - 0.12, 0.0)
 
 
-		if tta < 0.6 and h_gap > 0.95 and bdist < 4.2 and absf(ball.x - e.x) > 2.3 and e.dive_for != ball.hit_id:
+		if tta < 0.55 and h_gap > 1.55 and bdist > 2.6 and bdist < 4.6 and absf(ball.x - e.x) > 2.9 and e.dive_for != ball.hit_id:
 			e.dive_t = 0.55
-			e.dive_cool = 2.4
+			e.dive_cool = 3.2
 			e.dive_for = ball.hit_id
 			var bl: = maxf(bdist, 0.1)
 			e.vx = (ball.x - e.x) / bl * 10.5
@@ -2244,7 +2262,7 @@ func human_control(e: Player, dt: float) -> void :
 				if ball.y > 2.15:
 					_rm = 2.7
 
-				_fire_now = _in_hit_win(e, ball.x, ball.y, ball.z, 2.6, 2.2, _rm) or _in_hit_win(e, (ball.x + ball.px) * 0.5, (ball.y + ball.py) * 0.5, (ball.z + ball.pz) * 0.5, 2.6, 2.2, _rm)
+				_fire_now = _in_hit_win(e, ball.x, ball.y, ball.z, 2.9, 2.5, _rm) or _in_hit_win(e, (ball.x + ball.px) * 0.5, (ball.y + ball.py) * 0.5, (ball.z + ball.pz) * 0.5, 2.9, 2.5, _rm)
 			if not _fire_now and strike_ok and ball.in_play and ball.last != e.id and ball.vz < 0.0:
 				pass
 			else:
@@ -2274,7 +2292,7 @@ func human_control(e: Player, dt: float) -> void :
 		var amax: = 2.35 if a_volley else 2.2
 		if ball.y > 2.15:
 			amax = 2.7
-		if _in_hit_win(e, ball.x, ball.y, ball.z, 2.6, 2.2, amax) or _in_hit_win(e, (ball.x + ball.px) * 0.5, (ball.y + ball.py) * 0.5, (ball.z + ball.pz) * 0.5, 2.6, 2.2, amax):
+		if _in_hit_win(e, ball.x, ball.y, ball.z, 2.9, 2.5, amax) or _in_hit_win(e, (ball.x + ball.px) * 0.5, (ball.y + ball.py) * 0.5, (ball.z + ball.pz) * 0.5, 2.9, 2.5, amax):
 			e.charging = false
 			e.charge_pow = 1.0 + 0.6 * e.charge
 			e.swing = 0.3
@@ -2286,11 +2304,11 @@ func human_control(e: Player, dt: float) -> void :
 		e.want_t -= dt
 		if ball.in_play and ball.last != e.id and ball.vz < 0 and e.cool <= 0.0 and strike_ok and e.getup_t <= 0.0:
 			_assist(e)
-			var hgx: = 2.6
-			var hgz: = 2.2
+			var hgx: = 2.9
+			var hgz: = 2.5
 			if e.dive_t > 0.0:
-				hgx = 2.75
-				hgz = 2.3
+				hgx = 3.05
+				hgz = 2.65
 
 
 			var h_volley: = absf(ball.z - NZ) < 3.2
@@ -2522,7 +2540,7 @@ func update(dt: float) -> void :
 	if state == "serve" and (demo or M.server == 1) and cpu_serve_at > 0.0 and time > cpu_serve_at:
 		if serve_stage == "ready":
 			toss_ball()
-			cpu_serve_at = time + 0.55 + randf_range(0.0, 0.08)
+			cpu_serve_at = time + 0.72 + randf_range(0.0, 0.08)
 		elif serve_stage == "toss":
 			do_serve(pl[M.server], 0.75 + randf_range(0.0, 0.25))
 			cpu_serve_at = 0.0

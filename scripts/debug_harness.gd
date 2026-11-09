@@ -1655,6 +1655,7 @@ func _cpuserveclose_harness(args: Array) -> void :
 	m.match_view.setup({"demo": false, "surface": "hard", "AIP": m.DIFF_PARAMS[1], "PS": {"speed": 7.0, "T": 1.0, "err": 1.0}, "sets_to_win": 1})
 	m.match_view.sim.M.server = 1
 	m.match_view.sim.prep_serve()
+	m.match_view.sim.cpu_serve_at = m.match_view.sim.time + 0.8
 	add_child(m.match_view)
 	var jc: = Camera3D.new()
 	add_child(jc)

@@ -472,7 +472,7 @@ func _ready() -> void :
 		hud.set_hint("")
 
 	pause_layer = CanvasLayer.new()
-	pause_layer.layer = 30
+	pause_layer.layer = 5
 	pause_layer.visible = false
 	add_child(pause_layer)
 
@@ -504,8 +504,8 @@ func _ready() -> void :
 	pv.text = GameMenus.VERSION
 	pv.add_theme_font_size_override("font_size", 14)
 	pv.add_theme_color_override("font_color", Color(0.62, 0.7, 0.92, 0.6))
-	pv.position = Vector2(12, 696)
-	pv.size = Vector2(120, 20)
+	pv.position = Vector2(12, 10)
+	pv.size = Vector2(160, 20)
 	pv.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	pause_layer.add_child(pv)
 	var guard: = PauseGuard.new()
@@ -729,7 +729,8 @@ func _physics_process(dt: float) -> void :
 
 	for i in 2:
 		rigs[i].look_on = (sim.state == "play")
-		rigs[i].serve_toss = clampf(sim.ball.toss_t / 0.5, 0.0, 1.0) if (sim.state == "serve" and sim.M.server == i and sim.serve_stage == "toss") else -1.0
+		var _tdiv: float = 0.5 if i == 0 else 0.72
+		rigs[i].serve_toss = clampf(sim.ball.toss_t / _tdiv, 0.0, 1.0) if (sim.state == "serve" and sim.M.server == i and sim.serve_stage == "toss") else -1.0
 		rigs[i].look_target = Vector3(sim.ball.x, sim.ball.y, sim.ball.z)
 		rigs[i].serve_ready = sim.state == "serve" and sim.M.server == i and sim.serve_stage == "ready"
 		rigs[i].force_hide_racket((sim.state == "point" or sim.state == "over") and i != _point_winner)
@@ -1269,18 +1270,11 @@ static func slide_time(surf: String, speed: float) -> float:
 
 func _update_rally_label(dt: float) -> void :
 	var live: int = sim.rally_hits if sim.state == "play" else 0
-	if live > _last_rally_live + 1:
-		print("RALLY_JUMP from ", _last_rally_live, " to ", live, " state=", sim.state)
 	_last_rally_live = live
 	if live >= 2:
-		rally_hold_t = maxf(0.0, rally_hold_t - dt)
-		if rally_shown < 2:
-			rally_shown = 2
-			rally_hold_t = 0.12
-		elif rally_shown < live and rally_hold_t <= 0.0:
-			rally_shown += 1
-			rally_hold_t = 0.12
-		hud.set_rally_line(true, "RALLY:", "%02d" % rally_shown)
+		rally_shown = live
+		rally_hold_t = 0.0
+		hud.set_rally_line(true, "RALLY:", "%02d" % live)
 		rally_label.modulate.a = 1.0
 	elif rally_change_t > 0.0:
 		rally_change_t = maxf(0.0, rally_change_t - dt)
@@ -1709,14 +1703,16 @@ func drain_events() -> void :
 						hud.popup_side("¡PELOTAS NUEVAS!", BALL_YEL)
 				var bcol: Color = Color("#ffd23f") if ev.txt == "SET" else (Color("#7dffa8") if ev.w == 0 else Color("#ff9c9c"))
 				var big: bool = ev.txt in ["JUEGO", "SET", "PARTIDO"]
-				if not (ev.txt in ["JUEGO", "SET", "PARTIDO"]):
+				if not big:
 					hud.show_point_card(ev.w == 0, _pts_line(), "" if ev.txt == "PUNTO" else ev.txt)
 				if ev.txt != "PUNTO":
 					hud.show_banner(ev.txt, ev.sub, bcol, big)
 					banner_dur = 2.2 if ev.txt == "SET" else (1.8 if ev.txt == "JUEGO" else 1.2)
 					banner_t = banner_dur
 				else:
-					banner_dur = 1.2
+					var pn: String = hud.name_labels[ev.w].get_meta("base")
+					hud.show_banner("PUNTO  " + pn, ev.get("sub", ""), bcol, false)
+					banner_dur = 1.5
 					banner_t = banner_dur
 				if _closeup_ok:
 					hud.hide_play_feedback()

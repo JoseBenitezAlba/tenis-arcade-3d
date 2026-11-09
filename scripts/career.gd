@@ -11,13 +11,13 @@ const RNAMES: = ["Octavos", "Cuartos", "Semifinal", "Final"]
 
 
 const POOL0: = [
-	["Carlos Alcaca", 0.98, 2600, 2], ["Janiel Sinnar", 0.98, 2800, 1], ["Novak Djokovitz", 0.94, 2200, 0], 
-	["Alex Zvereff", 0.9, 2000, 1], ["Daniil Medelle", 0.86, 1700, 0], ["Jack Drapper", 0.84, 1500, 2], 
-	["Taylor Fritzz", 0.84, 1500, 2], ["Holger Runne", 0.8, 1300, 2], ["Kasper Ruud", 0.8, 1300, 0], 
-	["Andrei Rubleff", 0.8, 1250, 2], ["Alex de Minaurr", 0.78, 1150, 0], ["Lorenzo Musseti", 0.76, 1050, 1], 
-	["Stefanos Tsitsipass", 0.75, 1000, 1], ["Ben Chelton", 0.74, 950, 2], ["Tommy Paull", 0.72, 850, 1], 
-	["Grigor Dimitroff", 0.72, 800, 1], ["Hubert Hurkatz", 0.7, 750, 2], ["Frances Tiafo", 0.7, 700, 2], 
-	["Alexei Popyrine", 0.66, 600, 2], ["Francisco Serundolo", 0.64, 550, 0], ["Sebastian Kordda", 0.62, 500, 1], 
+	["Alex Zvereff", 0.99, 2000, 1], ["Janiel Sinnar", 0.985, 2800, 1], ["Carlos Alcaca", 0.97, 2600, 2],
+	["Ben Chelton", 0.9, 1500, 2], ["Daniil Medelle", 0.9, 1700, 0], ["Novak Djokovitz", 0.86, 2200, 0],
+	["Jack Drapper", 0.82, 1500, 2], ["Taylor Fritzz", 0.82, 1500, 2], ["Alex de Minaurr", 0.82, 1150, 0],
+	["Frances Tiafo", 0.79, 700, 2], ["Kasper Ruud", 0.78, 1300, 0], ["Holger Runne", 0.7, 1300, 2], ["Lorenzo Musseti", 0.74, 1050, 1],
+	["Andrei Rubleff", 0.76, 1250, 2], ["Stefanos Tsitsipass", 0.72, 1000, 1],
+	["Tommy Paull", 0.7, 850, 1], ["Grigor Dimitroff", 0.7, 800, 1], ["Hubert Hurkatz", 0.68, 750, 2],
+	["Sebastian Kordda", 0.66, 500, 1], ["Alexei Popyrine", 0.64, 600, 2], ["Francisco Serundolo", 0.62, 550, 0],
 	["Ugo Humber", 0.6, 450, 1], ["Jakub Mensikk", 0.6, 400, 2], ["Joao Fonsecca", 0.6, 350, 2], 
 ]
 
@@ -211,7 +211,7 @@ static func pers_name(pers: String) -> String:
 static func pers_suffix(pers: String) -> String:
 	return {"sv": " · S/V", "counter": " · CTR", "power": " · POT"}.get(pers, "")
 
-static func params_for(r: float, sty: int = 1, pers: String = "") -> Dictionary:
+static func params_for(r: float, sty: int = 1, pers: String = "", round_i: int = -1, rounds: int = 3, atp_rank: int = 0) -> Dictionary:
 
 
 
@@ -221,12 +221,21 @@ static func params_for(r: float, sty: int = 1, pers: String = "") -> Dictionary:
 	var spd: float = [1.07, 1.0, 0.97][clampi(sty, 0, 2)]
 	var rea: float = [1.0, 1.0, 0.88][clampi(sty, 0, 2)]
 	var errm: float = [0.82, 1.0, 1.18][clampi(sty, 0, 2)]
+	var late: float = 0.0
+	if round_i >= 0 and rounds > 1:
+		late = clampf(float(round_i) / float(rounds - 1), 0.0, 1.0)
+	var strength_elite: float = clampf((r - 0.8) / 0.2, 0.0, 1.0)
+	var rank_elite: float = clampf((16.0 - float(atp_rank)) / 15.0, 0.0, 1.0) if atp_rank > 0 else 0.0
+	var elite: float = maxf(strength_elite, rank_elite)
 	var out: = {
-		"speed": clampf((4.3 + 2.6 * r) * spd, 3.5, 7.4), 
-		"react": clampf((0.46 - 0.34 * r) * rea, 0.06, 0.5), 
-		"err": clampf((0.95 - 0.7 * r) * errm, 0.2, 1.6), 
-		"miss": 0.32 - 0.27 * r, 
+		"speed": clampf((4.3 + 2.6 * r) * spd + 0.55 * elite + 0.35 * late, 3.5, 8.4),
+		"react": clampf((0.46 - 0.34 * r) * rea - 0.06 * elite - 0.03 * late, 0.035, 0.5),
+		"err": clampf((0.95 - 0.7 * r) * errm * (1.0 - 0.35 * elite) * (1.0 - 0.18 * late), 0.08, 1.6),
+		"miss": maxf(0.015, (0.32 - 0.27 * r) * (1.0 - 0.55 * elite) * (1.0 - 0.25 * late)),
 		"risk": risk, 
+		"attack": 0.25 * elite + 0.15 * late,
+		"serve_lo": 47.2 + 4.2 * elite + 1.0 * late,
+		"serve_hi": 51.0 + 6.0 * elite + 1.5 * late,
 	}
 
 	if pers == "sv":

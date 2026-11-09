@@ -72,25 +72,32 @@ func _ready() -> void :
 	score_sb = sb
 	add_child(panel)
 	var grid: = GridContainer.new()
-	grid.columns = 3
-	grid.add_theme_constant_override("h_separation", 14)
+	grid.columns = 4
+	grid.add_theme_constant_override("h_separation", 10)
 	grid.add_theme_constant_override("v_separation", 2)
 	panel.add_child(grid)
 	var h0: = Label.new()
 	h0.text = ""
-	h0.custom_minimum_size = Vector2(188, 0)
+	h0.custom_minimum_size = Vector2(172, 0)
 	h0.add_theme_font_size_override("font_size", 11)
 	grid.add_child(h0)
+	var hset: = Label.new()
+	hset.text = "SET"
+	hset.custom_minimum_size = Vector2(42, 0)
+	hset.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hset.add_theme_font_size_override("font_size", 11)
+	hset.add_theme_color_override("font_color", Color("#8ea2d8"))
+	grid.add_child(hset)
 	header_games = Label.new()
-	header_games.text = "JUEGOS"
-	header_games.custom_minimum_size = Vector2(92, 0)
+	header_games.text = "JUE"
+	header_games.custom_minimum_size = Vector2(42, 0)
 	header_games.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	header_games.add_theme_font_size_override("font_size", 11)
 	header_games.add_theme_color_override("font_color", Color("#8ea2d8"))
 	grid.add_child(header_games)
 	var h2: = Label.new()
 	h2.text = "PTS"
-	h2.custom_minimum_size = Vector2(42, 0)
+	h2.custom_minimum_size = Vector2(48, 0)
 	h2.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	h2.add_theme_font_size_override("font_size", 11)
 	h2.add_theme_color_override("font_color", Color("#8ea2d8"))
@@ -100,27 +107,36 @@ func _ready() -> void :
 		nm.add_theme_font_size_override("font_size", 19)
 		nm.add_theme_font_override("font", ui_bold)
 		nm.add_theme_color_override("font_color", Color.WHITE)
-		nm.custom_minimum_size = Vector2(188, 0)
+		nm.custom_minimum_size = Vector2(172, 0)
 		nm.clip_text = true
 		grid.add_child(nm)
 		name_labels.append(nm)
 		var row: = []
+		var s: = Label.new()
+		s.text = "0"
+		s.add_theme_font_size_override("font_size", 22)
+		s.add_theme_font_override("font", ui_bold)
+		s.add_theme_color_override("font_color", Color("#c9d6ff"))
+		s.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		s.custom_minimum_size = Vector2(42, 0)
+		grid.add_child(s)
+		row.append(s)
 		var a: = Label.new()
-		a.text = "0 - 0"
-		a.add_theme_font_size_override("font_size", 24)
+		a.text = "0"
+		a.add_theme_font_size_override("font_size", 26)
 		a.add_theme_font_override("font", ui_bold)
 		a.add_theme_color_override("font_color", Color("#ffd23f"))
 		a.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		a.custom_minimum_size = Vector2(92, 0)
+		a.custom_minimum_size = Vector2(42, 0)
 		grid.add_child(a)
 		row.append(a)
 		var b: = Label.new()
 		b.text = "0"
-		b.add_theme_font_size_override("font_size", 24)
+		b.add_theme_font_size_override("font_size", 26)
 		b.add_theme_font_override("font", ui_bold)
 		b.add_theme_color_override("font_color", Color("#f4f7ff"))
 		b.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		b.custom_minimum_size = Vector2(42, 0)
+		b.custom_minimum_size = Vector2(48, 0)
 		grid.add_child(b)
 		row.append(b)
 		score_rows.append(row)
@@ -324,12 +340,12 @@ func set_names(n0: String, n1: String) -> void :
 
 func update_score(M) -> void :
 	var in_tb: bool = "tb" in M and M.tb
-	var one_set: bool = M.sets_to_win == 1
 	if header_games != null:
-		header_games.text = "JUEGOS" if one_set else "SETS/J"
+		header_games.text = "JUE"
 	for i in 2:
-		score_rows[i][0].text = str(M.games[i]) if one_set else "%d - %d" % [M.sets[i], M.games[i]]
-		score_rows[i][1].text = str(M.tb_pts[i]) if in_tb else PT[mini(3, M.pts[i])]
+		score_rows[i][0].text = str(M.sets[i])
+		score_rows[i][1].text = str(M.games[i])
+		score_rows[i][2].text = str(M.tb_pts[i]) if in_tb else PT[mini(3, M.pts[i])]
 		var base: String = name_labels[i].get_meta("base")
 		name_labels[i].text = ("● " if M.server == i else "") + base
 
@@ -440,6 +456,11 @@ func popup_big(txt: String, color: Color) -> void :
 	big_popup_t = 1.15
 
 func popup_callout(txt: String, color: Color) -> void :
+	if callout_t > 0.55:
+		return
+	if side_popup != null:
+		side_popup.visible = false
+		side_popup_t = 0.0
 	callout.text = txt
 	callout.add_theme_color_override("font_color", color)
 	callout.visible = true

@@ -143,9 +143,9 @@ func _on_pad_invert(axis_x: bool, inverted: bool) -> void :
 	menus.show_menu(career)
 
 func _start_match(cfg: Dictionary) -> void :
-	if match_view:
-		match_view.queue_free()
-	menus.visible = false
+	var old = match_view
+	if old:
+		old.visible = false
 	match_view = MatchView.new()
 	match_view.set_meta("surface", cfg.surface)
 	match_view.set_meta("cpu_look", cfg.get("cpu_look", 2))
@@ -157,6 +157,10 @@ func _start_match(cfg: Dictionary) -> void :
 	add_child(match_view)
 	match_view.match_finished.connect(_on_match_finished)
 	match_view.quit_to_menu.connect(_to_menu)
+	await get_tree().process_frame
+	menus.visible = false
+	if old and is_instance_valid(old):
+		old.queue_free()
 
 func _on_quick_match(surface: String, diff: int, sets: int, tod: int, style: int = 0) -> void :
 	last_cfg = {"surface": surface, "diff": diff, "sets": sets, "tod": tod, "style": style}
@@ -208,7 +212,7 @@ func _on_career_match() -> void :
 	var sets_to_win: = 2 if (def.t == "GS" and career.data.tour.round >= 2) else 1
 	_start_match({
 		"surface": def.s, 
-		"AIP": Career.params_for(opp.r, int(opp.get("sty", 1)), Career.pers_of(opp.n)), 
+		"AIP": Career.params_for(opp.r, int(opp.get("sty", 1)), Career.pers_of(opp.n), career.data.tour.round, def.rounds, orank),
 		"PS": career.player_from_stats(), 
 		"demo": false, 
 		"career": true, 
@@ -218,6 +222,7 @@ func _on_career_match() -> void :
 		"my_name": career.data.name, 
 		"sets_to_win": sets_to_win, 
 		"day": def.get("d", true), 
+		"tod": 0 if def.get("d", true) else 1,
 	})
 
 
@@ -229,10 +234,12 @@ func _on_tournament() -> void :
 
 func _tourney_new() -> void :
 	var pool: = Career.POOL0.duplicate()
-	pool.shuffle()
-	var picked: = pool.slice(0, 7)
+	pool.sort_custom( func(a, b): return a[1] > b[1])
+	# Cuadro sembrado: cuartos asequibles, semifinal dura y final contra un top.
+	var idxs: = [10, 4, 5, 6, 8, 12, 0]
 	var players: = [{"n": "TÚ", "r": 0.8}]
-	for pl in picked:
+	for idx in idxs:
+		var pl = pool[mini(idx, pool.size() - 1)]
 		players.append({"n": pl[0], "r": pl[1], "p": Career.pers_of(pl[0])})
 	var surfaces: = ["clay", "grass", "hard"]
 	tourney = {
@@ -272,7 +279,7 @@ func _on_tourney_match() -> void :
 	var last: String = opp.n.split(" ")[-1]
 	_start_match({
 		"surface": tourney.surface, 
-		"AIP": Career.params_for(opp.r, int(opp.get("sty", 1)), String(opp.get("p", ""))), 
+		"AIP": Career.params_for(opp.r, int(opp.get("sty", 1)), String(opp.get("p", "")), tourney.round, 3, 0),
 		"PS": {"speed": 7.0, "T": 1.0, "err": 1.0}, 
 		"demo": false, 
 		"career": false, 
@@ -281,6 +288,7 @@ func _on_tourney_match() -> void :
 		"cpu_look": abs(opp.n.hash()) % 5, 
 		"sets_to_win": 2 if tourney.round == 2 else 1, 
 		"day": tourney.day, 
+		"tod": 0 if tourney.day else 1,
 	})
 
 func _sim_cpu(a: Dictionary, b: Dictionary) -> Dictionary:
