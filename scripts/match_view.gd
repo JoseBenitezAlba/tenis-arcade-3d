@@ -541,7 +541,6 @@ func _prewarm_effects() -> void :
 	bounce_ring.position = far
 	bounce_ring.visible = true
 	crowd.start_flashes(0.01)
-	hud.show_point_card(true, "0 - 0")
 	await get_tree().process_frame
 	for t in trail:
 		t.m.visible = false
@@ -1731,15 +1730,18 @@ func drain_events() -> void :
 						hud.popup_side("¡PELOTAS NUEVAS!", BALL_YEL)
 				var bcol: Color = Color("#ffd23f") if ev.txt == "SET" else (Color("#7dffa8") if ev.w == 0 else Color("#ff9c9c"))
 				var big: bool = ev.txt in ["JUEGO", "SET", "PARTIDO"]
-				if not big:
-					hud.show_point_card(ev.w == 0, _pts_line(), "" if ev.txt == "PUNTO" else ev.txt)
-				if ev.txt != "PUNTO":
-					hud.show_banner(ev.txt, ev.sub, bcol, big)
-					banner_dur = 2.2 if ev.txt == "SET" else (1.8 if ev.txt == "JUEGO" else 1.2)
+				if big:
+					hud.show_banner(ev.txt, ev.sub, bcol, true)
+					banner_dur = 2.2 if ev.txt == "SET" else (1.8 if ev.txt == "JUEGO" else 1.4)
 					banner_t = banner_dur
 				else:
 					var pn: String = hud.name_labels[ev.w].get_meta("base")
-					hud.show_banner("PUNTO  " + pn, ev.get("sub", ""), bcol, false)
+					var reason: String = "" if ev.txt == "PUNTO" else ev.txt
+					var sc: String = _pts_line()
+					var sub: String = reason
+					if sc != "":
+						sub = (reason + " · " if reason != "" else "") + sc
+					hud.show_banner("PUNTO  " + pn, sub, bcol, false)
 					banner_dur = 1.5
 					banner_t = banner_dur
 				if _closeup_ok:

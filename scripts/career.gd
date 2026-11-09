@@ -179,6 +179,13 @@ func opp_profile(pname: String) -> Dictionary:
 			return p
 	return {}
 
+func training_done() -> bool:
+	return int(data.get("train_t", -1)) == int(data.get("tIdx", -1))
+
+func mark_training_done() -> void :
+	data["train_t"] = int(data.get("tIdx", 0))
+	save()
+
 func current_opp() -> Dictionary:
 	return opp_profile(data.tour.opps[data.tour.round])
 

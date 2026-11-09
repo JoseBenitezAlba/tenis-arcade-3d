@@ -41,11 +41,28 @@ var bvel: = Vector3()
 var ball_on: = false
 var bounces: = 0
 var net_hit: = false
+var touched_net: = false
+var legal_bounce: = false
 var aim: = Vector2(0.0, 15.1)
 var fake: = FakeEnt.new()
 var phase: = 0
 var wait_t: = 0.0
 var finish_panel: PanelContainer
+var crossed_net: = false
+var scored_this_serve: = false
+var popups: Array = []
+var finish_t: = 0.0
+var mode: = "cans"
+var serve_side: = 1.4
+
+func _mat_glow(c: Color, e: Color) -> StandardMaterial3D:
+	var m: = StandardMaterial3D.new()
+	m.albedo_color = c
+	m.roughness = 0.35
+	m.emission_enabled = true
+	m.emission = e
+	m.emission_energy_multiplier = 1.4
+	return m
 
 func _mat(c: Color) -> StandardMaterial3D:
 	var m: = StandardMaterial3D.new()
@@ -54,6 +71,7 @@ func _mat(c: Color) -> StandardMaterial3D:
 	return m
 
 func setup(cfg: Dictionary) -> void :
+	mode = String(cfg.get("mode", "cans"))
 	add_child(CourtBuilder.build(cfg.get("surface", "grass"), true))
 	crowd = CrowdFX.new()
 	add_child(crowd)
@@ -97,27 +115,82 @@ func _activate_cam() -> void :
 	cam.make_current()
 
 func _build_targets() -> void :
-	var can_cols: = [Color("#e33f2e"), Color("#f2f2f2"), Color("#2e7ae3"), Color("#f2a52e")]
-	var spots: = [Vector2(2.05, 15.1), Vector2(-2.05, 15.1)]
-	var ci: = 0
-	for sp in spots:
-		var offs: = [Vector2(-0.34, 0), Vector2(0.34, 0), Vector2(0, 0.34), Vector2(0, -0.06)]
-		for k in 4:
-			var can: = MeshInstance3D.new()
-			var cm: = CylinderMesh.new()
-			cm.top_radius = 0.085
-			cm.bottom_radius = 0.085
-			cm.height = 0.26
-			can.mesh = cm
-			can.material_override = _mat(can_cols[ci % can_cols.size()])
-			var py: float = 0.13 if k < 3 else 0.47
-			var px: float = sp.x + (offs[k].x if k < 3 else 0.0)
-			var pz: float = sp.y + (offs[k].y if k < 3 else 0.06)
-			can.position = Vector3(px, py, pz)
-			add_child(can)
-			targets.append({"m": can, "hit": false, "fall": 0.0, "dir": Vector3(randf_range(-1, 1), 0, randf_range(-0.4, 0.4)).normalized(), "base": can.position})
-			ci += 1
+	targets.clear()
+	if mode == "targets":
+		var spots: = [Vector2(2.45, 14.6), Vector2(-2.45, 14.6), Vector2(2.45, 17.4), Vector2(-2.45, 17.4)]
+		for sp in spots:
+			var ring: = MeshInstance3D.new()
+			var tm: = TorusMesh.new()
+			tm.inner_radius = 0.55
+			tm.outer_radius = 0.72
+			ring.mesh = tm
+			ring.material_override = _mat_glow(Color("#ffd23f"), Color("#ffb300"))
+			ring.rotation.x = PI * 0.5
+			ring.position = Vector3(sp.x, 0.035, sp.y)
+			add_child(ring)
+			var disc: = MeshInstance3D.new()
+			var dm: = CylinderMesh.new()
+			dm.top_radius = 0.5
+			dm.bottom_radius = 0.5
+			dm.height = 0.02
+			disc.mesh = dm
+			disc.material_override = _mat_glow(Color("#fff4b0"), Color("#ffd23f"))
+			disc.position = Vector3(sp.x, 0.02, sp.y)
+			add_child(disc)
+			targets.append({"m": ring, "hit": false, "fall": 0.0, "base": ring.position, "r": 0.95, "kind": "target"})
+	else:
+		var can_cols: = [Color("#e33f2e"), Color("#f2f2f2"), Color("#2e7ae3"), Color("#f2a52e")]
+		var spots: = [Vector2(2.05, 15.1), Vector2(-2.05, 15.1)]
+		var ci: = 0
+		for sp in spots:
+			var glow: = MeshInstance3D.new()
+			var gm: = TorusMesh.new()
+			gm.inner_radius = 0.46
+			gm.outer_radius = 0.58
+			glow.mesh = gm
+			glow.material_override = _mat_glow(Color("#ffe27a"), Color("#ffc400"))
+			glow.rotation.x = PI * 0.5
+			glow.position = Vector3(sp.x, 0.03, sp.y)
+			add_child(glow)
+			var offs: = [Vector2(-0.3, 0), Vector2(0.3, 0), Vector2(0, 0.3), Vector2(0, 0.02)]
+			for k in 4:
+				var can: = MeshInstance3D.new()
+				var cm: = CylinderMesh.new()
+				cm.top_radius = 0.16
+				cm.bottom_radius = 0.16
+				cm.height = 0.52
+				cm.radial_segments = 12
+				can.mesh = cm
+				can.material_override = _mat_glow(can_cols[ci % can_cols.size()], can_cols[ci % can_cols.size()].darkened(0.25))
+				var py: float = 0.28 if k < 3 else 0.82
+				var px: float = sp.x + (offs[k].x if k < 3 else 0.0)
+				var pz: float = sp.y + (offs[k].y if k < 3 else 0.02)
+				can.position = Vector3(px, py, pz)
+				add_child(can)
+				targets.append({"m": can, "hit": false, "fall": 0.0, "base": can.position, "r": 0.44, "kind": "can", "vel": Vector3.ZERO})
+				ci += 1
 	total_cans = targets.size()
+	_start_next_serve()
+
+func _start_next_serve() -> void :
+	var rx: = 0.0
+	var n: = 0
+	for tg in targets:
+		if not tg.hit:
+			rx += (tg.base as Vector3).x
+			n += 1
+	if n > 0:
+		rx /= float(n)
+	if absf(rx) > 0.15:
+		serve_side = - signf(rx) * 1.4
+	else:
+		serve_side = - serve_side
+	fake.x = serve_side
+	fake.z = -1.0
+	fig.position = Vector3(fake.x, 0.0, fake.z)
+	aim = Vector2(clampf(rx, -3.8, 3.8), 15.1)
+	phase = 0
+	wait_t = 0.0
 
 func _build_hud() -> void :
 	var layer: = CanvasLayer.new()
@@ -138,7 +211,8 @@ func _build_hud() -> void :
 	_refresh_hud()
 
 func _refresh_hud() -> void :
-	hud_lbl.text = "ENTRENAMIENTO DE SAQUE · SAQUES: " + str(serves_left) + " · LATAS: " + str(score) + "/" + str(total_cans)
+	var mname: String = "DIANAS" if mode == "targets" else "LATAS"
+	hud_lbl.text = ("ENTRENAMIENTO DE PRECISIÓN" if mode == "targets" else "ENTRENAMIENTO DE SAQUE") + " · SAQUES: " + str(serves_left) + " · " + mname + ": " + str(score) + "/" + str(total_cans)
 
 func start_serve() -> void :
 	if phase != 0 or serves_left <= 0:
@@ -146,7 +220,25 @@ func start_serve() -> void :
 	phase = 1
 	fake.swing = 0.4
 	fake.kind = "serve"
+	fake.wait_serve = false
 	net_hit = false
+	touched_net = false
+	legal_bounce = false
+	crossed_net = false
+	scored_this_serve = false
+	fig.position = Vector3(fake.x, 0.0, fake.z)
+
+func _spawn_popup(txt: String, pos: Vector3) -> void :
+	var l: = Label3D.new()
+	l.text = txt
+	l.font_size = 72
+	l.outline_size = 18
+	l.modulate = Color("#ffe27a")
+	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	l.no_depth_test = true
+	l.position = pos + Vector3(0.0, 1.0, 0.0)
+	add_child(l)
+	popups.append({"l": l, "t": 1.1})
 
 func _launch_ball() -> void :
 	var p0: = Vector3(fake.x, 2.45, fake.z + 0.4)
@@ -158,14 +250,16 @@ func _launch_ball() -> void :
 	var t_net: float = (NZ - p0.z) / bvel.z
 	var y_net: float = p0.y + bvel.y * t_net - 0.5 * G * t_net * t_net
 	if y_net < 1.09:
-
 		net_hit = true
+		touched_net = true
 	ball_on = true
 	bounces = 0
 	ball.visible = true
 	sfx.play("hit", 1.2)
 
 func _end_serve() -> void :
+	if not ball_on:
+		return
 	ball_on = false
 	ball.visible = false
 	serves_left -= 1
@@ -175,6 +269,7 @@ func _end_serve() -> void :
 
 func _finish() -> void :
 	phase = 3
+	finish_t = 2.0
 	var layer: = CanvasLayer.new()
 	add_child(layer)
 	finish_panel = PanelContainer.new()
@@ -187,20 +282,27 @@ func _finish() -> void :
 	t.add_theme_font_size_override("font_size", 40)
 	t.add_theme_color_override("font_color", Color("#ffd23f"))
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	t.text = "ENTRENAMIENTO: " + str(score) + "/" + str(total_cans) + " LATAS"
+	t.text = ("ENTRENAMIENTO: " + str(score) + "/" + str(total_cans) + (" DIANAS" if mode == "targets" else " LATAS"))
 	vb.add_child(t)
 	var s2: = Label.new()
 	s2.add_theme_font_size_override("font_size", 20)
 	s2.add_theme_color_override("font_color", Color.WHITE)
 	s2.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	s2.text = "¡Saque de campeon!" if score >= total_cans - 1 else ("Buen ritmo. Pulsa ENTER para volver." if score >= 3 else "Toca practicar... Pulsa ENTER para volver.")
+	s2.text = "¡Saque de campeon!" if score >= total_cans - 1 else ("Buen ritmo. Volviendo al menu..." if score >= 3 else "Toca practicar... Volviendo al menu...")
 	vb.add_child(s2)
+	var sc: = Label.new()
+	sc.add_theme_font_size_override("font_size", 15)
+	sc.add_theme_color_override("font_color", Color("#9fb3e8"))
+	sc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	sc.text = "ENTER para continuar"
+	vb.add_child(sc)
 	layer.add_child(finish_panel)
 	training_finished.emit(score, total_cans)
 
 func _physics_process(dt: float) -> void :
 	if phase == 3:
-		if Input.is_action_just_pressed("hit") or Input.is_key_pressed(KEY_ENTER):
+		finish_t -= dt
+		if finish_t <= 0.0 or Input.is_action_just_pressed("hit") or Input.is_key_pressed(KEY_ENTER):
 			quit_to_menu.emit()
 		return
 	if Input.is_action_just_pressed("ui_cancel"):
@@ -227,15 +329,20 @@ func _physics_process(dt: float) -> void :
 	if ball_on:
 		bvel.y -= G * dt
 		bpos += bvel * dt
+		if not crossed_net and bpos.z > NZ + 0.15:
+			crossed_net = true
 		if net_hit and bpos.z >= NZ - 0.05 and bpos.y < 1.12:
 			bvel = Vector3(bvel.x * 0.15, -0.5, - bvel.z * 0.2)
 			sfx.play("net")
 			net_hit = false
+			crossed_net = false
 		if bpos.y <= 0.11:
 			bpos.y = 0.11
 			bounces += 1
 			if bounces == 1:
 				sfx.play("bounce", 0.8)
+				var _bs: float = - signf(fake.x)
+				legal_bounce = bpos.z > NZ and bpos.z <= NZ + 6.4 and absf(bpos.x) <= 4.11 and bpos.x * _bs >= - 0.03
 				bvel.y = - bvel.y * 0.62
 				bvel.x *= 0.8
 				bvel.z *= 0.8
@@ -244,25 +351,55 @@ func _physics_process(dt: float) -> void :
 		if bpos.z > 26.0 or absf(bpos.x) > 7.0:
 			_end_serve()
 
-		for tg in targets:
-			if not tg.hit:
-				var c: MeshInstance3D = tg.m
-				var d: Vector3 = bpos - c.position
-				if absf(d.y) < 0.55 and Vector2(d.x, d.z).length() < 0.42:
-					tg.hit = true
-					score += 1
-					_refresh_hud()
-					sfx.play("point_win")
-					crowd.react(false)
+		if crossed_net and legal_bounce and not touched_net:
+			for tg in targets:
+				if not tg.hit:
+					var c: MeshInstance3D = tg.m
+					var d: Vector3 = bpos - c.position
+					if absf(d.y) < 0.7 and Vector2(d.x, d.z).length() < float(tg.get("r", 0.45)):
+						tg.hit = true
+						score += 1
+						_refresh_hud()
+						sfx.play("hit_perfect" if mode == "targets" else "point_win", 0.9)
+						crowd.react(false)
+						if String(tg.get("kind", "can")) == "can":
+							tg.vel = Vector3(randf_range(-2.4, 2.4), randf_range(4.2, 6.2), randf_range(0.8, 3.0))
+							_spawn_popup("¡LATA!", c.position)
+						else:
+							_spawn_popup("¡DIANA!", c.position)
 		ball.position = bpos
 
 	for tg in targets:
-		if tg.hit and tg.fall < 1.0:
-			tg.fall = minf(1.0, tg.fall + dt * 2.2)
+		if tg.hit:
 			var c: MeshInstance3D = tg.m
-			c.rotation.x = tg.fall * PI * 0.5 * (1.0 if tg.dir.z >= 0.0 else -1.0)
-			c.rotation.z = tg.fall * PI * 0.5 * tg.dir.x
-			c.position = tg.base + Vector3(tg.dir.x, 0.0, tg.dir.z) * tg.fall * 0.35 - Vector3(0, tg.fall * 0.06, 0)
+			if String(tg.get("kind", "can")) == "can":
+				if tg.get("vel") != null and tg.vel != Vector3.ZERO:
+					tg.vel.y -= G * dt
+					tg.base += tg.vel * dt
+					if tg.base.y < 0.26:
+						tg.base.y = 0.26
+						tg.vel.y = absf(tg.vel.y) * 0.45
+						tg.vel.x *= 0.7
+						tg.vel.z *= 0.7
+					c.position = tg.base
+					c.rotation.x += dt * 7.0
+					c.rotation.z += dt * 4.0
+					if tg.base.y <= 0.27 and absf(tg.vel.y) < 0.6:
+						tg.vel = Vector3.ZERO
+						c.rotation.x = PI * 0.5
+			else:
+				tg.fall = minf(1.0, tg.fall + dt * 2.2)
+				c.position = tg.base - Vector3(0, tg.fall * 0.12, 0)
+				c.scale = Vector3.ONE * (1.0 - 0.35 * tg.fall)
+
+	for i in range(popups.size() - 1, -1, -1):
+		var p = popups[i]
+		p.t -= dt
+		p.l.position.y += dt * 0.8
+		p.l.modulate.a = clampf(p.t / 0.5, 0.0, 1.0)
+		if p.t <= 0.0:
+			p.l.queue_free()
+			popups.remove_at(i)
 
 	if phase == 2:
 		wait_t -= dt
@@ -272,5 +409,5 @@ func _physics_process(dt: float) -> void :
 			if serves_left <= 0 or score >= total_cans:
 				_finish()
 			else:
-				phase = 0
+				_start_next_serve()
 	crowd.update(dt, 0.25)

@@ -352,14 +352,17 @@ func _tourney_resolve(win: bool, M) -> void :
 func _on_training() -> void :
 	if career == null:
 		return
-	menus.visible = false
 	training_view = TrainingView.new()
 	var tidx: int = int(career.data.tour.idx) if career.data.tour != null else int(career.data.tIdx)
 	tidx = clampi(tidx, 0, Career.CAL.size() - 1)
 	var surf: String = Career.CAL[tidx].s
-	training_view.setup({"surface": surf, "look": 0})
+	training_view.setup({"surface": surf, "look": 0, "mode": menus.training_mode})
 	add_child(training_view)
 	training_view.quit_to_menu.connect(_on_training_quit)
+	await get_tree().process_frame
+	if DisplayServer.get_name() != "headless":
+		await RenderingServer.frame_post_draw
+	menus.visible = false
 
 func _on_training_quit() -> void :
 	var sc: = 0
@@ -375,10 +378,13 @@ func _on_training_quit() -> void :
 		menus.training_from = "career"
 		menus.show_games(msg)
 		return
-	if career != null and sc >= maxi(3, tot - 1):
-		career.data.free += 1
-		career.save()
-		msg += " ¡Ganas +1 punto de mejora!"
+	if career != null:
+		var _was_done: bool = career.training_done()
+		career.mark_training_done()
+		if not _was_done and sc >= maxi(3, tot - 1):
+			career.data.free += 1
+			career.save()
+			msg += " ¡Ganas +1 punto de mejora!"
 	menus.show_hub(msg, true)
 
 func _on_rematch() -> void :

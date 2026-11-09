@@ -951,6 +951,8 @@ func do_hit(e: Player, kind: String, ai: bool) -> void :
 	ball.hot = clampf((spd - 24.0) / 20.0, 0.0, 1.0)
 	events.append({"t": "hit", "id": e.id, "kind": kind, "x": ball.x, "y": ball.y, "z": ball.z, "rise": on_rise, "perfect": perfect, "tper": aim.get("tper", false), "spd": spd, "charge": shot_charge, "tq": tq, "jam": srv_ret_hit and ball.serve_jam, "stretch": snappedf(stretch, 0.01)})
 
+	if ai and AIP.style == "sv" and kind in ["drive", "slice", "volley"] and rally_hits <= 6:
+		e.appr_t = maxf(e.appr_t, 1.6)
 	var other = pl[1 - e.id]
 	if other.swing <= 0.0 and other.dive_t <= 0.0 and other.charging == false:
 		other.split_t = 0.32
@@ -1320,10 +1322,10 @@ func do_serve(e: Player, q: float, stype: String = "") -> void :
 				tx = box_sign * clampf(absf(pl[0].x), 0.5, 3.6)
 				last_serve_place = "body"
 
-	var sv_chance: float = 0.7 if AIP.style == "sv" else (0.05 if AIP.style == "counter" else (0.08 if AIP.style == "power" else 0.15))
+	var sv_chance: float = 0.92 if AIP.style == "sv" else (0.05 if AIP.style == "counter" else (0.08 if AIP.style == "power" else 0.15))
 	var surf_sv: float = 1.25 if surface == "grass" else (0.8 if surface == "clay" else 1.0)
 	if (e.id == 1 or demo) and serve_fault == 0 and randf() < sv_chance * surf_sv:
-		e.appr_t = 2.6
+		e.appr_t = 2.8
 	tx += randn() * err
 	tzr += randn() * err * (0.9 if (e.id == 0 and not demo and inp.y > 0.4) else 0.8)
 	last_serve_tx = tx
@@ -1839,8 +1841,8 @@ func ai_control(e: Player, dt: float) -> void :
 
 
 		tx = clampf(ball.x * 0.5, -1.6, 1.6)
-		tz = (NZ - 2.3) if e.near else (NZ + 2.3)
-		mv = D.speed * 1.15
+		tz = (NZ - 1.35) if e.near else (NZ + 1.35)
+		mv = D.speed * 1.28
 	if coming:
 		if e.pred_for != ball.hit_id and e.dodge_t <= 0.0 and e.letgo_for != ball.hit_id:
 			e.pred_for = ball.hit_id
@@ -2035,7 +2037,7 @@ func ai_control(e: Player, dt: float) -> void :
 
 					var appr_k: float = 0.9 if D.style == "sv" else (0.2 if D.style == "counter" else 0.55)
 					if ((e.z > -1.6) if e.near else (e.z < L + 1.6)) and randf() < D.risk * appr_k:
-						e.appr_t = 2.6
+						e.appr_t = 2.8
 
 
 				var opp_deep: bool = (opp.z < 0.3) if opp.near else (opp.z > L - 0.3)

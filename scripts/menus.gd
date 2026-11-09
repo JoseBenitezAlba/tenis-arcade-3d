@@ -1,7 +1,7 @@
 class_name GameMenus
 extends Control
 
-const VERSION: = "v0.210"
+const VERSION: = "v0.212"
 
 signal quick_match(surface: String, diff: int, sets: int, tod: int, style: int)
 signal play_career_match
@@ -24,6 +24,7 @@ var tab: = "cal"
 var career_msg: = ""
 var career_msg_ok: = true
 var training_from: = "career"
+var training_mode: = "cans"
 var pad_inv_x: = false
 var pad_inv_y: = false
 var root_box: VBoxContainer
@@ -279,9 +280,19 @@ func show_games(msg: = "") -> void :
 	t1.pressed.connect( func():
 		sfx.play("click")
 		training_from = "games"
+		training_mode = "cans"
 		play_training.emit())
 	root_box.add_child(_row([t1]))
 	root_box.add_child(_sub("10 saques, 8 latas. Derriba todas las que puedas.", 14))
+	var t1b: = _btn("PRECISIÓN · DIANAS EN LAS ESQUINAS", true)
+	t1b.custom_minimum_size = Vector2(340, 52)
+	t1b.pressed.connect( func():
+		sfx.play("click")
+		training_from = "games"
+		training_mode = "targets"
+		play_training.emit())
+	root_box.add_child(_row([t1b]))
+	root_box.add_child(_sub("10 saques, 4 dianas. Busca las esquinas.", 14))
 	var soon: = _btn("GLOBOS AL ARCO · PRÓXIMAMENTE")
 	soon.custom_minimum_size = Vector2(340, 52)
 	soon.disabled = true
@@ -427,19 +438,36 @@ func show_hub(msg: String, ok: = true) -> void :
 			var pers_txt: String = Career.pers_name(Career.pers_of(opp.n))
 			if pers_txt != "":
 				sty_txt += " · " + pers_txt
-			vb.add_child(_sub("Rival: " + opp.n + " (#" + str(orank) + ") " + Career.stars(opp.r) + sty_txt, 15, Color("#ffe27a")))
+			vb.add_child(_sub("Rival: " + opp.n + " (#" + str(orank) + ") " + Career.stars(opp.r) + sty_txt + " · Nivel " + str(int(round(float(opp.r) * 100.0))) + "%", 15, Color("#ffe27a")))
+			var brtxt: = ""
+			var cur_round: int = d.tour.round if d.tour else 0
+			for ri in T.rounds:
+				var rname: String = career.round_name(T, ri)
+				brtxt += (" → " if ri > 0 else "") + ("[" + rname + "]" if ri == cur_round else rname)
+			vb.add_child(_sub("Cuadro: " + brtxt, 13, Color("#9fb3e8")))
 		else:
 			vb.add_child(_sub("Se sortea el cuadro al empezar. Cada ronda: 1 set (GS: mejor de 3 desde semis).", 13))
 		var btns: = []
 		var pb: = _btn("JUGAR " + ("PARTIDO" if d.tour else "TORNEO"), false, true)
 		pb.pressed.connect( func(): sfx.play("click");play_career_match.emit())
 		btns.append(pb)
-		var tb2: = _btn("ENTRENAMIENTO · SAQUE", true)
+		var _tdone: bool = career.training_done()
+		var tb2: = _btn("ENTRENAMIENTO COMPLETADO" if _tdone else "ENTRENAMIENTO · LATAS", true)
+		tb2.disabled = _tdone
 		tb2.pressed.connect( func():
 			sfx.play("click")
 			training_from = "career"
+			training_mode = "cans"
 			play_training.emit())
 		btns.append(tb2)
+		var tb3: = _btn("ENTRENAMIENTO · DIANAS", false)
+		tb3.disabled = _tdone
+		tb3.pressed.connect( func():
+			sfx.play("click")
+			training_from = "career"
+			training_mode = "targets"
+			play_training.emit())
+		btns.append(tb3)
 		if d.free > 0:
 			var up: = _btn("★ MEJORAR (" + str(int(d.free)) + ")", true)
 			up.pressed.connect( func(): sfx.play("click");tab = "stats";show_hub(""))
@@ -478,7 +506,7 @@ func show_hub(msg: String, ok: = true) -> void :
 		tabs.add_child(tb)
 	root_box.add_child(tabs)
 	var content: = _panel()
-	content.custom_minimum_size = Vector2(900, 250)
+	content.custom_minimum_size = Vector2(900, 330)
 	root_box.add_child(content)
 	if tab == "cal":
 		content.add_child(_calendar_table())

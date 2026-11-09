@@ -6,12 +6,13 @@ const LINE_W_BASE: = 0.16
 const LINE_W_SIDE: = 0.11
 
 const THEMES: = {
-	"clay": {"court": Color("#bd5c26"), "court2": Color("#b4551f"), "surround": Color("#a34e1d"), "out": Color("#2a5741"), "out2": Color("#1e4434"), "line": Color("#f6f1e6")}, 
+	"clay": {"court": Color("#bd5c26"), "court2": Color("#b4551f"), "surround": Color("#a34e1d"), "out": Color("#7a3b22"), "out2": Color("#5e2c19"), "line": Color("#f6f1e6")},
 	"hard": {"court": Color("#1e88e5"), "court2": Color("#1a7ad0"), "surround": Color("#7cb342"), "out": Color("#6aa83c"), "out2": Color("#548a2e"), "line": Color("#f4f6fa")},
 	"grass": {"court": Color("#3f7a36"), "court2": Color("#3a7133"), "surround": Color("#1e3a1f"), "out": Color("#234524"), "out2": Color("#1b3a1d"), "line": Color("#f6f8f2")},
 }
 const NIGHT_THEMES: = {
 	"hard": {"court": Color("#38627a"), "court2": Color("#325a70"), "surround": Color("#688a3e"), "out": Color("#5b7d38"), "out2": Color("#4b6a30"), "line": Color("#f4f6fa")},
+	"clay": {"court": Color("#a94d1f"), "court2": Color("#9f471c"), "surround": Color("#8f3f18"), "out": Color("#67301b"), "out2": Color("#4e2413"), "line": Color("#f6f1e6")},
 }
 const L: = 23.77
 const NZ: = L / 2.0
