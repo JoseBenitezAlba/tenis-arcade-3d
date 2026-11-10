@@ -244,27 +244,6 @@ func _build_accessories() -> void :
 	band.scale = Vector3.ONE * (1.0 / CHAR_SCALE)
 	band.position = Vector3(0, 0.15, 0)
 	ba_h.add_child(band)
-	var cap_mat: = _mat(Color("#f4f4f6"))
-	cap_mat.roughness = 0.9
-	var crown: = MeshInstance3D.new()
-	var cm: = CylinderMesh.new()
-	cm.top_radius = 0.115
-	cm.bottom_radius = 0.13
-	cm.height = 0.08
-	cm.radial_segments = 16
-	crown.mesh = cm
-	crown.material_override = cap_mat
-	crown.scale = Vector3.ONE * (1.0 / CHAR_SCALE)
-	crown.position = Vector3(0, 0.232, 0)
-	ba_h.add_child(crown)
-	var brim: = MeshInstance3D.new()
-	var bm: = BoxMesh.new()
-	bm.size = Vector3(0.23, 0.01, 0.11)
-	brim.mesh = bm
-	brim.material_override = cap_mat
-	brim.scale = Vector3.ONE * (1.0 / CHAR_SCALE)
-	brim.position = Vector3(0, 0.198, 0.10)
-	ba_h.add_child(brim)
 
 	for side in ["L", "R"]:
 		var ba: = BoneAttachment3D.new()
@@ -935,11 +914,23 @@ func update_from_sim(e, dt: float) -> void :
 				ap.play("Idle_Sword", 0.34)
 			ap.seek(0.0, true)
 		return
+	if serve_ready and e.swing <= 0.0:
+		_play_seek("mocap/Servicio", 0.12)
+		_raise_arm(TOSS_ARM * 0.55, "UpperArm.L")
+		_raise_arm(SERVE_ARM * 0.65, "UpperArm.R")
+		_bend_torso(0.06)
+		_serve_knees(0.22)
+		if racket_node != null:
+			var p3r = racket_node.get_parent() as Node3D
+			if p3r != null:
+				var lu: Vector3 = p3r.global_basis.inverse() * Vector3.UP
+				racket_node.quaternion = Quaternion(Vector3.UP, -lu.normalized())
+		return
 	if serve_toss >= 0.0 and e.swing <= 0.0:
 
 		var toss_k: float = clampf(serve_toss, 0.0, 1.0)
 		_play_seek("mocap/Servicio", lerpf(0.1, 0.55, toss_k))
-		_raise_arm(TOSS_ARM * _ease_out_cubic(clampf(serve_toss / 0.55, 0.0, 1.0)), "UpperArm.L")
+		_raise_arm(TOSS_ARM * _ease_out_cubic(clampf(serve_toss / 0.35, 0.0, 1.0)), "UpperArm.L")
 		position.y -= 0.17 * sin(toss_k * PI)
 		_serve_knees(1.05 * sin(toss_k * PI))
 		_twist_torso(-0.26 * sin(toss_k * PI))
