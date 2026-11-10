@@ -750,6 +750,8 @@ func do_hit(e: Player, kind: String, ai: bool) -> void :
 			var zmin2: float = margin
 			var zmax2: float = minf(ball.z - 1.6, NZ - 1.4)
 			tz = zmin2 if zmax2 < zmin2 else clampf(tz, zmin2, zmax2)
+	if kind == "slice":
+		T *= 0.88
 	if kind == "drive" or kind == "slice":
 		# Ritmo constante por distancia: T escala con la distancia real al objetivo
 		# (18.1m = drive de fondo a bola profunda). Sin esto, un drive a media pista
@@ -799,7 +801,7 @@ func do_hit(e: Player, kind: String, ai: bool) -> void :
 	if kind == "drive":
 		nc_floor = 1.02
 	elif kind == "slice":
-		nc_floor = 0.98 if (not ai and e.id == 0) else 1.2
+		nc_floor = 1.07
 	elif kind == "drop" or kind == "volley":
 		nc_floor = 1.0
 	elif kind == "smash":
@@ -940,8 +942,8 @@ func do_hit(e: Player, kind: String, ai: bool) -> void :
 		_clamp_launch_speed(tx, tz, T, launch_y, nc_floor, _vcap, _lo, _hi, _tmin, 2.2)
 	if not ai and e.id == 0 and kind == "drop":
 		_clamp_launch_speed(tx, tz, T, launch_y, nc_floor, _vcap, 29.17, 34.0, 0.08, 2.2)
-	if ai and kind == "slice":
-		_clamp_launch_speed(tx, tz, T, launch_y, nc_floor, _vcap, 30.6, 42.0, 0.12, 2.2)
+	if kind == "slice":
+		_clamp_launch_speed(tx, tz, T, launch_y, nc_floor, _vcap, 30.0, 34.5, 0.12, 2.2)
 	if kind in ["drive", "slice", "volley", "smash"]:
 		var _floor_sp: float = Vector3(ball.vx, ball.vy, ball.vz).length()
 		var _floor_min: float = 33.3 if ai else 31.94
@@ -1640,6 +1642,9 @@ func step_ball(dt: float) -> void :
 		ball.y = BR
 		var sp: = absf(ball.vy)
 		var bf: = _bounce_factors(ball.spin)
+		if ball.kind == "slice" and ball.bounces == 0:
+			bf[0] *= 0.62
+			bf[1] *= 1.15
 
 
 
@@ -1751,6 +1756,9 @@ func predict(e: Player) -> Vector3:
 		if by <= BR and bvy < 0:
 			by = BR
 			var bf: = _bounce_factors(ball.spin)
+			if ball.kind == "slice" and bn == 0:
+				bf[0] *= 0.62
+				bf[1] *= 1.15
 			bvy *= - bf[0]
 			bvx *= bf[1]
 			bvz *= bf[1]

@@ -529,7 +529,7 @@ func _ready() -> void :
 	pv.add_theme_font_size_override("font_size", 14)
 	pv.add_theme_color_override("font_color", Color(0.62, 0.7, 0.92, 0.6))
 	pv.position = Vector2(12, 10)
-	pv.size = Vector2(160, 20)
+	pv.size = Vector2(240, 20)
 	pv.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	pause_layer.add_child(pv)
 	var guard: = PauseGuard.new()
@@ -1561,7 +1561,6 @@ func drain_events() -> void :
 				if ev.kind == "smash" or ev.get("stretch", 0.0) >= 1.3 or charged >= 1.3:
 					sfx.play("grunt", 0.55 if ev.id == 0 else 0.35, randf_range(0.9, 1.12))
 			"serve":
-				hud.hide_banner()
 				_srv_bounce_ok = false
 				if _hot_level() >= 1 and not _serve_armed:
 					sfx.play("murmur", 0.8)
@@ -1637,7 +1636,7 @@ func drain_events() -> void :
 				sfx.play("judge", 0.45, 0.92)
 				hud.popup("LET", Vector3(sim.ball.x, 0.0, sim.ball.z), Color("#ffffff"))
 				hud.show_banner("LET", "se repite el saque", Color("#ffffff"))
-				banner_dur = 1.2
+				banner_dur = 1.3
 				banner_t = banner_dur
 				sfx.play("tape")
 			"netcord":
@@ -1790,8 +1789,8 @@ func drain_events() -> void :
 				hud.hide_speed()
 				hud.serve_meter_hide()
 				hud.show_banner("FALTA", ev.why, Color("#ffd23f"))
-				banner_t = 0.9
-				banner_dur = 0.9
+				banner_t = 1.3
+				banner_dur = 1.3
 			"over":
 				over_sent = true
 				match_finished.emit(sim.M.sets[0] > sim.M.sets[1])

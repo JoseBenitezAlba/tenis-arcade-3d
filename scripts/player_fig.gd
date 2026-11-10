@@ -730,6 +730,7 @@ static func _swing_clip(kind: String, hit_side: String) -> Array:
 
 
 		"smash": return ["mocap/Servicio", 0.95, 1.45]
+		"slice": return ["Sword_Slash", 0.92, 1.12]
 		_: return ["mocap/Reves" if hit_side == "back" else "mocap/Derecha", 1.0, 1.95]
 
 
@@ -839,6 +840,8 @@ func update_from_sim(e, dt: float) -> void :
 	var _sw: bool = e.swing > 0.0 and not _moving_recovery
 	var _serve_pose: bool = serve_ready or serve_toss >= 0.0 or (e.kind == "serve" and e.swing > 0.0)
 	var face_target: float = facing
+	if celeb_t > 0.0 or state in CELEB_ANIMS:
+		face_target = 0.0
 	if _serve_pose:
 		face_target = facing + (0.65 if e.near else -0.65)
 	if not _sw:
@@ -1060,7 +1063,7 @@ func _rk_rest(dt: float) -> void :
 	rk_rest_k = move_toward(rk_rest_k, tgt, dt * 14.0)
 	if rk_rest_k > 0.0:
 		var kk: float = rk_rest_k * rk_rest_k * (3.0 - 2.0 * rk_rest_k)
-		racket_node.rotation = Vector3(PI - RK_REST_A * kk, 0.0, RK_REST_Z * kk)
+		racket_node.rotation = Vector3(PI * 0.62 - RK_REST_A * kk, 0.0, RK_REST_Z * kk)
 
 func head_world() -> Vector3:
 	if skel != null:
