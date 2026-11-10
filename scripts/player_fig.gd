@@ -652,7 +652,7 @@ func _serve_knees(k: float) -> void :
 		if bi < 0:
 			continue
 		var g: = skel.get_bone_global_pose(bi)
-		var rot: = Basis(Vector3.RIGHT, -0.38 * k) * Basis(Vector3.BACK, 0.10 * k * float(side[1]))
+		var rot: = Basis(Vector3.RIGHT, -0.26 * k) * Basis(Vector3.BACK, 0.06 * k * float(side[1]))
 		skel.set_bone_global_pose_override(bi, Transform3D(rot * g.basis, g.origin), 1.0, true)
 	skel.force_update_all_bone_transforms()
 	for bn in ["LowerLeg.L", "LowerLeg.R"]:
@@ -677,7 +677,7 @@ func _ready_stance() -> void :
 		if bi < 0:
 			continue
 		var g: = skel.get_bone_global_pose(bi)
-		var rot: = Basis(Vector3.RIGHT, -0.32) * Basis(Vector3.BACK, 0.14 * float(side[1]))
+		var rot: = Basis(Vector3.RIGHT, -0.18) * Basis(Vector3.BACK, 0.08 * float(side[1]))
 		skel.set_bone_global_pose_override(bi, Transform3D(rot * g.basis, g.origin), 1.0, true)
 	skel.force_update_all_bone_transforms()
 	for bn in ["LowerLeg.L", "LowerLeg.R"]:
@@ -750,7 +750,7 @@ func celebrate(cname: String, dur: float) -> void :
 func update_from_sim(e, dt: float) -> void :
 	ap.advance(dt)
 	if racket_node != null:
-		racket_node.rotation = Vector3(PI, 0.0, 0.0)
+		racket_node.rotation = Vector3(PI * 0.62, 0.0, 0.0)
 
 		if state in CELEB_ANIMS:
 			rk_show_delay = 0

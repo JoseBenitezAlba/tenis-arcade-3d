@@ -50,6 +50,19 @@ static func court_texture(surface: String, night: bool = false) -> ImageTexture:
 
 	var rng: = RandomNumberGenerator.new()
 	rng.seed = 7
+	if surface == "clay":
+		for i in 12:
+			var yy: = rng.randi_range(iy0, iy1)
+			img.fill_rect(Rect2i(ix0, yy, ix1 - ix0, maxi(1, int(pxm_z * 0.06))), Color(0, 0, 0, 0.035))
+		for zc in [0.9, L - 0.9]:
+			var wy0: int = int(py_of.call(zc - 1.0))
+			var wy1: int = int(py_of.call(zc + 1.0))
+			img.fill_rect(Rect2i(ix0, wy0, ix1 - ix0, maxi(1, wy1 - wy0)), Color(0.08, 0.04, 0.02, 0.10))
+	elif surface == "grass":
+		for zc in [0.7, L - 0.7]:
+			var gy0: int = int(py_of.call(zc - 0.8))
+			var gy1: int = int(py_of.call(zc + 0.8))
+			img.fill_rect(Rect2i(ix0 + int((ix1 - ix0) * 0.22), gy0, int((ix1 - ix0) * 0.56), maxi(1, gy1 - gy0)), Color(0.42, 0.36, 0.18, 0.13))
 	var _ss: float = 0.06 if surface == "clay" else 0.035
 	for n in 14000:
 		var x: = rng.randi() % w
