@@ -145,7 +145,7 @@ const TOSS_BALL_K: = 0.55
 const BOUNCE_RING_FAR_A: = 0.75
 
 
-const PLAYER_SHADOW_K: = 1.3
+const PLAYER_SHADOW_K: = 0.9
 
 
 const RING_LIFE: = 0.28
@@ -295,6 +295,7 @@ func _ready() -> void :
 		sh_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		sh_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 		sh_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+		sh_mat.albedo_color = Color(0, 0, 0, 0.34)
 		var q: = MeshInstance3D.new()
 		var qm: = QuadMesh.new()
 		qm.size = Vector2(1.2, 1.2)
@@ -304,7 +305,7 @@ func _ready() -> void :
 		q.position.y = 0.07
 		add_child(q)
 		if i < 2:
-			q.scale = Vector3(PLAYER_SHADOW_K * 1.55, PLAYER_SHADOW_K * 0.95, 1.0)
+			q.scale = Vector3(PLAYER_SHADOW_K * 1.35, PLAYER_SHADOW_K * 0.85, 1.0)
 			shadows.append(q)
 		else:
 			ball_shadow = q
@@ -778,8 +779,8 @@ func _physics_process(dt: float) -> void :
 		shadows[i].position.z = sim.pl[i].z
 		var _hp: Vector3 = rigs[i].head_world()
 		shadow_heads[i].position = Vector3(_hp.x, 0.075, _hp.z)
-		var _shk: float = 1.0 if sim.state in ["point", "over"] else 1.55
-		shadows[i].scale = Vector3(PLAYER_SHADOW_K * _shk, PLAYER_SHADOW_K * 0.95, 1.0)
+		var _shk: float = 1.0 if sim.state in ["point", "over"] else 1.25
+		shadows[i].scale = Vector3(PLAYER_SHADOW_K * _shk, PLAYER_SHADOW_K * 0.82, 1.0)
 		brake_cd[i] = maxf(0.0, brake_cd[i] - dt)
 		var pv = sim.pl[i]
 		if pv.speed > 3.0 and randf() < dt * (9.0 if surface == "clay" else 2.0):
@@ -849,7 +850,7 @@ func _physics_process(dt: float) -> void :
 
 
 	if sim.state == "serve" and (_prev_sim_state == "point" or _prev_sim_state == "over"):
-		_serve_blank = 0.75
+		_serve_blank = 0.12
 	_prev_sim_state = sim.state
 	_serve_blank = maxf(0.0, _serve_blank - dt)
 	if sim.state == "play" or sim.state == "serve":
@@ -1064,9 +1065,9 @@ func _physics_process(dt: float) -> void :
 	elif not demo and _tut_n < 2 and sim.state == "serve" and sim.M.server == 0 and sim.serve_stage != "hit":
 		_tut_seen = true
 		if touch_ui:
-			hud.set_hint("GOLPE: lanzar la bola" if sim.serve_stage == "ready" else "Otro toque en el ápice · golpear fuera de tiempo o no golpear es falta")
+			hud.set_hint("SAQUE: pulsa A/ESPACIO para lanzar" if sim.serve_stage == "ready" else "SAQUE: pulsa A/ESPACIO en el punto alto")
 		else:
-			hud.set_hint("A / ESPACIO: lanzar la bola" if sim.serve_stage == "ready" else "Otro toque en el ápice · golpear fuera de tiempo o no golpear es falta")
+			hud.set_hint("SAQUE: pulsa A/ESPACIO para lanzar" if sim.serve_stage == "ready" else "SAQUE: pulsa A/ESPACIO en el punto alto")
 	elif not demo and hint_t <= 0.0:
 		if _tut_seen and sim.state != "serve":
 			_tut_seen = false
@@ -1284,7 +1285,7 @@ static func winner_celebration_plan(txt: String, hot: int, games: int = 0) -> Ar
 
 		return ["Punch_Left", 2.0]
 	if txt == "JUEGO":
-		return ["Wave", 1.6]
+		return ["Wave", 1.5]
 	if txt == "PUNTO" and hot >= 2:
 		return ["Punch_Left", 1.2]
 	return []
@@ -1687,6 +1688,9 @@ func drain_events() -> void :
 						mk.m.visible = false
 				_point_winner = ev.get("w", -1)
 				_closeup_ok = ev.txt in ["JUEGO", "SET", "PARTIDO"]
+				if _closeup_ok:
+					ball_mesh.visible = false
+					rigs[ev.w].rotation.y = 0.0
 				hud.hide_speed()
 				_fatigue = fatigue_from_rally(sim.rally_hits)
 				var is_err: bool = ev.txt in ["FUERA", "RED", "DOBLE FALTA"]
@@ -1779,6 +1783,8 @@ func drain_events() -> void :
 				else:
 					var pn: String = hud.name_labels[ev.w].get_meta("base")
 					var reason: String = "" if ev.txt == "PUNTO" else ev.txt
+					if ev.txt == "PUNTO" and sim.rally_hits == 1:
+						reason = "¡ACE! · Saque directo"
 					var sc: String = _pts_line()
 					var sub: String = reason
 					if sc != "":

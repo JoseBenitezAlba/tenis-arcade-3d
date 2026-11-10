@@ -215,6 +215,7 @@ var time: = 0.0
 var rally_hits: = 0
 var rally_start_hit: = 0
 var last_rally_hitter: = -1
+var last_rally_time: = -1.0
 var serve_unreturned: = false
 var match_over: = false
 var last_winner: = -1
@@ -288,6 +289,7 @@ func prep_serve() -> void :
 	ball.serve_token = -1
 	reset_serve_ball()
 	rally_hits = 0
+	last_rally_time = -1.0
 	rally_start_hit = ball.hit_id
 	last_rally_hitter = -1
 	serve_unreturned = false
@@ -418,7 +420,8 @@ func award_point(w: int, why: String, sub: String) -> void :
 			sb = "TIE-BREAK"
 		else:
 			txt = "JUEGO"
-			sb = ("Doble falta · " if why == "DOBLE FALTA" else "") + ("Para ti" if w == 0 else "Para " + cpu_name)
+			var _why_txt: String = "Doble falta" if why == "DOBLE FALTA" else ("Ganador" if why == "PUNTO" else why)
+			sb = _why_txt + " · " + ("Para ti" if w == 0 else "Para " + cpu_name)
 	elif M.pts[0] == 3 and M.pts[1] == 3:
 		sb = "40-40 · punto de oro"
 	events.append({"t": "point", "w": w, "txt": txt, "sub": sb, "brk": brk})
@@ -897,8 +900,9 @@ func do_hit(e: Player, kind: String, ai: bool) -> void :
 	ball.serving = false
 	ball.in_play = true
 	ball.hit_id += 1
-	if last_rally_hitter != e.id:
+	if time - last_rally_time > 0.15:
 		rally_hits += 1
+		last_rally_time = time
 	last_rally_hitter = e.id
 	serve_unreturned = false
 	e.swing = 0.34
@@ -1391,6 +1395,7 @@ func do_serve(e: Player, q: float, stype: String = "") -> void :
 	rally_hits = 1
 	rally_start_hit = ball.hit_id
 	last_rally_hitter = e.id
+	last_rally_time = time
 
 func toss_ball() -> void :
 	serve_token += 1

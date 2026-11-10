@@ -474,7 +474,7 @@ func _build_racket() -> void :
 	var rk: = Node3D.new()
 
 
-	rk.scale = Vector3.ONE * (1.0 / CHAR_SCALE) * 1.15
+	rk.scale = Vector3.ONE * (1.0 / CHAR_SCALE) * 0.96
 
 
 	rk.rotation = Vector3(PI, 0.0, 0.0)
@@ -523,8 +523,8 @@ func _build_racket() -> void :
 		rk.add_child(arm)
 	var frame: = MeshInstance3D.new()
 	var tm: = TorusMesh.new()
-	tm.inner_radius = 0.216
-	tm.outer_radius = 0.247
+	tm.inner_radius = 0.195
+	tm.outer_radius = 0.22
 	tm.ring_segments = 10
 	tm.rings = 40
 	tm.material = frame_red
@@ -537,8 +537,8 @@ func _build_racket() -> void :
 	rk.add_child(frame)
 	var trim: = MeshInstance3D.new()
 	var tt: = TorusMesh.new()
-	tt.inner_radius = 0.209
-	tt.outer_radius = 0.22
+	tt.inner_radius = 0.188
+	tt.outer_radius = 0.198
 	tt.ring_segments = 8
 	tt.rings = 40
 	tt.material = trim_red
@@ -549,7 +549,7 @@ func _build_racket() -> void :
 	rk.add_child(trim)
 	var strings: = MeshInstance3D.new()
 	var qm: = QuadMesh.new()
-	qm.size = Vector2(0.43, 0.51)
+	qm.size = Vector2(0.39, 0.46)
 	var sm: = StandardMaterial3D.new()
 	sm.albedo_texture = TexGen.string_texture()
 	sm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
@@ -694,8 +694,8 @@ func _ready_stance() -> void :
 		var fg: = skel.get_bone_global_pose(fi)
 		skel.set_bone_global_pose_override(fi, Transform3D(Basis(Vector3.RIGHT, -0.14) * fg.basis, fg.origin), 1.0, true)
 	_bend_torso(0.28)
-	_raise_arm(-0.62, "UpperArm.R")
-	_raise_arm(-0.18, "UpperArm.L")
+	_raise_arm(-0.85, "UpperArm.R")
+	_raise_arm(-0.30, "UpperArm.L")
 
 var celeb_t: = 0.0
 var celeb_name: = ""
@@ -750,7 +750,7 @@ func celebrate(cname: String, dur: float) -> void :
 func update_from_sim(e, dt: float) -> void :
 	ap.advance(dt)
 	if racket_node != null:
-		racket_node.rotation = Vector3(PI * 0.62, 0.0, 0.0)
+		racket_node.rotation = Vector3(PI * 0.48, 0.0, 0.0)
 
 		if state in CELEB_ANIMS:
 			rk_show_delay = 0
@@ -1075,7 +1075,7 @@ func _rk_rest(dt: float) -> void :
 	rk_rest_k = move_toward(rk_rest_k, tgt, dt * 14.0)
 	if rk_rest_k > 0.0:
 		var kk: float = rk_rest_k * rk_rest_k * (3.0 - 2.0 * rk_rest_k)
-		racket_node.rotation = Vector3(PI * 0.62 - RK_REST_A * kk, 0.0, RK_REST_Z * kk)
+		racket_node.rotation = Vector3(PI * 0.48 - RK_REST_A * kk, 0.0, RK_REST_Z * kk)
 
 func head_world() -> Vector3:
 	if skel != null:
