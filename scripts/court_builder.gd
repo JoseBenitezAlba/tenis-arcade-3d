@@ -733,15 +733,6 @@ static func build(surface: String, day_v = false) -> Node3D:
 		_watchers.append({"fig": judge, "yaw": jchair.rotation.y, "body": 0.35})
 
 
-	var kid_pos: = [Vector3(-7.4, 0, NZ + 0.15), Vector3(7.4, 0, NZ + 0.15)]
-	for ki in 2:
-		var kid: = _fbx_figure("res://models/Casual_Hoodie.glb", Color("#2f6fb5"), Color("#f2f2f2"), Color("#d9a37a"), "Idle_Neutral", Color("#2a2018"), 0.42)
-		kid.scale = Vector3.ONE * 0.58
-		kid.position = kid_pos[ki]
-		kid.rotation.y = PI / 2.0 if kid_pos[ki].x < 0.0 else - PI / 2.0
-		root.add_child(kid)
-		_watchers.append({"fig": kid, "yaw": kid.rotation.y, "body": 0.25})
-
 	for s in [-1, 1]:
 		var bench: = Node3D.new()
 		bench.position = Vector3(s * 10.8, 0, NZ)

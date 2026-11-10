@@ -401,7 +401,7 @@ func _ready() -> void :
 		dust_pool.append({"m": d, "mat": dm, "life": 0.0, "max": 0.6, "v": Vector3.ZERO})
 
 
-	for i in 10:
+	for i in 24:
 		var mk: = MeshInstance3D.new()
 		var mc: = CylinderMesh.new()
 		mc.top_radius = 0.14
@@ -414,7 +414,7 @@ func _ready() -> void :
 		mk.mesh = mc
 		mk.visible = false
 		add_child(mk)
-		mark_pool.append({"m": mk, "mat": mm, "life": 0.0, "max": 1.3})
+		mark_pool.append({"m": mk, "mat": mm, "life": 14.0, "max": 14.0})
 
 
 	var skid_grad: = Gradient.new()
@@ -469,7 +469,7 @@ func _ready() -> void :
 		if touch_ui:
 			hud.set_hint("Joystick izquierdo mover · GOLPE / GLOBO / DEJADA a la derecha · II pausa")
 		else:
-			hud.set_hint("Stick/WASD mover · A/ESPACIO golpe · X/Z globo · B dejada · C/LB cámara · START pausa")
+			hud.set_hint("Stick/WASD mover · A/ESPACIO golpe (ajuste automatico de 1-2 pasos) · X/Z globo · B dejada · C/LB camara · START pausa")
 	else:
 		hud.set_hint("")
 
@@ -582,8 +582,8 @@ func spawn_mark(pos: Vector3) -> void :
 		return
 	for mk in mark_pool:
 		if mk.life <= 0.0:
-			mk.life = 1.3
-			mk.max = 1.3
+			mk.life = 14.0
+			mk.max = 14.0
 			mk.m.visible = true
 			mk.m.position = Vector3(pos.x, DECAL_Y, pos.z)
 			mk.mat.albedo_color = mark_color()
@@ -918,7 +918,7 @@ func _physics_process(dt: float) -> void :
 			if mk.life <= 0.0:
 				mk.m.visible = false
 			else:
-				mk.mat.albedo_color.a = clampf(mk.life / mk.max, 0.0, 1.0) * 0.4
+				mk.mat.albedo_color.a = clampf(mk.life / 2.0, 0.0, 1.0) * 0.4
 	for sk in skid_pool:
 		if sk.life > 0.0:
 			sk.life -= dt
@@ -1602,6 +1602,7 @@ func drain_events() -> void :
 				spawn_mark(Vector3(ev.x, 0.0, ev.z))
 			"let":
 				hud.hide_popups()
+				net_shake = maxf(net_shake, net_shake_time("net"))
 				sfx.play("judge", 0.45, 0.92)
 				hud.popup("LET", Vector3(sim.ball.x, 0.0, sim.ball.z), Color("#ffffff"))
 				hud.show_banner("LET", "se repite el saque", Color("#ffffff"))

@@ -3,9 +3,9 @@ extends Node
 const DebugHarness: = preload("res://scripts/debug_harness.gd")
 
 const DIFF_PARAMS: = [
-	{"speed": 4.3, "react": 0.45, "err": 0.9, "miss": 0.3, "risk": 0.35}, 
-	{"speed": 5.6, "react": 0.27, "err": 0.5, "miss": 0.15, "risk": 0.5}, 
-	{"speed": 6.8, "react": 0.14, "err": 0.28, "miss": 0.06, "risk": 0.7}, 
+	{"speed": 4.8, "react": 0.38, "err": 0.72, "miss": 0.22, "risk": 0.35, "attack": 0.0, "serve_lo": 42.0, "serve_hi": 46.0},
+	{"speed": 6.6, "react": 0.16, "err": 0.30, "miss": 0.07, "risk": 0.6, "attack": 0.12, "serve_lo": 48.0, "serve_hi": 52.0},
+	{"speed": 7.6, "react": 0.08, "err": 0.18, "miss": 0.03, "risk": 0.75, "attack": 0.22, "serve_lo": 51.0, "serve_hi": 55.0},
 ]
 const CPU_LABELS: = ["CPU · FÁCIL", "CPU · NORMAL", "CPU · DIFÍCIL"]
 

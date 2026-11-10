@@ -50,10 +50,11 @@ static func court_texture(surface: String, night: bool = false) -> ImageTexture:
 
 	var rng: = RandomNumberGenerator.new()
 	rng.seed = 7
-	for n in 9000:
+	var _ss: float = 0.06 if surface == "clay" else 0.035
+	for n in 14000:
 		var x: = rng.randi() % w
 		var y: = rng.randi() % h
-		var c: = Color(1, 1, 1, rng.randf_range(0.015, 0.035)) if rng.randf() < 0.5 else Color(0, 0, 0, rng.randf_range(0.015, 0.035))
+		var c: = Color(1, 1, 1, rng.randf_range(_ss * 0.3, _ss)) if rng.randf() < 0.5 else Color(0, 0, 0, rng.randf_range(_ss * 0.3, _ss))
 		img.set_pixel(x, y, img.get_pixel(x, y).blend(c))
 
 	for n in 2400:

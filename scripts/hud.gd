@@ -347,7 +347,7 @@ func update_score(M) -> void :
 		score_rows[i][1].text = str(M.games[i])
 		score_rows[i][2].text = str(M.tb_pts[i]) if in_tb else PT[mini(3, M.pts[i])]
 		var base: String = name_labels[i].get_meta("base")
-		name_labels[i].text = ("● " if M.server == i else "") + base
+		name_labels[i].text = ("* " if M.server == i else "") + base
 
 func show_point_card(mine: bool, pts: String, reason: String = "") -> void :
 

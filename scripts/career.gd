@@ -301,7 +301,7 @@ func finish_tournament(wins: int) -> String:
 	data.tour = null
 	var r1: = my_rank()
 	save()
-	return def.n + ": " + res + " · +" + str(pts) + " pts" + (" · ranking #" + str(rank0) + " → #" + str(r1) if r1 != rank0 else " · ranking #" + str(r1))
+	return def.n + ": " + res + " · +" + str(pts) + " pts" + (" · ranking #" + str(rank0) + " -> #" + str(r1) if r1 != rank0 else " · ranking #" + str(r1))
 
 func on_career_end(win: bool) -> Dictionary:
 	var def: Dictionary = CAL[data.tour.idx]
@@ -343,4 +343,4 @@ func end_season() -> void :
 
 static func stars(r: float) -> String:
 	var n: int = clamp(int(round((r - 0.5) * 10.0)), 1, 5)
-	return "★".repeat(n) + "☆".repeat(5 - n)
+	return "*".repeat(n) + "-".repeat(5 - n)

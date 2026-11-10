@@ -278,7 +278,7 @@ func prep_serve() -> void :
 	srv.vx = 0.0
 	srv.vz = 0.0
 	srv.swing = 0.0
-	rec.x = -1.5 * sgn if near else 1.5 * sgn
+	rec.x = - srv.x * 1.07
 	rec.z = L + 0.6 if near else -0.6
 	rec.vx = 0.0
 	rec.vz = 0.0
@@ -303,9 +303,10 @@ func prep_serve() -> void :
 func break_pos(e) -> Vector2:
 	var sgn: = 1.0 if ((M.tb_total if M.tb else M.pts[0] + M.pts[1]) % 2) == 0 else -1.0
 	var snear: bool = pl[M.server].near
+	var sx: float = 1.4 * sgn if snear else -1.4 * sgn
 	if M.server == e.id:
-		return Vector2(1.4 * sgn if snear else -1.4 * sgn, -0.9 if snear else L + 0.9)
-	return Vector2(-1.5 * sgn if snear else 1.5 * sgn, L + 0.6 if snear else -0.6)
+		return Vector2(sx, -0.9 if snear else L + 0.9)
+	return Vector2(- sx * 1.07, L + 0.6 if snear else -0.6)
 
 
 static func break_vel(d: float) -> float:
@@ -942,8 +943,9 @@ func do_hit(e: Player, kind: String, ai: bool) -> void :
 		_clamp_launch_speed(tx, tz, T, launch_y, nc_floor, _vcap, 30.6, 42.0, 0.12, 2.2)
 	if kind in ["drive", "slice", "volley", "smash"]:
 		var _floor_sp: float = Vector3(ball.vx, ball.vy, ball.vz).length()
-		if _floor_sp < 31.94:
-			var _ff: float = 31.94 / maxf(_floor_sp, 0.01)
+		var _floor_min: float = 33.3 if ai else 31.94
+		if _floor_sp < _floor_min:
+			var _ff: float = _floor_min / maxf(_floor_sp, 0.01)
 			ball.vx *= _ff
 			ball.vy *= _ff
 			ball.vz *= _ff
@@ -1887,8 +1889,8 @@ func ai_control(e: Player, dt: float) -> void :
 				var alive_d: bool = ball.bounces >= 1 or (pbd.ok and absf(pbd.x) <= 4.115 and pbd.z >= 0.0 and pbd.z <= L)
 				var gap: float = dpd - D.speed * 1.48 * maxf(t_est - 0.12, 0.0)
 				var _spd_in: float = Vector3(ball.vx, ball.vy, ball.vz).length()
-				var _show_dive: bool = gap > 1.2 and dpd < 5.2 and _spd_in > 34.0 and ball.kind in ["drive", "volley"] and e.kind_roll < 0.35
-				if alive_d and t_est > 0.12 and t_est < 0.8 and absf(ball.x - e.x) > 3.1 and ((gap > 1.7 and dpd < 5.2) or _show_dive):
+				var _show_dive: bool = gap > 1.8 and dpd < 5.2 and _spd_in > 36.0 and ball.kind in ["drive", "volley"] and e.kind_roll < 0.2
+				if alive_d and t_est > 0.12 and t_est < 0.75 and absf(ball.x - e.x) > 3.6 and ((gap > 2.0 and dpd < 5.2) or _show_dive):
 					e.dive_t = 0.55
 					e.dive_cool = 3.2
 					e.dive_for = ball.hit_id
@@ -2174,7 +2176,7 @@ func human_control(e: Player, dt: float) -> void :
 		var h_gap: float = bdist - PS.speed * maxf(tta - 0.12, 0.0)
 
 
-		if tta < 0.55 and h_gap > 1.7 and bdist > 2.8 and bdist < 4.6 and absf(ball.x - e.x) > 3.1 and e.dive_for != ball.hit_id:
+		if tta < 0.5 and h_gap > 2.0 and bdist > 3.2 and bdist < 4.8 and absf(ball.x - e.x) > 3.6 and e.dive_for != ball.hit_id:
 			e.dive_t = 0.55
 			e.dive_cool = 3.2
 			e.dive_for = ball.hit_id
@@ -2539,6 +2541,11 @@ func update(dt: float) -> void :
 	_physics_dt = dt
 	time += dt
 	state_t += dt
+	if state == "point" and not match_over and not demo and state_t > 0.8 and (inp.hit or inp.lob or inp.drop):
+		inp.hit = false
+		inp.lob = false
+		inp.drop = false
+		start_point()
 	ball.hot = maxf(0.0, ball.hot - dt * 2.5)
 	if demo:
 		ai_control(pl[0], dt)
@@ -2557,7 +2564,7 @@ func update(dt: float) -> void :
 	var sub: = 2
 	for i in sub:
 		step_ball(dt / sub)
-	var point_window: = 2.0 if demo else 2.8
+	var point_window: = 2.0 if demo else 2.2
 	if state == "point" and state_t > point_window:
 		if match_over and not demo:
 			if not over_sent:

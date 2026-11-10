@@ -206,13 +206,13 @@ func _build_hud() -> void :
 	help_lbl.add_theme_font_size_override("font_size", 16)
 	help_lbl.add_theme_color_override("font_color", Color("#cfe0ff"))
 	help_lbl.position = Vector2(28, 668)
-	help_lbl.text = "WASD/flechas: punteria · ESPACIO: saque · ESC: salir"
+	help_lbl.text = "1) WASD/flechas: mueve la diana  ·  2) ESPACIO: saca  ·  3) Derriba latas/dianas  ·  ESC: salir"
 	layer.add_child(help_lbl)
 	_refresh_hud()
 
 func _refresh_hud() -> void :
 	var mname: String = "DIANAS" if mode == "targets" else "LATAS"
-	hud_lbl.text = ("ENTRENAMIENTO DE PRECISIÓN" if mode == "targets" else "ENTRENAMIENTO DE SAQUE") + " · SAQUES: " + str(serves_left) + " · " + mname + ": " + str(score) + "/" + str(total_cans)
+	hud_lbl.text = ("ENTRENAMIENTO DE PRECISIÓN" if mode == "targets" else "ENTRENAMIENTO DE SAQUE") + " · SAQUES: " + str(serves_left) + " · " + mname + ": " + str(score) + "/" + str(total_cans) + " · LADO: " + ("IZQ" if serve_side < 0.0 else "DER")
 
 func start_serve() -> void :
 	if phase != 0 or serves_left <= 0:

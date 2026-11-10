@@ -1026,7 +1026,6 @@ func update_from_sim(e, dt: float) -> void :
 	_apply_gaze()
 	_rk_rest(dt)
 	if state in CELEB_ANIMS:
-		_celebration_legs()
 		_celebration_grip()
 
 
@@ -1044,15 +1043,11 @@ func _celebration_legs() -> void :
 func _celebration_grip() -> void :
 	if racket_node == null:
 		return
-	var wi: = skel.find_bone(_bone_name(skel, "Wrist.R"))
-	var ei: = skel.find_bone(_bone_name(skel, "LowerArm.R"))
-	if wi < 0 or ei < 0:
+	var p3 = racket_node.get_parent() as Node3D
+	if p3 == null:
 		return
-	var wrist: = skel.get_bone_global_pose(wi).origin
-	var elbow: = skel.get_bone_global_pose(ei).origin
-	var direction: = skel.global_basis * (wrist - elbow).normalized()
-	var local_dir: Vector3 = (racket_node.get_parent() as Node3D).global_basis.inverse() * direction
-	racket_node.quaternion = Quaternion(Vector3.DOWN, local_dir.normalized())
+	var local_up: Vector3 = p3.global_basis.inverse() * Vector3.UP
+	racket_node.quaternion = Quaternion(Vector3.UP, local_up.normalized())
 
 
 func _rk_rest(dt: float) -> void :

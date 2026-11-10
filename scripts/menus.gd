@@ -1,7 +1,7 @@
 class_name GameMenus
 extends Control
 
-const VERSION: = "v0.212"
+const VERSION: = "v0.213"
 
 signal quick_match(surface: String, diff: int, sets: int, tod: int, style: int)
 signal play_career_match
@@ -234,7 +234,7 @@ func show_menu(p_career: Career) -> void :
 		pad_invert.emit(false, i == 1))]))
 	root_box.add_child(_row([_sub("Eje X", 14), _opt_group(["NORMAL", "INVERTIDO"], 1 if pad_inv_x else 0, func(i):
 		pad_invert.emit(true, i == 1))]))
-	root_box.add_child(_sub("Mando: stick mover · A golpe (mantén para cargar) · X globo · B dejada · LB cámara · START pausa\nTeclado: WASD/flechas · ESPACIO golpe (mantén para cargar) · Z globo · SHIFT dejada · C cámara · P pausa", 13, Color("#8ea2d8")))
+	root_box.add_child(_sub("Mando: stick mover · A golpe (mantén para cargar) · X globo · B dejada · LB camara · START pausa\nTeclado: WASD/flechas · ESPACIO golpe (mantén para cargar) · Z globo · SHIFT dejada · C camara · P pausa\nAl golpear, el jugador ajusta solo 1-2 pasos hacia la bola; tú controlas el resto del movimiento.", 13, Color("#8ea2d8")))
 	wt.grab_focus()
 
 
@@ -293,14 +293,6 @@ func show_games(msg: = "") -> void :
 		play_training.emit())
 	root_box.add_child(_row([t1b]))
 	root_box.add_child(_sub("10 saques, 4 dianas. Busca las esquinas.", 14))
-	var soon: = _btn("GLOBOS AL ARCO · PRÓXIMAMENTE")
-	soon.custom_minimum_size = Vector2(340, 52)
-	soon.disabled = true
-	root_box.add_child(_row([soon]))
-	var soon2: = _btn("VOLEAS AL BOTE · PRÓXIMAMENTE")
-	soon2.custom_minimum_size = Vector2(340, 52)
-	soon2.disabled = true
-	root_box.add_child(_row([soon2]))
 	var back: = _btn("VOLVER")
 	back.pressed.connect( func(): sfx.play("click");show_menu(career))
 	root_box.add_child(_row([back]))
@@ -325,7 +317,7 @@ func show_tourney(st: Dictionary, msg: = "") -> void :
 	vb.add_theme_constant_override("separation", 6)
 	card.add_child(vb)
 	if st.done:
-		vb.add_child(_title("🏆 " + st.champion, 30, Color("#ffd23f")))
+		vb.add_child(_title("CAMPEÓN: " + st.champion, 30, Color("#ffd23f")))
 		if st.results.size() > 0:
 			vb.add_child(_sub("Resultados:", 13))
 		for r in st.results:
@@ -443,7 +435,7 @@ func show_hub(msg: String, ok: = true) -> void :
 			var cur_round: int = d.tour.round if d.tour else 0
 			for ri in T.rounds:
 				var rname: String = career.round_name(T, ri)
-				brtxt += (" → " if ri > 0 else "") + ("[" + rname + "]" if ri == cur_round else rname)
+				brtxt += (" > " if ri > 0 else "") + ("[" + rname + "]" if ri == cur_round else rname)
 			vb.add_child(_sub("Cuadro: " + brtxt, 13, Color("#9fb3e8")))
 		else:
 			vb.add_child(_sub("Se sortea el cuadro al empezar. Cada ronda: 1 set (GS: mejor de 3 desde semis).", 13))
@@ -451,6 +443,7 @@ func show_hub(msg: String, ok: = true) -> void :
 		var pb: = _btn("JUGAR " + ("PARTIDO" if d.tour else "TORNEO"), false, true)
 		pb.pressed.connect( func(): sfx.play("click");play_career_match.emit())
 		btns.append(pb)
+		focus_first = pb
 		var _tdone: bool = career.training_done()
 		var tb2: = _btn("ENTRENAMIENTO COMPLETADO" if _tdone else "ENTRENAMIENTO · LATAS", true)
 		tb2.disabled = _tdone
@@ -469,7 +462,7 @@ func show_hub(msg: String, ok: = true) -> void :
 			play_training.emit())
 		btns.append(tb3)
 		if d.free > 0:
-			var up: = _btn("★ MEJORAR (" + str(int(d.free)) + ")", true)
+			var up: = _btn("MEJORAR (" + str(int(d.free)) + ")", true)
 			up.pressed.connect( func(): sfx.play("click");tab = "stats";show_hub(""))
 			btns.append(up)
 		vb.add_child(_row(btns))
@@ -487,6 +480,7 @@ func show_hub(msg: String, ok: = true) -> void :
 			career.end_season()
 			show_hub("Empieza la temporada " + str(career.data.season) + ". Los puntos se reducen a la mitad."))
 		vb.add_child(_row([nb]))
+		focus_first = nb
 		root_box.add_child(card)
 
 	var tabs: = HBoxContainer.new()
@@ -525,6 +519,13 @@ func show_hub(msg: String, ok: = true) -> void :
 		career_deleted.emit())
 	bot.append(del)
 	root_box.add_child(_row(bot))
+	if focus_first == null:
+		for c in tabs.get_children():
+			if c is Button:
+				focus_first = c
+				break
+	if focus_first != null:
+		focus_first.grab_focus()
 
 func _mk_row(cells: Array, widths: Array, cols: Array = [], bold: = false) -> HBoxContainer:
 	var h: = HBoxContainer.new()
