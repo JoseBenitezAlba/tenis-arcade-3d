@@ -244,6 +244,27 @@ func _build_accessories() -> void :
 	band.scale = Vector3.ONE * (1.0 / CHAR_SCALE)
 	band.position = Vector3(0, 0.15, 0)
 	ba_h.add_child(band)
+	var cap_mat: = _mat(Color("#f4f4f6"))
+	cap_mat.roughness = 0.9
+	var crown: = MeshInstance3D.new()
+	var cm: = CylinderMesh.new()
+	cm.top_radius = 0.115
+	cm.bottom_radius = 0.13
+	cm.height = 0.08
+	cm.radial_segments = 16
+	crown.mesh = cm
+	crown.material_override = cap_mat
+	crown.scale = Vector3.ONE * (1.0 / CHAR_SCALE)
+	crown.position = Vector3(0, 0.232, 0)
+	ba_h.add_child(crown)
+	var brim: = MeshInstance3D.new()
+	var bm: = BoxMesh.new()
+	bm.size = Vector3(0.23, 0.01, 0.11)
+	brim.mesh = bm
+	brim.material_override = cap_mat
+	brim.scale = Vector3.ONE * (1.0 / CHAR_SCALE)
+	brim.position = Vector3(0, 0.198, 0.10)
+	ba_h.add_child(brim)
 
 	for side in ["L", "R"]:
 		var ba: = BoneAttachment3D.new()
@@ -1052,6 +1073,7 @@ func _celebration_grip() -> void :
 		return
 	var local_up: Vector3 = p3.global_basis.inverse() * Vector3.UP
 	racket_node.quaternion = Quaternion(Vector3.UP, -local_up.normalized())
+	_raise_arm(-1.05, "UpperArm.R")
 
 
 func _rk_rest(dt: float) -> void :
