@@ -399,6 +399,7 @@ func _on_match_finished(win: bool) -> void :
 	var cpu_label: String = match_view.get_meta("cpu_label")
 	if in_tourney_match:
 		in_tourney_match = false
+		match_view.visible = false
 		match_view.queue_free()
 		match_view = null
 		menus.visible = true
@@ -409,6 +410,7 @@ func _on_match_finished(win: bool) -> void :
 		res = career.on_career_end(win)
 	var mstats: Array = match_view.sim.stats
 	var rally_max: int = match_view.sim.rally_max
+	match_view.visible = false
 	match_view.queue_free()
 	match_view = null
 	menus.visible = true
@@ -416,6 +418,7 @@ func _on_match_finished(win: bool) -> void :
 
 func _to_menu() -> void :
 	if match_view:
+		match_view.visible = false
 		match_view.queue_free()
 		match_view = null
 	in_career_match = false

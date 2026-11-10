@@ -892,13 +892,12 @@ func update_from_sim(e, dt: float) -> void :
 	var hold_swing: bool = e.swing > 0.0 and (not _moving_recovery if e.kind != "serve" else (elapsed < 0.15 or e.speed <= 0.4))
 
 	if e.get("dive_t") != null and e.dive_t > 0.0:
-
-
-
-
 		var dp: float = clampf(1.0 - e.dive_t / 0.55, 0.0, 1.0)
-		var roll_len: float = ap.get_animation("Roll").length if ap.has_animation("Roll") else 1.0
-		_play_seek("Roll", minf(dp * 0.55, 0.07) * roll_len)
+		_play("Idle_Sword", 1.0)
+		position.y -= 0.10 + 0.08 * (1.0 - dp)
+		_bend_torso(0.32)
+		_raise_arm(-0.30, "UpperArm.R")
+		_raise_arm(-0.16, "UpperArm.L")
 		return
 
 
@@ -907,8 +906,8 @@ func update_from_sim(e, dt: float) -> void :
 	var contact_can_step: bool = e.get("contact_recovery") == true and e.getup_t <= 0.4 and eff_sp > 0.4
 	if e.get("getup_t") != null and e.getup_t > 0.0 and e.swing <= 0.0 and not contact_can_step:
 		if e.getup_t > 0.4:
-			var roll_len2: float = ap.get_animation("Roll").length if ap.has_animation("Roll") else 1.0
-			_play_seek("Roll", 0.07 * roll_len2)
+			_play("Idle_Sword", 1.0)
+			position.y -= 0.10
 		else:
 			if state != "getup":
 				state = "getup"
@@ -1052,7 +1051,7 @@ func _celebration_grip() -> void :
 	if p3 == null:
 		return
 	var local_up: Vector3 = p3.global_basis.inverse() * Vector3.UP
-	racket_node.quaternion = Quaternion(Vector3.UP, local_up.normalized())
+	racket_node.quaternion = Quaternion(Vector3.UP, -local_up.normalized())
 
 
 func _rk_rest(dt: float) -> void :

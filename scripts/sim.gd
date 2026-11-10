@@ -418,7 +418,7 @@ func award_point(w: int, why: String, sub: String) -> void :
 			sb = "TIE-BREAK"
 		else:
 			txt = "JUEGO"
-			sb = "Para ti" if w == 0 else "Para " + cpu_name
+			sb = ("Doble falta · " if why == "DOBLE FALTA" else "") + ("Para ti" if w == 0 else "Para " + cpu_name)
 	elif M.pts[0] == 3 and M.pts[1] == 3:
 		sb = "40-40 · punto de oro"
 	events.append({"t": "point", "w": w, "txt": txt, "sub": sb, "brk": brk})
@@ -1235,7 +1235,7 @@ func do_serve(e: Player, q: float, stype: String = "") -> void :
 
 			tx = box_sign * randf_range(0.9, 3.3)
 			tzr = randf_range(4.2, 5.3)
-			err = 0.08 + 0.28 * AIP.err
+			err = 0.03 + 0.08 * AIP.err
 			serve_T = 1.05
 			serve_spin = randf_range(0.75, 1.0)
 
@@ -1246,7 +1246,7 @@ func do_serve(e: Player, q: float, stype: String = "") -> void :
 				err = (AIP.err * 0.7 + 0.1) * 1.15
 				serve_T = 0.95
 				serve_spin = 0.5
-			var df_p: float = 0.004 + 0.02 * AIP.err
+			var df_p: float = 0.001 + 0.004 * AIP.err
 			if randf() < df_p:
 				if randf() < 0.5:
 					tzr = 7.05 + randf_range(0.0, 0.4)
@@ -2341,6 +2341,14 @@ func human_control(e: Player, dt: float) -> void :
 				e.want_t = 0.0
 
 func update_player(e: Player, dt: float) -> void :
+	if state == "serve" and M.server == e.id and serve_stage in ["ready", "toss"]:
+		var _sgn: float = 1.0 if ((M.tb_total if M.tb else M.pts[0] + M.pts[1]) % 2) == 0 else -1.0
+		var _sx: float = 1.4 * _sgn if e.near else -1.4 * _sgn
+		var _sz: float = -0.9 if e.near else L + 0.9
+		e.x = lerpf(e.x, _sx, minf(1.0, dt * 10.0))
+		e.z = lerpf(e.z, _sz, minf(1.0, dt * 10.0))
+		e.vx = 0.0
+		e.vz = 0.0
 	e.prep_t = maxf(0.0, e.prep_t - dt)
 	var _pk_target: = 0.0
 	var _pz_sign: = 1.0 if e.near else -1.0

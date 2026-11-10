@@ -189,6 +189,10 @@ var _serve_blank: = 0.0
 var _srv_bounce: = Vector3.ZERO
 var _srv_bounce_ok: = false
 var _prev_state: = ""
+var _last_sets: = [0, 0]
+var _last_games: = [0, 0]
+var _last_pts: = [0, 0]
+var _last_sf: = 0
 var point_hot: = 0
 var cam_look: = Vector3(0, 1.0, 11.885)
 var _line_armed: = false
@@ -306,7 +310,7 @@ func _ready() -> void :
 			ball_shadow = q
 			ball_shadow_mat = sh_mat
 	for i in 2:
-		for kind in ["head", "racket"]:
+		for kind in ["head"]:
 			var hmat: = StandardMaterial3D.new()
 			hmat.albedo_texture = sh_tex
 			hmat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
@@ -727,6 +731,7 @@ func _physics_process(dt: float) -> void :
 	_prev_p0_spd = p0.speed
 	serve_speed_hold = maxf(0.0, serve_speed_hold - dt)
 	drain_events()
+	_check_score_fallback()
 	if ( not demo or replay_test) and sim.state not in ["point", "over"] and sim.ball.in_play:
 		rec.append({"b": Vector3(sim.ball.x, sim.ball.y, sim.ball.z), "p0": _snap(sim.pl[0]), "p1": _snap(sim.pl[1])})
 		if rec.size() > REC_MAX:
@@ -766,13 +771,13 @@ func _physics_process(dt: float) -> void :
 		rigs[i].serve_ready = sim.state == "serve" and sim.M.server == i and sim.serve_stage == "ready"
 		rigs[i].force_hide_racket((sim.state == "point" or sim.state == "over") and i != _point_winner)
 		rigs[i].update_from_sim(sim.pl[i], dt)
+		var _hide_ps: bool = _closeup_ok and sim.state in ["point", "over"]
+		shadows[i].visible = not _hide_ps
+		shadow_heads[i].visible = not _hide_ps
 		shadows[i].position.x = sim.pl[i].x
 		shadows[i].position.z = sim.pl[i].z
 		var _hp: Vector3 = rigs[i].head_world()
 		shadow_heads[i].position = Vector3(_hp.x, 0.075, _hp.z)
-		var _rp: Vector3 = rigs[i].racket_world()
-		shadow_rackets[i].position = Vector3(_rp.x, 0.075, _rp.z)
-		shadow_rackets[i].rotation_degrees = Vector3(-90, rad_to_deg(rigs[i].global_rotation.y), 0)
 		var _shk: float = 1.0 if sim.state in ["point", "over"] else 1.55
 		shadows[i].scale = Vector3(PLAYER_SHADOW_K * _shk, PLAYER_SHADOW_K * 0.95, 1.0)
 		brake_cd[i] = maxf(0.0, brake_cd[i] - dt)
@@ -1310,6 +1315,29 @@ static func slide_time(surf: String, speed: float) -> float:
 	return 0.45 if surf == "clay" and speed > 5.0 else 0.0
 
 
+func _check_score_fallback() -> void :
+	var M = sim.M
+	var changed: bool = M.sets != _last_sets or M.games != _last_games or M.pts != _last_pts
+	if changed and banner_t <= 0.0 and sim.last_winner >= 0:
+		var pn: String = hud.name_labels[sim.last_winner].get_meta("base")
+		var title: String = "PUNTO"
+		if M.sets != _last_sets:
+			title = "SET"
+		elif M.games != _last_games:
+			title = "JUEGO"
+		var col: Color = Color("#ffd23f") if title == "SET" else (Color("#7dffa8") if sim.last_winner == 0 else Color("#ff9c9c"))
+		hud.show_banner(title + "  " + pn, _pts_line(), col, title != "PUNTO")
+		banner_t = 1.8 if title != "PUNTO" else 1.4
+		if title == "JUEGO":
+			rigs[sim.last_winner].celebrate("Wave", 1.3)
+	_last_sets = M.sets.duplicate()
+	_last_games = M.games.duplicate()
+	_last_pts = M.pts.duplicate()
+	if sim.serve_fault == 1 and _last_sf != 1 and banner_t <= 0.0:
+		hud.show_banner("FALTA", "Primer saque", Color("#ffd23f"))
+		banner_t = 1.2
+	_last_sf = sim.serve_fault
+
 func _update_rally_label(dt: float) -> void :
 	var live: int = sim.rally_hits if (sim.state == "play" and serve_speed_hold <= 0.0) else 0
 	_last_rally_live = live
@@ -1537,22 +1565,6 @@ func drain_events() -> void :
 				if tper:
 					hitstop_t = maxf(hitstop_t, 0.05)
 					spawn_dust(Vector3(ev.x, ev.y, ev.z), 6, Color(1.0, 0.95, 0.5, 0.8), 1.8)
-				elif ev.id == 0 and not demo:
-					if ev.get("jam", false):
-						hud.popup("¡TRABADO!", pwp, Color("#ff9a6a"))
-					match ev.kind:
-						"smash":
-							hud.popup("¡SMASH!", pwp, Color("#ffd23f"))
-						"lob":
-							hud.popup("GLOBO", pwp, Color("#fff19a"))
-						"drop":
-							hud.popup("DEJADA", pwp, Color("#c8ffb0"))
-						"slice":
-							hud.popup("SLICE", pwp, Color("#fff19a"))
-						"volley":
-							hud.popup("VOLEA", pwp, Color("#a0e8ff"))
-						"toplob":
-							hud.popup("GLOBO LIFTADO", pwp, Color("#fff19a"))
 				if ev.get("rise", false) and ev.id == 0 and not demo:
 					hud.popup_callout("¡AL BOTE!", Color("#ffe14d"))
 				if ev.kind == "volley" and ev.get("stretch", 0.0) >= 1.3:
@@ -1634,7 +1646,6 @@ func drain_events() -> void :
 				hud.hide_popups()
 				net_shake = maxf(net_shake, net_shake_time("net"))
 				sfx.play("judge", 0.45, 0.92)
-				hud.popup("LET", Vector3(sim.ball.x, 0.0, sim.ball.z), Color("#ffffff"))
 				hud.show_banner("LET", "se repite el saque", Color("#ffffff"))
 				banner_dur = 1.3
 				banner_t = banner_dur

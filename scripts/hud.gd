@@ -47,6 +47,14 @@ var point_card_t: = 0.0
 
 func _ready() -> void :
 	layer = 10
+	var ver: = Label.new()
+	ver.text = GameMenus.VERSION
+	ver.position = Vector2(1060, 8)
+	ver.size = Vector2(210, 20)
+	ver.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	ver.add_theme_font_size_override("font_size", 12)
+	ver.add_theme_color_override("font_color", Color(0.72, 0.8, 0.95, 0.6))
+	add_child(ver)
 	ui_bold = FontVariation.new()
 	ui_bold.variation_embolden = 0.55
 
