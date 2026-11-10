@@ -18,7 +18,7 @@ var match_view: MatchView
 var sfx: SoundKit
 var last_cfg: = {"surface": "clay", "diff": 1, "sets": 1}
 var in_career_match: = false
-var pad_inv_x: = false
+var pad_inv_x: = true
 var pad_inv_y: = false
 
 func _ready() -> void :
@@ -98,10 +98,16 @@ func _load_pad_settings() -> void :
 
 
 	pad_inv_y = false
+	pad_inv_x = true
 	var cfg: = ConfigFile.new()
 	if cfg.load("user://padcfg.cfg") == OK:
-		pad_inv_x = cfg.get_value("pad", "inv_x", false)
+		pad_inv_x = cfg.get_value("pad", "inv_x", true)
 		pad_inv_y = cfg.get_value("pad", "inv_y", pad_inv_y)
+		if int(cfg.get_value("pad", "v", 0)) < 2:
+			pad_inv_x = true
+			cfg.set_value("pad", "v", 2)
+			cfg.set_value("pad", "inv_x", true)
+			cfg.save("user://padcfg.cfg")
 
 func set_pad_invert(axis_x: bool, inverted: bool) -> void :
 	if axis_x:

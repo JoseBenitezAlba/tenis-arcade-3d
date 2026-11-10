@@ -697,7 +697,7 @@ func _ready_stance() -> void :
 		var fg: = skel.get_bone_global_pose(fi)
 		skel.set_bone_global_pose_override(fi, Transform3D(Basis(Vector3.RIGHT, -0.14) * fg.basis, fg.origin), 1.0, true)
 	_bend_torso(0.28)
-	_raise_arm(-0.85, "UpperArm.R")
+	_raise_arm(-0.35, "UpperArm.R")
 	_raise_arm(-0.30, "UpperArm.L")
 
 var celeb_t: = 0.0
