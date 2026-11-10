@@ -239,11 +239,16 @@ func _on_tournament() -> void :
 func _tourney_new() -> void :
 	var pool: = Career.POOL0.duplicate()
 	pool.sort_custom( func(a, b): return a[1] > b[1])
-	# Cuadro sembrado: cuartos asequibles, semifinal dura y final contra un top.
-	var idxs: = [10, 4, 5, 6, 8, 12, 0]
+	# Cuadro variado: cuartos de la zona baja, semis de la media y final de un top.
+	var top: = pool.slice(0, 4)
+	var mid: = pool.slice(4, 12)
+	var low: = pool.slice(12, pool.size())
+	top.shuffle()
+	mid.shuffle()
+	low.shuffle()
+	var picks: = [low[0], mid[0], mid[1], mid[2], low[1], low[2], top[0]]
 	var players: = [{"n": "TÚ", "r": 0.8}]
-	for idx in idxs:
-		var pl = pool[mini(idx, pool.size() - 1)]
+	for pl in picks:
 		players.append({"n": pl[0], "r": pl[1], "p": Career.pers_of(pl[0])})
 	var surfaces: = ["clay", "grass", "hard"]
 	tourney = {

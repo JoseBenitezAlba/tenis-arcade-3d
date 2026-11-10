@@ -469,7 +469,10 @@ func set_leg_dust(d: float) -> void :
 
 func _build_racket() -> void :
 	var ba: = BoneAttachment3D.new()
-	ba.bone_name = _bone_name(skel, "Wrist.R")
+	var _hn: String = _bone_name(skel, "Hand.R")
+	if skel.find_bone(_hn) < 0:
+		_hn = _bone_name(skel, "Wrist.R")
+	ba.bone_name = _hn
 	skel.add_child(ba)
 	var rk: = Node3D.new()
 
@@ -477,7 +480,7 @@ func _build_racket() -> void :
 	rk.scale = Vector3.ONE * (1.0 / CHAR_SCALE) * 0.96
 
 
-	rk.rotation = Vector3(PI, 0.0, 0.0)
+	rk.rotation = Vector3(-0.62, 0.0, 0.0)
 	rk.position = Vector3.ZERO
 	ba.add_child(rk)
 	racket_node = rk
@@ -750,7 +753,7 @@ func celebrate(cname: String, dur: float) -> void :
 func update_from_sim(e, dt: float) -> void :
 	ap.advance(dt)
 	if racket_node != null:
-		racket_node.rotation = Vector3(PI * 0.48, 0.0, 0.0)
+		racket_node.rotation = Vector3(-0.62, 0.0, 0.0)
 
 		if state in CELEB_ANIMS:
 			rk_show_delay = 0
@@ -921,10 +924,7 @@ func update_from_sim(e, dt: float) -> void :
 		_bend_torso(0.06)
 		_serve_knees(0.22)
 		if racket_node != null:
-			var p3r = racket_node.get_parent() as Node3D
-			if p3r != null:
-				var lu: Vector3 = p3r.global_basis.inverse() * Vector3.UP
-				racket_node.quaternion = Quaternion(Vector3.UP, -lu.normalized())
+			racket_node.rotation = Vector3(-0.62, 0.0, 0.0)
 		return
 	if serve_toss >= 0.0 and e.swing <= 0.0:
 
@@ -1059,11 +1059,7 @@ func _celebration_legs() -> void :
 func _celebration_grip() -> void :
 	if racket_node == null:
 		return
-	var p3 = racket_node.get_parent() as Node3D
-	if p3 == null:
-		return
-	var local_up: Vector3 = p3.global_basis.inverse() * Vector3.UP
-	racket_node.quaternion = Quaternion(Vector3.UP, -local_up.normalized())
+	racket_node.rotation = Vector3(-0.62, 0.0, 0.0)
 	_raise_arm(-1.05, "UpperArm.R")
 
 
@@ -1075,7 +1071,7 @@ func _rk_rest(dt: float) -> void :
 	rk_rest_k = move_toward(rk_rest_k, tgt, dt * 14.0)
 	if rk_rest_k > 0.0:
 		var kk: float = rk_rest_k * rk_rest_k * (3.0 - 2.0 * rk_rest_k)
-		racket_node.rotation = Vector3(PI * 0.48 - RK_REST_A * kk, 0.0, RK_REST_Z * kk)
+		racket_node.rotation = Vector3(-0.62 - RK_REST_A * kk, 0.0, RK_REST_Z * kk)
 
 func head_world() -> Vector3:
 	if skel != null:
