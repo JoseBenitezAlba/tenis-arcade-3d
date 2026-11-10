@@ -480,7 +480,7 @@ func _build_racket() -> void :
 	rk.scale = Vector3.ONE * (1.0 / CHAR_SCALE) * 0.96
 
 
-	rk.rotation = Vector3(-0.62, 0.0, 0.0)
+	rk.rotation = Vector3(PI + 0.62, 0.0, 0.0)
 	rk.position = Vector3.ZERO
 	ba.add_child(rk)
 	racket_node = rk
@@ -753,7 +753,7 @@ func celebrate(cname: String, dur: float) -> void :
 func update_from_sim(e, dt: float) -> void :
 	ap.advance(dt)
 	if racket_node != null:
-		racket_node.rotation = Vector3(-0.62, 0.0, 0.0)
+		racket_node.rotation = Vector3(PI + 0.62, 0.0, 0.0)
 
 		if state in CELEB_ANIMS:
 			rk_show_delay = 0
@@ -920,11 +920,10 @@ func update_from_sim(e, dt: float) -> void :
 	if serve_ready and e.swing <= 0.0:
 		_play_seek("mocap/Servicio", 0.12)
 		_raise_arm(TOSS_ARM * 0.55, "UpperArm.L")
-		_raise_arm(SERVE_ARM * 0.65, "UpperArm.R")
+		_raise_arm(SERVE_ARM * 0.20, "UpperArm.R")
 		_bend_torso(0.06)
 		_serve_knees(0.22)
-		if racket_node != null:
-			racket_node.rotation = Vector3(-0.62, 0.0, 0.0)
+		_racket_world_pose()
 		return
 	if serve_toss >= 0.0 and e.swing <= 0.0:
 
@@ -934,6 +933,7 @@ func update_from_sim(e, dt: float) -> void :
 		position.y -= 0.17 * sin(toss_k * PI)
 		_serve_knees(1.05 * sin(toss_k * PI))
 		_twist_torso(-0.26 * sin(toss_k * PI))
+		_racket_world_pose()
 		return
 	if hold_swing and e.kind == "serve":
 
@@ -1056,10 +1056,21 @@ func _celebration_legs() -> void :
 		var rot: = Basis(Vector3.BACK, 0.22 * float(side[1]))
 		skel.set_bone_global_pose_override(bi, Transform3D(rot * g.basis, g.origin), 1.0, true)
 
+func _racket_world_pose() -> void :
+	if racket_node == null:
+		return
+	var head_dir: Vector3 = Vector3(0.0, 0.22, 0.975).normalized()
+	var y_axis: Vector3 = -head_dir
+	var z_axis: Vector3 = Vector3(0.0, 0.0, 1.0)
+	var x_axis: Vector3 = y_axis.cross(z_axis).normalized()
+	z_axis = x_axis.cross(y_axis).normalized()
+	var _sc: Vector3 = racket_node.global_basis.get_scale()
+	racket_node.global_basis = Basis(x_axis * _sc.x, y_axis * _sc.y, z_axis * _sc.z)
+
 func _celebration_grip() -> void :
 	if racket_node == null:
 		return
-	racket_node.rotation = Vector3(-0.62, 0.0, 0.0)
+	_racket_world_pose()
 	_raise_arm(-1.05, "UpperArm.R")
 
 
@@ -1069,9 +1080,8 @@ func _rk_rest(dt: float) -> void :
 	var rest: bool = state in ["Idle_Sword", "Walk", "Run", "Run_Left", "Run_Right", "Run_Back", "Punch_Right", "HitRecieve", "HitRecieve_2", "Wave", "Idle", "Idle_Neutral"]
 	var tgt: float = 1.0 if rest else 0.0
 	rk_rest_k = move_toward(rk_rest_k, tgt, dt * 14.0)
-	if rk_rest_k > 0.0:
-		var kk: float = rk_rest_k * rk_rest_k * (3.0 - 2.0 * rk_rest_k)
-		racket_node.rotation = Vector3(-0.62 - RK_REST_A * kk, 0.0, RK_REST_Z * kk)
+	if rk_rest_k > 0.35:
+		_racket_world_pose()
 
 func head_world() -> Vector3:
 	if skel != null:
