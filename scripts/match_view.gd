@@ -28,6 +28,8 @@ var _brake_cool: = 0.0
 var ball_shadow: MeshInstance3D
 var ball_seam: MeshInstance3D
 var shadows: = []
+var shadow_heads: = []
+var shadow_rackets: = []
 var ball_shadow_mat: StandardMaterial3D
 var bounce_ring: MeshInstance3D
 var bounce_ring_mat: StandardMaterial3D
@@ -303,6 +305,26 @@ func _ready() -> void :
 		else:
 			ball_shadow = q
 			ball_shadow_mat = sh_mat
+	for i in 2:
+		for kind in ["head", "racket"]:
+			var hmat: = StandardMaterial3D.new()
+			hmat.albedo_texture = sh_tex
+			hmat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+			hmat.albedo_color = Color(0, 0, 0, 0.42)
+			hmat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+			hmat.cull_mode = BaseMaterial3D.CULL_DISABLED
+			var hq: = MeshInstance3D.new()
+			var hqm: = QuadMesh.new()
+			hqm.size = Vector2(0.3, 0.3) if kind == "head" else Vector2(0.72, 0.34)
+			hqm.material = hmat
+			hq.mesh = hqm
+			hq.rotation_degrees.x = -90
+			hq.position.y = 0.075
+			add_child(hq)
+			if kind == "head":
+				shadow_heads.append(hq)
+			else:
+				shadow_rackets.append(hq)
 	StaticShadows.add_to(self, sh_tex, NZ)
 
 
@@ -746,6 +768,11 @@ func _physics_process(dt: float) -> void :
 		rigs[i].update_from_sim(sim.pl[i], dt)
 		shadows[i].position.x = sim.pl[i].x
 		shadows[i].position.z = sim.pl[i].z
+		var _hp: Vector3 = rigs[i].head_world()
+		shadow_heads[i].position = Vector3(_hp.x, 0.075, _hp.z)
+		var _rp: Vector3 = rigs[i].racket_world()
+		shadow_rackets[i].position = Vector3(_rp.x, 0.075, _rp.z)
+		shadow_rackets[i].rotation_degrees = Vector3(-90, rad_to_deg(rigs[i].global_rotation.y), 0)
 		var _shk: float = 1.0 if sim.state in ["point", "over"] else 1.55
 		shadows[i].scale = Vector3(PLAYER_SHADOW_K * _shk, PLAYER_SHADOW_K * 0.95, 1.0)
 		brake_cd[i] = maxf(0.0, brake_cd[i] - dt)
@@ -981,6 +1008,10 @@ func _physics_process(dt: float) -> void :
 			goal_fov -= 2.5 * push
 	# Cut directly to the established celebration shot, never sweep through the court.
 	if closeup and not _was_closeup:
+		cam.position = goal_pos
+		cam.fov = goal_fov
+		cam_look = goal_look
+	elif not closeup and _was_closeup:
 		cam.position = goal_pos
 		cam.fov = goal_fov
 		cam_look = goal_look
@@ -1280,7 +1311,7 @@ static func slide_time(surf: String, speed: float) -> float:
 
 
 func _update_rally_label(dt: float) -> void :
-	var live: int = sim.rally_hits if sim.state == "play" else 0
+	var live: int = sim.rally_hits if (sim.state == "play" and serve_speed_hold <= 0.0) else 0
 	_last_rally_live = live
 	if live >= 2:
 		rally_shown = live
@@ -1545,7 +1576,7 @@ func drain_events() -> void :
 				var skmh: int = int(round(ev.get("spd", 0.0) * SERVE_KMH_K))
 				if skmh > 0 and not demo:
 					hud.show_speed_kmh(skmh, true)
-					serve_speed_hold = 0.5
+					serve_speed_hold = 0.95
 				if ev.get("q", 0.0) >= 0.88:
 					hitstop_t = 0.05
 				var _skmh: float = float(skmh)

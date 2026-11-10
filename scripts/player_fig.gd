@@ -934,6 +934,8 @@ func update_from_sim(e, dt: float) -> void :
 		serve_follow_t = maxf(0.0, serve_follow_t - dt)
 		_play("Idle_Sword", 1.0)
 		_apply_gaze()
+		_raise_arm(0.0, "UpperArm.R")
+		_raise_arm(0.0, "UpperArm.L")
 		_rk_rest(dt)
 		return
 	elif hold_swing:
@@ -1059,6 +1061,18 @@ func _rk_rest(dt: float) -> void :
 	if rk_rest_k > 0.0:
 		var kk: float = rk_rest_k * rk_rest_k * (3.0 - 2.0 * rk_rest_k)
 		racket_node.rotation = Vector3(PI - RK_REST_A * kk, 0.0, RK_REST_Z * kk)
+
+func head_world() -> Vector3:
+	if skel != null:
+		var hi: int = skel.find_bone(_bone_name(skel, "Head"))
+		if hi >= 0:
+			return skel.global_transform * skel.get_bone_global_pose(hi).origin
+	return global_position + Vector3(0, 1.65, 0)
+
+func racket_world() -> Vector3:
+	if racket_node != null:
+		return racket_node.global_position
+	return global_position
 
 func force_hide_racket(v: bool) -> void :
 	racket_force_hidden = v

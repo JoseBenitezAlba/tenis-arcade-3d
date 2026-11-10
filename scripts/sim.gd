@@ -895,7 +895,8 @@ func do_hit(e: Player, kind: String, ai: bool) -> void :
 	ball.serving = false
 	ball.in_play = true
 	ball.hit_id += 1
-	rally_hits += 1
+	if last_rally_hitter != e.id:
+		rally_hits += 1
 	last_rally_hitter = e.id
 	serve_unreturned = false
 	e.swing = 0.34
@@ -2091,7 +2092,7 @@ func ai_control(e: Player, dt: float) -> void :
 
 
 					var _smag: float = maxf(0.0, dx - 1.0) + maxf(0.0, dz - 1.0)
-					var def_lob_p: float = 0.1 + (0.9 - D.err) * 0.1 + (1.0 - D.risk) * 0.12 + minf(_smag * 0.08, 0.15)
+					var def_lob_p: float = 0.05 + (0.9 - D.err) * 0.06 + (1.0 - D.risk) * 0.08 + minf(_smag * 0.05, 0.1)
 					if ball.kind == "smash":
 						def_lob_p += 0.25
 					elif ball.kind == "drop":

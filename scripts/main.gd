@@ -160,6 +160,8 @@ func _start_match(cfg: Dictionary) -> void :
 	await get_tree().process_frame
 	if DisplayServer.get_name() != "headless":
 		await RenderingServer.frame_post_draw
+		await get_tree().process_frame
+		await RenderingServer.frame_post_draw
 	menus.visible = false
 	if old and is_instance_valid(old):
 		old.queue_free()
@@ -361,6 +363,8 @@ func _on_training() -> void :
 	training_view.quit_to_menu.connect(_on_training_quit)
 	await get_tree().process_frame
 	if DisplayServer.get_name() != "headless":
+		await RenderingServer.frame_post_draw
+		await get_tree().process_frame
 		await RenderingServer.frame_post_draw
 	menus.visible = false
 
