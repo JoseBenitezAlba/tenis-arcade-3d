@@ -689,7 +689,7 @@ func _ready_stance() -> void :
 		var fg: = skel.get_bone_global_pose(fi)
 		skel.set_bone_global_pose_override(fi, Transform3D(Basis(Vector3.RIGHT, -0.14) * fg.basis, fg.origin), 1.0, true)
 	_bend_torso(0.28)
-	_raise_arm(-0.45, "UpperArm.R")
+	_raise_arm(-0.25, "UpperArm.R")
 	_raise_arm(-0.30, "UpperArm.L")
 
 var celeb_t: = 0.0
@@ -748,7 +748,7 @@ func update_from_sim(e, dt: float) -> void :
 		skel.force_update_all_bone_transforms()
 		var hp: Vector3 = skel.global_transform * skel.get_bone_global_pose(racket_hand_idx).origin
 		racket_node.position = to_local(hp)
-		racket_node.rotation = Vector3.ZERO
+		racket_node.rotation = Vector3(-0.15, 0.0, 0.55)
 
 		if state in CELEB_ANIMS:
 			rk_show_delay = 0
