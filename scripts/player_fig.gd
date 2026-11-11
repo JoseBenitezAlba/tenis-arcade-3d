@@ -477,7 +477,7 @@ func _build_racket() -> void :
 	var rk: = Node3D.new()
 
 
-	rk.scale = Vector3.ONE * (1.0 / CHAR_SCALE) * 0.96
+	rk.scale = Vector3.ONE * (1.0 / CHAR_SCALE) * 0.86
 
 
 	rk.rotation = Vector3(PI + 0.62, 0.0, 0.0)
@@ -526,8 +526,8 @@ func _build_racket() -> void :
 		rk.add_child(arm)
 	var frame: = MeshInstance3D.new()
 	var tm: = TorusMesh.new()
-	tm.inner_radius = 0.195
-	tm.outer_radius = 0.22
+	tm.inner_radius = 0.185
+	tm.outer_radius = 0.205
 	tm.ring_segments = 10
 	tm.rings = 40
 	tm.material = frame_red
@@ -540,8 +540,8 @@ func _build_racket() -> void :
 	rk.add_child(frame)
 	var trim: = MeshInstance3D.new()
 	var tt: = TorusMesh.new()
-	tt.inner_radius = 0.188
-	tt.outer_radius = 0.198
+	tt.inner_radius = 0.178
+	tt.outer_radius = 0.188
 	tt.ring_segments = 8
 	tt.rings = 40
 	tt.material = trim_red
@@ -552,7 +552,7 @@ func _build_racket() -> void :
 	rk.add_child(trim)
 	var strings: = MeshInstance3D.new()
 	var qm: = QuadMesh.new()
-	qm.size = Vector2(0.39, 0.46)
+	qm.size = Vector2(0.37, 0.44)
 	var sm: = StandardMaterial3D.new()
 	sm.albedo_texture = TexGen.string_texture()
 	sm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
@@ -923,7 +923,7 @@ func update_from_sim(e, dt: float) -> void :
 		_raise_arm(SERVE_ARM * 0.20, "UpperArm.R")
 		_bend_torso(0.06)
 		_serve_knees(0.22)
-		_racket_world_pose()
+		racket_node.rotation = Vector3(-0.62, 0.0, 0.0)
 		return
 	if serve_toss >= 0.0 and e.swing <= 0.0:
 
@@ -933,7 +933,7 @@ func update_from_sim(e, dt: float) -> void :
 		position.y -= 0.17 * sin(toss_k * PI)
 		_serve_knees(1.05 * sin(toss_k * PI))
 		_twist_torso(-0.26 * sin(toss_k * PI))
-		_racket_world_pose()
+		racket_node.rotation = Vector3(-0.62, 0.0, 0.0)
 		return
 	if hold_swing and e.kind == "serve":
 
@@ -1056,21 +1056,10 @@ func _celebration_legs() -> void :
 		var rot: = Basis(Vector3.BACK, 0.22 * float(side[1]))
 		skel.set_bone_global_pose_override(bi, Transform3D(rot * g.basis, g.origin), 1.0, true)
 
-func _racket_world_pose() -> void :
-	if racket_node == null:
-		return
-	var head_dir: Vector3 = Vector3(0.0, 0.22, 0.975).normalized()
-	var y_axis: Vector3 = -head_dir
-	var z_axis: Vector3 = Vector3(0.0, 0.0, 1.0)
-	var x_axis: Vector3 = y_axis.cross(z_axis).normalized()
-	z_axis = x_axis.cross(y_axis).normalized()
-	var _sc: Vector3 = racket_node.global_basis.get_scale()
-	racket_node.global_basis = Basis(x_axis * _sc.x, y_axis * _sc.y, z_axis * _sc.z)
-
 func _celebration_grip() -> void :
 	if racket_node == null:
 		return
-	_racket_world_pose()
+	racket_node.rotation = Vector3(-0.62, 0.0, 0.0)
 	_raise_arm(-1.05, "UpperArm.R")
 
 
@@ -1080,8 +1069,9 @@ func _rk_rest(dt: float) -> void :
 	var rest: bool = state in ["Idle_Sword", "Walk", "Run", "Run_Left", "Run_Right", "Run_Back", "Punch_Right", "HitRecieve", "HitRecieve_2", "Wave", "Idle", "Idle_Neutral"]
 	var tgt: float = 1.0 if rest else 0.0
 	rk_rest_k = move_toward(rk_rest_k, tgt, dt * 14.0)
-	if rk_rest_k > 0.35:
-		_racket_world_pose()
+	if rk_rest_k > 0.0:
+		var kk: float = rk_rest_k * rk_rest_k * (3.0 - 2.0 * rk_rest_k)
+		racket_node.rotation = Vector3(-0.62 - RK_REST_A * kk, 0.0, RK_REST_Z * kk)
 
 func head_world() -> Vector3:
 	if skel != null:

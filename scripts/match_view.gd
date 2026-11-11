@@ -772,6 +772,8 @@ func _physics_process(dt: float) -> void :
 		rigs[i].serve_ready = sim.state == "serve" and sim.M.server == i and sim.serve_stage == "ready"
 		rigs[i].force_hide_racket((sim.state == "point" or sim.state == "over") and i != _point_winner)
 		rigs[i].update_from_sim(sim.pl[i], dt)
+		if _closeup_ok and sim.state in ["point", "over"]:
+			rigs[i].rotation.y = 0.0
 		var _hide_ps: bool = _closeup_ok and sim.state in ["point", "over"]
 		shadows[i].visible = not _hide_ps
 		shadow_heads[i].visible = not _hide_ps
@@ -859,6 +861,8 @@ func _physics_process(dt: float) -> void :
 		_idle_ball_t += dt
 	var blank: bool = (_serve_blank > 0.0 or _idle_ball_t > 1.3 or (_closeup_ok and sim.state in ["point", "over"])) and not replaying
 	ball_mesh.visible = not blank
+	if sim.state in ["point", "over"]:
+		ball_mesh.visible = false
 	ball_shadow.visible = not blank
 	ball_seam.visible = not blank
 
@@ -1713,10 +1717,6 @@ func drain_events() -> void :
 
 				if sim.rally_hits == 1 and ev.txt == "PUNTO":
 					sfx.play("ovation", 0.9)
-					if ev.w == 0 and not demo:
-
-						var _ace_pos: Vector3 = _srv_bounce if _srv_bounce_ok else Vector3(sim.pl[0].x, 0.0, sim.pl[0].z)
-						hud.popup("¡ACE!", _ace_pos + Vector3(0.0, 1.2, 0.0), Color("#ffe27a"))
 				if _hot_level() >= 1:
 					sfx.play("ovation", 0.85)
 

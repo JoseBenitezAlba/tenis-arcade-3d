@@ -591,7 +591,7 @@ static func build(surface: String, day_v = false) -> Node3D:
 		e.ambient_light_energy = 1.25
 	else:
 		e.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-		e.ambient_light_energy = 0.46 if tod == 0 else 1.15
+		e.ambient_light_energy = 0.62 if tod == 0 else 1.15
 	e.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	e.tonemap_exposure = 1.0 if tod == 0 else (1.04 if tod == 2 else 1.02)
 	if tod == 1:

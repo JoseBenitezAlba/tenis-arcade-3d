@@ -956,6 +956,13 @@ func do_hit(e: Player, kind: String, ai: bool) -> void :
 			ball.vx *= _ff
 			ball.vy *= _ff
 			ball.vz *= _ff
+	elif kind in ["lob", "toplob"]:
+		var _lob_sp: float = Vector3(ball.vx, ball.vy, ball.vz).length()
+		if _lob_sp < 26.4:
+			var _lf: float = 26.4 / maxf(_lob_sp, 0.01)
+			ball.vx *= _lf
+			ball.vy *= _lf
+			ball.vz *= _lf
 	var spd: = Vector3(ball.vx, ball.vy, ball.vz).length()
 	ball.hot = clampf((spd - 24.0) / 20.0, 0.0, 1.0)
 	events.append({"t": "hit", "id": e.id, "kind": kind, "x": ball.x, "y": ball.y, "z": ball.z, "rise": on_rise, "perfect": perfect, "tper": aim.get("tper", false), "spd": spd, "charge": shot_charge, "tq": tq, "jam": srv_ret_hit and ball.serve_jam, "stretch": snappedf(stretch, 0.01)})
@@ -1878,6 +1885,8 @@ func ai_control(e: Player, dt: float) -> void :
 			var p: = predict(e)
 			e.tx = p.x + randn() * D.err * (0.35 if srv_ret else 0.6)
 			e.tz = p.z + (-0.2 if e.near else 0.2) + randn() * D.err * 0.3
+			if AIP.style == "sv" and e.appr_t > 0.0 and ball.bounces == 0:
+				e.tz = (NZ - 1.2) if e.near else (NZ + 1.2)
 			if ball.bounces == 0 and not srv_ret and ball.kind != "lob" and ball.kind != "toplob":
 				var short_pb: = predict_bounce()
 				if short_pb.ok and absf(short_pb.x) <= 4.115 and short_pb.z >= 0.0 and short_pb.z <= L:
