@@ -528,6 +528,7 @@ func _build_racket() -> void :
 	tm.rings = 36
 	tm.material = red
 	frame.mesh = tm
+	frame.rotation.x = PI * 0.5
 	frame.position = Vector3(0, 0.60, 0)
 	rk.add_child(frame)
 
@@ -539,6 +540,7 @@ func _build_racket() -> void :
 	tt.rings = 36
 	tt.material = light
 	trim.mesh = tt
+	trim.rotation.x = PI * 0.5
 	trim.position = Vector3(0, 0.60, 0)
 	rk.add_child(trim)
 
