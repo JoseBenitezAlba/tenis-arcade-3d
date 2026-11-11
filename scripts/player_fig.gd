@@ -275,6 +275,7 @@ static func shoe_dust_color(d: float) -> Color:
 
 const TRAIL_LIFE: = 0.09
 var racket_node: Node3D = null
+var racket_hand_idx: int = -1
 var racket_force_hidden: = false
 var swing_now: = 0.0
 var trail_pts: Array = []
@@ -468,101 +469,90 @@ func set_leg_dust(d: float) -> void :
 		m.albedo_color = c
 
 func _build_racket() -> void :
-	var ba: = BoneAttachment3D.new()
-	var _hn: String = _bone_name(skel, "Hand.R")
-	if skel.find_bone(_hn) < 0:
-		_hn = _bone_name(skel, "Wrist.R")
-	ba.bone_name = _hn
-	skel.add_child(ba)
+	racket_hand_idx = skel.find_bone(_bone_name(skel, "Hand.R"))
+	if racket_hand_idx < 0:
+		racket_hand_idx = skel.find_bone(_bone_name(skel, "Wrist.R"))
 	var rk: = Node3D.new()
-
-
-	rk.scale = Vector3.ONE * (1.0 / CHAR_SCALE) * 0.78
-
-
-	rk.rotation = Vector3(PI * 0.72, 0.0, 0.0)
+	rk.scale = Vector3.ONE
 	rk.position = Vector3.ZERO
-	ba.add_child(rk)
+	rk.rotation = Vector3.ZERO
+	add_child(rk)
 	racket_node = rk
+
+	var dark: = _mat(Color("#191b20"))
+	var light: = _mat(Color("#cfd2d8"))
+	var red: = _mat(Color("#c93a32"))
 
 	var handle: = MeshInstance3D.new()
 	var hc: = CylinderMesh.new()
 	hc.top_radius = 0.015
 	hc.bottom_radius = 0.017
-	hc.height = 0.26
-	hc.radial_segments = 8
-	hc.material = _mat(Color("#26221e"))
+	hc.height = 0.24
+	hc.radial_segments = 10
+	hc.material = dark
 	handle.mesh = hc
-	handle.position = Vector3(0, -0.095, 0)
+	handle.position = Vector3(0, 0.12, 0)
 	rk.add_child(handle)
+
 	var butt: = MeshInstance3D.new()
 	var bc: = CylinderMesh.new()
 	bc.top_radius = 0.021
 	bc.bottom_radius = 0.022
 	bc.height = 0.025
-	bc.radial_segments = 8
-	bc.material = _mat(Color("#141210"))
+	bc.radial_segments = 10
+	bc.material = dark
 	butt.mesh = bc
-	butt.position = Vector3(0, 0.05, 0)
+	butt.position = Vector3(0, 0.005, 0)
 	rk.add_child(butt)
 
-	var graphite: = _mat(Color("#191b20"))
-	var frame_red: = _mat(Color("#22262e"))
-	var trim_red: = _mat(Color("#c93a32"))
-	var throat_light: = _mat(Color("#cfd2d8"))
 	for sx in [-1.0, 1.0]:
-		var a: = Vector3(0, -0.225, 0)
-		var b: = Vector3(sx * 0.085, -0.32, 0)
+		var a: = Vector3(0, 0.22, 0)
+		var b: = Vector3(sx * 0.065, 0.43, 0)
 		var seg: = b - a
 		var arm: = MeshInstance3D.new()
 		var ac: = CylinderMesh.new()
-		ac.top_radius = 0.009
-		ac.bottom_radius = 0.012
+		ac.top_radius = 0.008
+		ac.bottom_radius = 0.011
 		ac.height = seg.length()
-		ac.material = throat_light
+		ac.material = light
 		arm.mesh = ac
 		arm.position = (a + b) * 0.5
 		arm.basis = _basis_along_y(seg.normalized())
 		rk.add_child(arm)
+
 	var frame: = MeshInstance3D.new()
 	var tm: = TorusMesh.new()
-	tm.inner_radius = 0.17
-	tm.outer_radius = 0.19
-	tm.ring_segments = 10
-	tm.rings = 40
-	tm.material = frame_red
+	tm.inner_radius = 0.15
+	tm.outer_radius = 0.172
+	tm.ring_segments = 8
+	tm.rings = 36
+	tm.material = red
 	frame.mesh = tm
-
-
-	frame.rotation = Vector3(PI * 0.5, 0.0, 0.0)
-	frame.scale = Vector3(1.0, 1.0, 1.18)
-	frame.position = Vector3(0, -0.575, 0)
+	frame.position = Vector3(0, 0.60, 0)
 	rk.add_child(frame)
+
 	var trim: = MeshInstance3D.new()
 	var tt: = TorusMesh.new()
-	tt.inner_radius = 0.163
-	tt.outer_radius = 0.173
-	tt.ring_segments = 8
-	tt.rings = 40
-	tt.material = trim_red
+	tt.inner_radius = 0.143
+	tt.outer_radius = 0.152
+	tt.ring_segments = 6
+	tt.rings = 36
+	tt.material = light
 	trim.mesh = tt
-	trim.rotation = Vector3(PI * 0.5, 0.0, 0.0)
-	trim.scale = Vector3(1.0, 1.0, 1.18)
-	trim.position = Vector3(0, -0.575, 0)
+	trim.position = Vector3(0, 0.60, 0)
 	rk.add_child(trim)
+
 	var strings: = MeshInstance3D.new()
 	var qm: = QuadMesh.new()
-	qm.size = Vector2(0.34, 0.41)
+	qm.size = Vector2(0.30, 0.36)
 	var sm: = StandardMaterial3D.new()
 	sm.albedo_texture = TexGen.string_texture()
 	sm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	sm.cull_mode = BaseMaterial3D.CULL_DISABLED
 	qm.material = sm
 	strings.mesh = qm
-	strings.position = Vector3(0, -0.575, 0)
+	strings.position = Vector3(0, 0.60, 0)
 	rk.add_child(strings)
-
-
 
 	for m in rk.find_children("*", "MeshInstance3D", true, false):
 		m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -752,8 +742,11 @@ func celebrate(cname: String, dur: float) -> void :
 
 func update_from_sim(e, dt: float) -> void :
 	ap.advance(dt)
-	if racket_node != null:
-		racket_node.rotation = Vector3(PI + 0.62, 0.0, 0.0)
+	if racket_node != null and racket_hand_idx >= 0:
+		skel.force_update_all_bone_transforms()
+		var hp: Vector3 = skel.global_transform * skel.get_bone_global_pose(racket_hand_idx).origin
+		racket_node.position = to_local(hp)
+		racket_node.rotation = Vector3.ZERO
 
 		if state in CELEB_ANIMS:
 			rk_show_delay = 0
@@ -923,7 +916,6 @@ func update_from_sim(e, dt: float) -> void :
 		_raise_arm(SERVE_ARM * 0.20, "UpperArm.R")
 		_bend_torso(0.06)
 		_serve_knees(0.22)
-		racket_node.rotation = Vector3(PI * 0.72, 0.0, 0.0)
 		return
 	if serve_toss >= 0.0 and e.swing <= 0.0:
 
@@ -933,7 +925,6 @@ func update_from_sim(e, dt: float) -> void :
 		position.y -= 0.17 * sin(toss_k * PI)
 		_serve_knees(1.05 * sin(toss_k * PI))
 		_twist_torso(-0.26 * sin(toss_k * PI))
-		racket_node.rotation = Vector3(PI * 0.72, 0.0, 0.0)
 		return
 	if hold_swing and e.kind == "serve":
 
@@ -974,9 +965,6 @@ func update_from_sim(e, dt: float) -> void :
 
 
 			var env2: float = clampf(1.0 - absf(kk - 0.5) / 0.5, 0.0, 1.0)
-			if racket_node != null:
-
-				racket_node.rotation = Vector3(PI, RK_OPEN * env2 * (1.0 if e.kind == "drop" else 0.0), 0.0)
 			if e.kind == "drop":
 				_bend_torso(0.3 * env2)
 			else:
@@ -1059,7 +1047,6 @@ func _celebration_legs() -> void :
 func _celebration_grip() -> void :
 	if racket_node == null:
 		return
-	racket_node.rotation = Vector3(PI * 0.72, 0.0, 0.0)
 	_raise_arm(-1.05, "UpperArm.R")
 
 
@@ -1070,8 +1057,7 @@ func _rk_rest(dt: float) -> void :
 	var tgt: float = 1.0 if rest else 0.0
 	rk_rest_k = move_toward(rk_rest_k, tgt, dt * 14.0)
 	if rk_rest_k > 0.0:
-		var kk: float = rk_rest_k * rk_rest_k * (3.0 - 2.0 * rk_rest_k)
-		racket_node.rotation = Vector3(PI * 0.72 - RK_REST_A * kk, 0.0, RK_REST_Z * kk)
+		pass
 
 func head_world() -> Vector3:
 	if skel != null:
