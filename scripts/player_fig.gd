@@ -276,6 +276,7 @@ static func shoe_dust_color(d: float) -> Color:
 const TRAIL_LIFE: = 0.09
 var racket_node: Node3D = null
 var racket_hand_idx: int = -1
+const RK_GRIP_BASIS: = Basis.IDENTITY
 var racket_force_hidden: = false
 var swing_now: = 0.0
 var trail_pts: Array = []
@@ -507,7 +508,7 @@ func _build_racket() -> void :
 
 	for sx in [-1.0, 1.0]:
 		var a: = Vector3(0, 0.22, 0)
-		var b: = Vector3(sx * 0.065, 0.43, 0)
+		var b: = Vector3(sx * 0.086, 0.455, 0)
 		var seg: = b - a
 		var arm: = MeshInstance3D.new()
 		var ac: = CylinderMesh.new()
@@ -520,16 +521,20 @@ func _build_racket() -> void :
 		arm.basis = _basis_along_y(seg.normalized())
 		rk.add_child(arm)
 
+	var head_rx: = 0.15
+	var head_ry: = 0.177
+	var head_cy: = 0.60
 	var frame: = MeshInstance3D.new()
 	var tm: = TorusMesh.new()
-	tm.inner_radius = 0.15
+	tm.inner_radius = head_rx
 	tm.outer_radius = 0.172
 	tm.ring_segments = 8
 	tm.rings = 36
 	tm.material = red
 	frame.mesh = tm
 	frame.rotation.x = PI * 0.5
-	frame.position = Vector3(0, 0.60, 0)
+	frame.scale = Vector3(1.0, 1.0, head_ry / head_rx)
+	frame.position = Vector3(0, head_cy, 0)
 	rk.add_child(frame)
 
 	var trim: = MeshInstance3D.new()
@@ -541,19 +546,18 @@ func _build_racket() -> void :
 	tt.material = light
 	trim.mesh = tt
 	trim.rotation.x = PI * 0.5
-	trim.position = Vector3(0, 0.60, 0)
+	trim.scale = Vector3(1.0, 1.0, head_ry / head_rx)
+	trim.position = Vector3(0, head_cy, 0)
 	rk.add_child(trim)
 
 	var strings: = MeshInstance3D.new()
-	var qm: = QuadMesh.new()
-	qm.size = Vector2(0.30, 0.36)
+	strings.mesh = _ellipse_fan(head_rx - 0.012, head_ry - 0.012, 28)
 	var sm: = StandardMaterial3D.new()
 	sm.albedo_texture = TexGen.string_texture()
 	sm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	sm.cull_mode = BaseMaterial3D.CULL_DISABLED
-	qm.material = sm
-	strings.mesh = qm
-	strings.position = Vector3(0, 0.60, 0)
+	strings.material_override = sm
+	strings.position = Vector3(0, head_cy, 0)
 	rk.add_child(strings)
 
 	for m in rk.find_children("*", "MeshInstance3D", true, false):
@@ -568,6 +572,23 @@ static func _basis_along_y(dir: Vector3) -> Basis:
 	side = side.normalized()
 	var fwd: = side.cross(up).normalized()
 	return Basis(side, up, fwd)
+
+static func _ellipse_fan(rx: float, ry: float, segs: int) -> ArrayMesh:
+	var st: = SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for i in segs:
+		var a0: float = TAU * i / segs
+		var a1: float = TAU * (i + 1) / segs
+		var p0: = Vector3(cos(a0) * rx, sin(a0) * ry, 0.0)
+		var p1: = Vector3(cos(a1) * rx, sin(a1) * ry, 0.0)
+		st.set_uv(Vector2(0.5, 0.5))
+		st.add_vertex(Vector3.ZERO)
+		st.set_uv(Vector2(0.5 + 0.5 * cos(a0), 0.5 - 0.5 * sin(a0)))
+		st.add_vertex(p0)
+		st.set_uv(Vector2(0.5 + 0.5 * cos(a1), 0.5 - 0.5 * sin(a1)))
+		st.add_vertex(p1)
+	st.generate_normals()
+	return st.commit()
 
 func _build_eyes() -> void :
 	var ba: = BoneAttachment3D.new()
@@ -746,9 +767,11 @@ func update_from_sim(e, dt: float) -> void :
 	ap.advance(dt)
 	if racket_node != null and racket_hand_idx >= 0:
 		skel.force_update_all_bone_transforms()
-		var hp: Vector3 = skel.global_transform * skel.get_bone_global_pose(racket_hand_idx).origin
-		racket_node.position = to_local(hp)
-		racket_node.rotation = Vector3(-0.15, 0.0, 0.55)
+		var hand_pose: Transform3D = skel.get_bone_global_pose(racket_hand_idx)
+		var hp: Vector3 = skel.global_transform * hand_pose.origin
+		var hb: Basis = (global_transform.basis.inverse() * skel.global_transform.basis * hand_pose.basis).orthonormalized()
+		racket_node.basis = hb * RK_GRIP_BASIS
+		racket_node.position = to_local(hp) + hb.y * -0.09
 
 		if state in CELEB_ANIMS:
 			rk_show_delay = 0
