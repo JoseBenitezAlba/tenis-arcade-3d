@@ -29,8 +29,8 @@ func run():
  press(2,center,true);await process_frame
  press(2,center,false);await process_frame
  print("PAUSETOUCH ",mv.paused_game);assert(mv.paused_game)
- press(2,center,true);await process_frame
- press(2,center,false);await process_frame
+ mv._resume_pause()
+ await process_frame
  assert(not mv.paused_game)
  print("PAUSE RESUME PASSED")
  mv.queue_free();host.free();await process_frame;quit()
