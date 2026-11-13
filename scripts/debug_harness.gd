@@ -19,6 +19,9 @@ const LATE: = {
 	"--shots": "_shots_harness", 
 	"--latshot": "_latshot_harness", "--ballshot": "_ballshot_harness", "--topshot": "_topshot_harness", "--celnight": "_celnight_harness", "--startshot": "_startshot_harness", "--servepose": "_servepose_harness", "--gameshot": "_gameshot_harness", "--faulttest": "_faulttest_harness", "--prepshot": "_prepshot_harness", "--legshot": "_legshot_harness", "--rallylabel": "_rallylabel_harness", "--celshot": "_celshot_harness", "--rkshot": "_rkshot_harness", "--jshot": "_jshot_harness", "--seqshot": "_seqshot_harness", "--ppshot": "_ppshot_harness", "--cpuserve": "_cpuserve_harness", "--cpuserveclose": "_cpuserveclose_harness", "--audit169": "_audit169_harness", "--cap171": "_cap171_harness", "--gday": "_gday_harness", "--matchmovie": "_matchmovie_harness", "--windupchk": "_windupchk_harness", "--prepcheck": "_prepcheck_harness", "--pose178": "_pose178_harness", "--net178": "_net178_harness", "--full178": "_full178_harness",
 	"--v31shots": "_v31shots", "--audit173": "_audit173_harness", 
+	"--t13": "_t13_harness", 
+	"--grip": "_grip_harness", 
+	"--contact": "_contact_harness", "--serveclip": "_serveclip_harness", "--carryshot": "_carryshot_harness", 
 }
 
 
@@ -44,11 +47,36 @@ func run_early(args: Array) -> bool:
 
 
 func run_late(args: Array) -> bool:
+	if OS.has_feature("web"):
+		var q = JavaScriptBridge.eval("location.search", true)
+		if q is String and "demo" in q:
+			call_deferred("_webdemo_harness", args)
+			return true
 	for flag in LATE:
 		if args.has(flag):
 			call_deferred(LATE[flag], args)
 			return true
 	return false
+
+func _webdemo_harness(_args: Array) -> void :
+	m.menus.visible = false
+	m.match_view = MatchView.new()
+	m.match_view.set_meta("surface", "clay")
+	m.match_view.set_meta("tod", 0)
+	m.match_view.set_meta("cpu_look", 2)
+	m.match_view.set_meta("my_name", "TÚ")
+	m.match_view.set_meta("cpu_label", "CPU · NORMAL")
+	m.match_view.setup({"demo": true, "surface": "clay", "AIP": m.DIFF_PARAMS[1], "sets_to_win": 1})
+	add_child(m.match_view)
+	var qq = JavaScriptBridge.eval("location.search", true)
+	if qq is String and "fast" in qq:
+		Engine.time_scale = 4.0
+	var ok: = await _wait_until( func(): return m.match_view.sim.state == "serve", 30.0)
+	print("WEBDEMO serve=", ok)
+	for tick in 40:
+		await get_tree().create_timer(5.0, true, false, true).timeout
+		var s = m.match_view.sim
+		print("WEBDEMO t", tick * 5 + 5, " state=", s.state, " hits=", s.rally_hits, " pts=", s.pts)
 
 func _careertest() -> void :
 	randomize()
@@ -645,6 +673,289 @@ func _courtshot_harness(args: Array) -> void :
 		await get_tree().process_frame
 	get_tree().quit(0)
 
+
+
+func _t13_harness(args: Array) -> void :
+	var i: = args.find("--t13")
+	var out: String = args[i + 1] if i + 1 < args.size() else "/tmp/t13"
+	var surface: String = "grass"
+	for a in args:
+		if a.begins_with("surface="):
+			surface = a.split("=")[1]
+	DirAccess.make_dir_recursive_absolute(out)
+	m.menus.visible = false
+	m.match_view = MatchView.new()
+	m.match_view.set_meta("surface", surface)
+	m.match_view.set_meta("tod", 0)
+	m.match_view.set_meta("cpu_look", 2)
+	m.match_view.set_meta("my_name", "TÚ")
+	m.match_view.set_meta("cpu_label", "CPU · NORMAL")
+	m.match_view.setup({"demo": true, "surface": surface, "AIP": m.DIFF_PARAMS[1], "sets_to_win": 1})
+	add_child(m.match_view)
+	var ok: = await _wait_until( func(): return m.match_view.sim.state == "serve", 30.0)
+	print("t13 serve state: ", ok)
+	await _wait_sim(0.4)
+	await _grab(out + "/00_ready_wide.png")
+	# closeups of near player during the serve
+	var jc: = Camera3D.new()
+	add_child(jc)
+	jc.fov = 30.0
+	var p0: Vector3 = m.match_view.rigs[0].global_position
+	jc.position = p0 + Vector3( - 3.1, 1.4, -1.2)
+	jc.look_at(p0 + Vector3(0, 0.95, 0.3))
+	jc.current = true
+	await get_tree().process_frame
+	await _grab(out + "/01_ready_side.png")
+	for n in 14:
+		await _wait_sim(0.14)
+		await _grab(out + "/serve_%02d.png" % n)
+	# back to match cam for rally wides
+	m.match_view.cam.current = true
+	for n in 16:
+		await _wait_sim(0.45)
+		await _grab(out + "/rally_%02d.png" % n)
+		print("t13 rally ", n, " state=", m.match_view.sim.state, " hits=", m.match_view.sim.rally_hits)
+	print("T13 DONE")
+	get_tree().quit()
+
+
+func _grip_harness(args: Array) -> void :
+	var i: = args.find("--grip")
+	var out: String = args[i + 1] if i + 1 < args.size() else "/tmp/grip"
+	DirAccess.make_dir_recursive_absolute(out)
+	m.menus.visible = false
+	m.match_view = MatchView.new()
+	m.match_view.set_meta("surface", "grass")
+	m.match_view.set_meta("tod", 0)
+	m.match_view.set_meta("cpu_look", 2)
+	m.match_view.set_meta("my_name", "TU")
+	m.match_view.set_meta("cpu_label", "CPU")
+	m.match_view.setup({"demo": true, "surface": "grass", "AIP": m.DIFF_PARAMS[0], "sets_to_win": 1})
+	add_child(m.match_view)
+	await _wait_sim(0.5)
+	m.match_view.process_mode = Node.PROCESS_MODE_DISABLED
+	var rg = m.match_view.rigs[0]
+	m.match_view.rigs[1].visible = false
+	rg.reparent(self)
+	rg.position = Vector3.ZERO
+	rg.rotation = Vector3.ZERO
+	var jc: = Camera3D.new()
+	add_child(jc)
+	jc.fov = 28.0
+	jc.current = true
+	var wb: = WorldEnvironment.new()
+	jc.position = Vector3( - 2.6, 1.5, 1.6)
+	jc.look_at(Vector3(0, 0.95, 0))
+	var cands: = [
+		["zm90", Basis(Vector3.FORWARD, - PI * 0.5)],
+		["g_xm30", Basis(Vector3.FORWARD, - PI * 0.5) * Basis(Vector3.RIGHT, -0.52)],
+		["g_xm55", Basis(Vector3.FORWARD, - PI * 0.5) * Basis(Vector3.RIGHT, -0.96)],
+		["g_xp30", Basis(Vector3.FORWARD, - PI * 0.5) * Basis(Vector3.RIGHT, 0.52)],
+		["g_ym30", Basis(Vector3.FORWARD, - PI * 0.5) * Basis(Vector3.UP, -0.52)],
+		["g_yp30", Basis(Vector3.FORWARD, - PI * 0.5) * Basis(Vector3.UP, 0.52)],
+	]
+	var poses: = [
+		["wait", "mocap/Servicio", 0.12],
+		["contact", "mocap/Servicio", 1.65],
+		["ready", "Idle_Sword", 0.4],
+		["fore", "mocap/Derecha", 1.8],
+	]
+	for c in cands:
+		rg.grip_basis = c[1]
+		for p in poses:
+			rg.state = ""
+			rg._play_seek(p[1], p[2])
+			rg.ap.advance(0.2)
+			rg.ap.pause()
+			rg.ap.seek(p[2], true)
+			if p[0] == "ready":
+				rg._ready_stance()
+			else:
+				rg.skel.clear_bones_global_pose_override()
+			rg.skel.force_update_all_bone_transforms()
+			var hand_pose: Transform3D = rg.skel.get_bone_global_pose(rg.racket_hand_idx)
+			var hp: Vector3 = rg.skel.global_transform * hand_pose.origin
+			var hb: Basis = (rg.global_transform.basis.inverse() * rg.skel.global_transform.basis * hand_pose.basis).orthonormalized()
+			rg.racket_node.basis = hb * rg.grip_basis
+			rg.racket_node.position = rg.to_local(hp) + hb.y * -0.09
+			await get_tree().process_frame
+			await _grab(out + "/%s_%s.png" % [c[0], p[0]])
+	print("GRIP DONE")
+	get_tree().quit()
+
+
+func _carryshot_harness(args: Array) -> void :
+	var i: = args.find("--carryshot")
+	var out: String = args[i + 1] if i + 1 < args.size() else "/tmp/carryshot"
+	DirAccess.make_dir_recursive_absolute(out)
+	m.menus.visible = false
+	var fig: = PlayerFig.new(0, true)
+	add_child(fig)
+	var env: = WorldEnvironment.new()
+	var e2: = Environment.new()
+	e2.background_mode = Environment.BG_COLOR
+	e2.background_color = Color(0.35, 0.4, 0.45)
+	e2.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	e2.ambient_light_color = Color(0.9, 0.9, 0.9)
+	e2.ambient_light_energy = 0.8
+	env.environment = e2
+	add_child(env)
+	var sun: = DirectionalLight3D.new()
+	sun.rotation_degrees = Vector3( - 50, 30, 0)
+	add_child(sun)
+	var cam: = Camera3D.new()
+	add_child(cam)
+	cam.fov = 30.0
+	cam.current = true
+	# [nombre, clip, tau, carry_k_simulado]
+	var poses: = [
+		["wait", "mocap/Servicio", 0.12, 1.0],
+		["wait_o0", "mocap/Servicio", 0.12, 1.0],
+		["wait_o1", "mocap/Servicio", 0.12, 1.0],
+		["wait_o2", "mocap/Servicio", 0.12, 1.0],
+		["wait_o3", "mocap/Servicio", 0.12, 1.0],
+		["wait_nofx", "mocap/Servicio", 0.12, 1.0],
+		["trans", "mocap/Servicio", 0.45, 0.35],
+		["trophy", "mocap/Servicio", 1.05, 0.0],
+		["contact", "mocap/Servicio", 1.65, 0.0],
+		["trophywide", "mocap/Servicio", 1.05, 0.0],
+		["trophyback", "mocap/Servicio", 1.05, 0.0],
+		["contactwide", "mocap/Servicio", 1.65, 0.0],
+		["ready", "Idle_Sword", 0.4, 1.0],
+		["readywide", "Idle_Sword", 0.4, 1.0],
+	]
+	for p in poses:
+		fig.state = ""
+		fig._play_seek(p[1], p[2])
+		fig.ap.advance(0.05)
+		fig.ap.pause()
+		fig.ap.seek(p[2], true)
+		if String(p[0]).begins_with("ready"):
+			fig._ready_stance()
+		else:
+			fig.skel.clear_bones_global_pose_override()
+		# espera de saque: brazo relajado al costado, como en update_from_sim
+		if String(p[0]).begins_with("wait"):
+			fig._serve_wait_arm(1.0)
+		fig.carry_k = p[3]
+		fig._place_racket(0.0)
+		fig.racket_node.visible = true
+		if p[0] != "wait_nofx":
+			fig._pose_grip_fingers()
+		var hpg: Vector3 = fig.to_global(fig.racket_node.position)
+		if String(p[0]).begins_with("wait_o"):
+			var oa: float = float(String(p[0]).trim_prefix("wait_o").to_int()) * PI * 0.5 + 0.5
+			cam.position = fig.global_position + Vector3(sin(oa), 0.0, cos(oa)) * 2.2 + Vector3(0, 1.15, 0)
+			cam.look_at(fig.global_position + Vector3(0, 0.85, 0))
+		elif p[0] == "trophyback":
+			cam.position = fig.global_position + Vector3(1.4, 1.8, 1.4)
+			cam.look_at(hpg)
+		elif p[0].ends_with("wide"):
+			cam.position = fig.global_position + Vector3(2.0, 1.1, 0.9)
+			cam.look_at(fig.global_position + Vector3(0, 0.85, 0))
+		else:
+			# camara desde fuera del cuerpo hacia el puno (la mano puede moverse)
+			var away: Vector3 = hpg - fig.global_position
+			away.y = 0.0
+			if away.length() < 0.05:
+				away = Vector3(0.4, 0.0, 0.4)
+			away = away.normalized() * 0.55
+			cam.position = hpg + away + Vector3(0, 0.16, 0)
+			cam.look_at(hpg)
+		await get_tree().process_frame
+		await get_tree().process_frame
+		await _grab(out + "/carry_%s.png" % p[0])
+		if p[0] == "wait":
+			for oi in range(3):
+				var ca: float = float(oi + 1) * PI * 0.5
+				var off2: = Vector3(sin(ca), 0.25, cos(ca)) * 0.55
+				cam.position = hpg + off2
+				cam.look_at(hpg)
+				await get_tree().process_frame
+				await get_tree().process_frame
+				await _grab(out + "/carry_wait_c%d.png" % oi)
+	print("CARRYSHOT DONE")
+	get_tree().quit()
+
+
+func _serveclip_harness(args: Array) -> void :
+	var i: = args.find("--serveclip")
+	var out: String = args[i + 1] if i + 1 < args.size() else "/tmp/serveclip"
+	DirAccess.make_dir_recursive_absolute(out)
+	m.menus.visible = false
+	var fig: = PlayerFig.new(0, true)
+	add_child(fig)
+	var env: = WorldEnvironment.new()
+	var e: = Environment.new()
+	e.background_mode = Environment.BG_COLOR
+	e.background_color = Color(0.35, 0.4, 0.45)
+	e.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	e.ambient_light_color = Color(0.9, 0.9, 0.9)
+	e.ambient_light_energy = 0.8
+	env.environment = e
+	add_child(env)
+	var sun: = DirectionalLight3D.new()
+	sun.rotation_degrees = Vector3( - 50, 30, 0)
+	add_child(sun)
+	var cam: = Camera3D.new()
+	add_child(cam)
+	cam.fov = 35.0
+	cam.position = Vector3( - 2.6, 1.5, 0.6)
+	cam.look_at(Vector3(0, 1.0, 0))
+	cam.current = true
+	var n: = 0
+	var clip: String = "mocap/Servicio"
+	var t0: float = 0.9
+	var t1: float = 1.9
+	for a2 in args:
+		if a2.begins_with("clip="):
+			clip = a2.split("=")[1]
+		if a2.begins_with("range="):
+			var p: PackedStringArray = a2.split("=")[1].split("-")
+			t0 = p[0].to_float()
+			t1 = p[1].to_float()
+	for t20 in range(0, 21):
+		var tau: float = lerpf(t0, t1, float(t20) / 20.0)
+		fig._play_seek(clip, tau)
+		await get_tree().process_frame
+		await get_tree().process_frame
+		await _grab(out + "/clip_%02d.png" % n)
+		n += 1
+	print("SERVECLIP DONE")
+	get_tree().quit()
+
+func _contact_harness(args: Array) -> void :
+	var i: = args.find("--contact")
+	var out: String = args[i + 1] if i + 1 < args.size() else "/tmp/contact"
+	DirAccess.make_dir_recursive_absolute(out)
+	m.menus.visible = false
+	m.match_view = MatchView.new()
+	m.match_view.set_meta("surface", "grass")
+	m.match_view.set_meta("tod", 0)
+	m.match_view.set_meta("cpu_look", 2)
+	m.match_view.set_meta("my_name", "TU")
+	m.match_view.set_meta("cpu_label", "CPU")
+	m.match_view.setup({"demo": true, "surface": "grass", "AIP": m.DIFF_PARAMS[1], "sets_to_win": 1})
+	add_child(m.match_view)
+	var jc: = Camera3D.new()
+	add_child(jc)
+	jc.fov = 30.0
+	var n: = 0
+	while n < 6:
+		var ok: = await _wait_until( func(): return m.match_view.sim.pl[0].swing > 0.0 and m.match_view.sim.pl[0].kind != "serve", 60.0)
+		if not ok:
+			break
+		await _wait_sim(0.10)
+		var p0: Vector3 = m.match_view.rigs[0].global_position
+		jc.position = p0 + Vector3( - 2.8, 1.5, -1.4)
+		jc.look_at(p0 + Vector3(0, 0.95, 0.3))
+		jc.current = true
+		for k in 3:
+			await _grab(out + "/hit_%d_%d.png" % [n, k])
+			await _wait_sim(0.06)
+		n += 1
+	print("CONTACT DONE")
+	get_tree().quit()
 
 
 func _watchtest_harness(args: Array) -> void :

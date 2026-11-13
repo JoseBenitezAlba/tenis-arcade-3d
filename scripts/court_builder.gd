@@ -172,12 +172,12 @@ static func build(surface: String, day_v = false) -> Node3D:
 	var court_len: = L + 7.6
 	var court_mat: = StandardMaterial3D.new()
 	court_mat.albedo_texture = TexGen.court_texture(surface, tod == 1)
-	court_mat.roughness = 0.62
+	court_mat.roughness = 0.94 if surface == "clay" else 0.62
 	court_mat.metallic_specular = 0.1
 	var court: = MeshInstance3D.new()
 	var cb: = PlaneMesh.new()
 	cb.size = Vector2(14.4, court_len)
-	court_mat.roughness = 0.62
+	court_mat.roughness = 0.94 if surface == "clay" else 0.62
 	cb.material = court_mat
 	court.mesh = cb
 	court.position = Vector3(0, 0.06, (L + 3.6 - 4.0) / 2.0)
@@ -283,8 +283,10 @@ static func build(surface: String, day_v = false) -> Node3D:
 
 	var ad_names: = ["DEUCE", "COURT CLUB", "COURT", "TENNIS", "DEUCE", "COURT CLUB", "TENNIS", "COURT"]
 	var ad_cols: = [Color("#0c3a72"), Color("#11457f"), Color("#0a3568"), Color("#124a86"), Color("#0d3f78"), Color("#0b5d8f"), Color("#10406f"), Color("#0c3a72")]
+	if surface == "clay":
+		ad_cols = [Color("#24362e"), Color("#2e3e32"), Color("#28372f"), Color("#384334"), Color("#29382f"), Color("#354235"), Color("#28372e"), Color("#2e3c30")]
 	var wall_z: = L + 5.2
-	var back_wall: = _box(40, 2.0, 0.4, _mat(Color("#0a2550")))
+	var back_wall: = _box(40, 2.0, 0.4, _mat(Color("#23352c") if surface == "clay" else Color("#0a2550")))
 	back_wall.position = Vector3(0, 1.0, wall_z + 0.2)
 	root.add_child(back_wall)
 	var wall_trim: = _box(40, 0.08, 0.5, _mat(Color("#dbe8ff")))
@@ -430,7 +432,7 @@ static func build(surface: String, day_v = false) -> Node3D:
 		near_label.outline_size = 6
 		near_label.position = Vector3(nx, 0.5, -8.71)
 		root.add_child(near_label)
-	var side_wall_mat: = _mat(Color("#123f7a"))
+	var side_wall_mat: = _mat(Color("#2c3c31") if surface == "clay" else Color("#123f7a"))
 	var side_trim_mat: = _mat(Color("#dbe8ff"))
 	for sx in [-12.0, 12.0]:
 		var side_wall: = _box(0.16, 0.9, 30.0, side_wall_mat)
@@ -613,7 +615,7 @@ static func build(surface: String, day_v = false) -> Node3D:
 	root.add_child(env)
 
 	var sun: = DirectionalLight3D.new()
-	sun.rotation_degrees = Vector3(-52, 168, 0) if tod != 2 else Vector3(-24, 148, 0)
+	sun.rotation_degrees = (Vector3(-32, 315, 0) if surface == "clay" else Vector3(-52, 168, 0)) if tod != 2 else Vector3(-24, 148, 0)
 	sun.light_energy = 0.82 if tod == 0 else (1.25 if tod == 2 else 0.55)
 	sun.light_color = Color("#fff4e0") if tod == 0 else (Color("#ffc98a") if tod == 2 else Color("#c9d8ff"))
 	sun.shadow_enabled = tod != 1
@@ -805,6 +807,13 @@ static func build(surface: String, day_v = false) -> Node3D:
 	for wr in _watchers:
 		bw.add_watcher(wr.fig, wr.yaw, wr.get("body", 0.0))
 	root.add_child(bw)
+	# El estadio queda fuera del area de sombras: sus torres y cubiertas no
+	# deben tapar la pista al bajar el sol. Jugadores y mobiliario si proyectan.
+	for node in root.get_children():
+		if node is MeshInstance3D and node.mesh != null:
+			var bounds: AABB = node.mesh.get_aabb()
+			if node.position.y > 4.0 or bounds.size.y > 4.0 or bounds.size.x > 15.0 or bounds.size.z > 15.0:
+				node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	return root
 
 

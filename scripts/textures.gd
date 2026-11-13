@@ -2,17 +2,17 @@ class_name TexGen
 extends RefCounted
 
 
-const LINE_W_BASE: = 0.16
-const LINE_W_SIDE: = 0.11
+const LINE_W_BASE: = 0.13
+const LINE_W_SIDE: = 0.085
 
 const THEMES: = {
-	"clay": {"court": Color("#bd5c26"), "court2": Color("#b4551f"), "surround": Color("#a34e1d"), "out": Color("#7a3b22"), "out2": Color("#5e2c19"), "line": Color("#f6f1e6")},
+	"clay": {"court": Color("#805025"), "court2": Color("#79502a"), "surround": Color("#7c502a"), "out": Color("#76502b"), "out2": Color("#6b4729"), "line": Color("#f6f1e6")},
 	"hard": {"court": Color("#0d47a1"), "court2": Color("#0b3f91"), "surround": Color("#2e7d32"), "out": Color("#256b2a"), "out2": Color("#1e5a24"), "line": Color("#f4f6fa")},
-	"grass": {"court": Color("#3f7a36"), "court2": Color("#3a7133"), "surround": Color("#1e3a1f"), "out": Color("#234524"), "out2": Color("#1b3a1d"), "line": Color("#f6f8f2")},
+	"grass": {"court": Color("#3a6832"), "court2": Color("#355e2d"), "surround": Color("#1c341d"), "out": Color("#214022"), "out2": Color("#1a361c"), "line": Color("#f6f8f2")},
 }
 const NIGHT_THEMES: = {
 	"hard": {"court": Color("#173a5e"), "court2": Color("#143352"), "surround": Color("#2c5d32"), "out": Color("#28542d"), "out2": Color("#1f4325"), "line": Color("#f4f6fa")},
-	"clay": {"court": Color("#a94d1f"), "court2": Color("#9f471c"), "surround": Color("#8f3f18"), "out": Color("#67301b"), "out2": Color("#4e2413"), "line": Color("#f6f1e6")},
+	"clay": {"court": Color("#64411a"), "court2": Color("#5e3c18"), "surround": Color("#543614"), "out": Color("#3d2917"), "out2": Color("#2e1f10"), "line": Color("#f6f1e6")},
 }
 const L: = 23.77
 const NZ: = L / 2.0
@@ -51,18 +51,43 @@ static func court_texture(surface: String, night: bool = false) -> ImageTexture:
 	var rng: = RandomNumberGenerator.new()
 	rng.seed = 7
 	if surface == "clay":
-		for i in 12:
-			var yy: = rng.randi_range(iy0, iy1)
-			img.fill_rect(Rect2i(ix0, yy, ix1 - ix0, maxi(1, int(pxm_z * 0.06))), Color(0, 0, 0, 0.035))
-		for zc in [0.9, L - 0.9]:
-			var wy0: int = int(py_of.call(zc - 1.0))
-			var wy1: int = int(py_of.call(zc + 1.0))
-			img.fill_rect(Rect2i(ix0, wy0, ix1 - ix0, maxi(1, wy1 - wy0)), Color(0.08, 0.04, 0.02, 0.10))
+		# Variacion mineral en varias escalas, sin bandas rectas de desgaste.
+		var soil: = Image.create(256, 512, false, Image.FORMAT_RGBA8)
+		for sy in 512:
+			var zz: float = -4.0 + float(sy) / 512.0 * 31.37
+			for sx in 256:
+				var xx: float = -7.2 + float(sx) / 256.0 * 14.4
+				var inside: bool = absf(xx) < 5.6 and zz > -0.15 and zz < L + 0.15
+				var base: Color = T.court if inside else T.surround
+				var grain: float = 0.57 * _vnoise(xx * 1.2 + 12.0, zz * 1.2) + 0.28 * _vnoise(xx * 4.8, zz * 4.8) + 0.15 * _vnoise(xx * 15.0, zz * 15.0)
+				var tone: Color = base.lerp(Color("#bc8e55"), maxf(0.0, grain - 0.42) * 0.16)
+				tone = tone.lerp(Color("#4e321c"), maxf(0.0, 0.50 - grain) * 0.12)
+				var baseline: float = exp(-pow(minf(absf(zz - 0.4), absf(zz - L + 0.4)), 2.0) / 1.4)
+				var lateral: float = 1.0 - smoothstep(2.4, 5.3, absf(xx))
+				tone = tone.lerp(Color("#9b703d"), baseline * lateral * grain * 0.10)
+				soil.set_pixel(sx, sy, tone)
+		soil.resize(w, h, Image.INTERPOLATE_BILINEAR)
+		img = soil
+
 	elif surface == "grass":
+		var wear_c: = Color(0.33, 0.36, 0.20)
 		for zc in [0.7, L - 0.7]:
-			var gy0: int = int(py_of.call(zc - 0.8))
-			var gy1: int = int(py_of.call(zc + 0.8))
-			img.fill_rect(Rect2i(ix0 + int((ix1 - ix0) * 0.22), gy0, int((ix1 - ix0) * 0.56), maxi(1, gy1 - gy0)), Color(0.42, 0.36, 0.18, 0.13))
+			var px0: int = int(px_of.call(-4.6))
+			var px1: int = int(px_of.call(4.6))
+			var py0: int = int(py_of.call(zc - 1.2))
+			var py1: int = int(py_of.call(zc + 1.2))
+			for yy in range(py0, py1):
+				var zz: float = z_of.call(yy)
+				var dep: float = exp(-pow(zz - zc, 2.0) / (2.0 * 0.45 * 0.45))
+				for xx in range(px0, px1):
+					var wx: float = xx / pxm_x - 7.2
+					var lat: float = 1.0 - smoothstep(2.0, 4.2, absf(wx))
+					if lat <= 0.0:
+						continue
+					var nse: float = 0.65 * _vnoise(wx * 1.7, zz * 1.7) + 0.35 * _vnoise(wx * 5.1 + 40.0, zz * 5.1)
+					var a: float = clampf(lat * dep * (0.30 + 0.70 * nse), 0.0, 1.0) * 0.14
+					if a > 0.004:
+						img.set_pixel(xx, yy, img.get_pixel(xx, yy).lerp(wear_c, a))
 	var _ss: float = 0.06 if surface == "clay" else 0.035
 	for n in 14000:
 		var x: = rng.randi() % w
@@ -79,7 +104,7 @@ static func court_texture(surface: String, night: bool = false) -> ImageTexture:
 
 
 	if surface == "grass":
-		var dry: = Color("#6b693f")
+		var dry: = Color("#5d6b3c")
 		for zone in [[0.0, 0.05, 2.9, 1.1], [0.0, L - 0.05, 2.9, 1.1], [0.0, NZ - 6.4, 2.2, 0.8], [0.0, NZ + 6.4, 2.2, 0.8]]:
 			for n2 in 3000:
 				var a: = rng.randf() * TAU
@@ -89,7 +114,7 @@ static func court_texture(surface: String, night: bool = false) -> ImageTexture:
 				var x2: = int(px_of.call(xx2))
 				var y2: = int(py_of.call(zx2))
 				if x2 >= 0 and x2 < w and y2 >= 0 and y2 < h:
-					img.set_pixel(x2, y2, img.get_pixel(x2, y2).lerp(dry, rng.randf_range(0.05, 0.14)))
+					img.set_pixel(x2, y2, img.get_pixel(x2, y2).lerp(dry, rng.randf_range(0.03, 0.07)))
 
 	var line_c: Color = T.line
 	var line: = func(x1: float, z1: float, x2: float, z2: float, w_m: float) -> void :
@@ -120,6 +145,24 @@ static func court_texture(surface: String, night: bool = false) -> ImageTexture:
 	img.generate_mipmaps()
 	return ImageTexture.create_from_image(img)
 
+static func _hash2(x: int, y: int) -> float:
+	var n: int = x * 374761393 + y * 668265263
+	n = (n ^ (n >> 13)) * 1274126177
+	return float((n ^ (n >> 16)) & 0x7fffffff) / float(0x7fffffff)
+
+static func _vnoise(x: float, y: float) -> float:
+	var xi: int = int(floor(x))
+	var yi: int = int(floor(y))
+	var xf: float = x - xi
+	var yf: float = y - yi
+	var u: float = xf * xf * (3.0 - 2.0 * xf)
+	var v: float = yf * yf * (3.0 - 2.0 * yf)
+	var a: float = _hash2(xi, yi)
+	var b: float = _hash2(xi + 1, yi)
+	var c: float = _hash2(xi, yi + 1)
+	var d: float = _hash2(xi + 1, yi + 1)
+	return lerpf(lerpf(a, b, u), lerpf(c, d, u), v)
+
 static func ground_texture(surface: String, night: bool = false) -> ImageTexture:
 	var T: Dictionary = NIGHT_THEMES[surface] if night and NIGHT_THEMES.has(surface) else THEMES[surface]
 	var w: = 512
@@ -145,7 +188,7 @@ static func net_texture() -> ImageTexture:
 	var h: = 96
 	var img: = Image.create(w, h, false, Image.FORMAT_RGBA8)
 	img.fill(Color(0, 0, 0, 0))
-	var cord: = Color(0.05, 0.06, 0.08, 0.95)
+	var cord: = Color(0.05, 0.06, 0.08, 0.62)
 	for x in range(0, w, 4):
 		img.fill_rect(Rect2i(x, 10, 1, h - 10), cord)
 	for y in range(10, h, 4):

@@ -115,6 +115,7 @@ func _init(look: int, is_player0: bool) -> void :
 	_transplant_shorts()
 	_apply_look(pal)
 	_build_racket()
+	_build_closed_hand(Color(pal.skin))
 	_build_accessories()
 
 var ankle_bones: Array = []
@@ -245,7 +246,7 @@ func _build_accessories() -> void :
 	band.position = Vector3(0, 0.15, 0)
 	ba_h.add_child(band)
 
-	for side in ["L", "R"]:
+	for side in ["L"]:
 		var ba: = BoneAttachment3D.new()
 		ba.bone_name = _bone_name(skel, "Wrist." + side)
 		skel.add_child(ba)
@@ -276,7 +277,47 @@ static func shoe_dust_color(d: float) -> Color:
 const TRAIL_LIFE: = 0.09
 var racket_node: Node3D = null
 var racket_hand_idx: int = -1
-const RK_GRIP_BASIS: = Basis.IDENTITY
+var racket_palm_idx: int = -1
+# Agarre continental: el mango cruza la palma (perpendicular a los dedos),
+# no la prolonga. La cara de la raqueta mantiene la orientacion de la mano.
+# El mango sigue el eje real del puno cerrado, no -X de la mano: en el bind
+# los dedos apuntan +Y y el interior de la palma mira (+0.67,0,-0.74), asi que
+# el cilindro del puno queda en Y x n = (-0.74,0,-0.67). Alinear otra cosa
+# dejaba el mango pasando junto a la muneca en vez de envuelto por los dedos.
+const FIST_AXIS_HAND: = Vector3(-0.74, 0.0, -0.67)
+var grip_basis: = _make_grip_basis()
+static func _make_grip_basis() -> Basis:
+	var gy: = FIST_AXIS_HAND.normalized()
+	var gz: = (Vector3(0, 0, 1) - gy * gy.dot(Vector3(0, 0, 1))).normalized()
+	var gx: = gy.cross(gz).normalized()
+	return Basis(gx, gy, gz).orthonormalized()
+# Centro del cilindro del puno en espacio de mano; lo mide _bake_fist().
+var _fist_center_hand: = Vector3(0.010, 0.065, -0.011)
+# Con el brazo colgando (espera/ready) la muneca orienta la raqueta vertical
+# "bandera". carry_basis la bascula hacia delante para un porte natural;
+# se funde a grip_basis en cuanto empieza la bola/elswing.
+# Porte en espera (referencia de Jose 13:16): brazo relajado al costado y
+# raqueta colgando con la cabeza ABAJO junto a la pierna. Se define en espacio
+# de la FIGURA (no de la mano): con el brazo colgando la orientacion de la
+# muneca varia y una base relativa a la mano puede quedar cabeza-arriba.
+# y = direccion culata->cabeza (abajo y un pelo adelante), cara hacia el lado.
+var carry_basis: = _make_carry_basis()
+static func _make_carry_basis() -> Basis:
+	var y: Vector3 = Vector3( - 0.10, - 1.0, - 0.15).normalized()
+	var x: Vector3 = y.cross(Vector3(0.9, 0.0, 0.25)).normalized()
+	var z: Vector3 = x.cross(y).normalized()
+	return Basis(x, y, z).orthonormalized()
+var carry_k: = 0.0
+# Flexion procedural de los dedos de la mano de la raqueta alrededor del mango.
+# Los clips mocap no animan dedos (bind pose abierta); se curvan por segmento.
+const GRIP_CURL: = {"Index": [1.25, 0.95, 0.55], "Middle": [1.35, 1.0, 0.6], "Ring": [1.25, 0.95, 0.55], "Pinky": [1.05, 0.8, 0.45]}
+const GRIP_THUMB: = [0.6, 0.45]
+const GRIP_WRAP_SIGN: = 1.0
+# Centro del puno respecto al nudillo corazon, en espacio del hueso de la mano
+# (bind pose medida del modelo): interior de palma 2.8cm, 0.8cm hacia la muneca.
+const GRIP_PALM_OFF: = Vector3(0.0188, - 0.008, - 0.0208)
+var _grip_bones: = {}
+var _thumb_bones: = []
 var racket_force_hidden: = false
 var swing_now: = 0.0
 var trail_pts: Array = []
@@ -473,11 +514,18 @@ func _build_racket() -> void :
 	racket_hand_idx = skel.find_bone(_bone_name(skel, "Hand.R"))
 	if racket_hand_idx < 0:
 		racket_hand_idx = skel.find_bone(_bone_name(skel, "Wrist.R"))
+	# anclaje de posicion en la palma (base del dedo corazon): la muneca sola
+	# dejaba el mango flotando fuera de la mano
+	racket_palm_idx = skel.find_bone(_bone_name(skel, "Middle1.R"))
 	var rk: = Node3D.new()
 	rk.scale = Vector3.ONE
 	rk.position = Vector3.ZERO
 	rk.rotation = Vector3.ZERO
-	add_child(rk)
+	var attachment: = BoneAttachment3D.new()
+	attachment.bone_name = skel.get_bone_name(racket_hand_idx)
+	skel.add_child(attachment)
+	attachment.add_child(rk)
+	rk.scale = Vector3.ONE / CHAR_SCALE
 	racket_node = rk
 
 	var dark: = _mat(Color("#191b20"))
@@ -617,12 +665,18 @@ func _build_eyes() -> void :
 var last_spd: = 1.0
 func _play(name: String, spd: float = 1.0) -> void :
 
-	if state == name and signf(spd) == signf(last_spd): return
+	# Ajustar la cadencia aunque siga el mismo clip: antes se conservaba
+	# la velocidad del primer paso al acelerar o frenar (pies deslizandose).
+	ap.speed_scale = spd
+	if state == name and signf(spd) == signf(last_spd):
+		last_spd = spd
+		return
 	state = name
 	last_spd = spd
-	ap.play(name, blend, spd)
+	ap.play(name, blend)
 
 func _play_seek(name: String, tau: float) -> void :
+	ap.speed_scale = 1.0
 	if state != name:
 		state = name
 		ap.play(name, 0.05)
@@ -639,26 +693,43 @@ const TOSS_ARM: = -2.0
 const SERVE_ARM: = -0.8
 
 
+# Los overrides globales no actualizan de forma fiable la pose consultada de
+# los descendientes. Se aplica la misma delta a toda la rama, capturada antes
+# de escribir, para que codo, muneca, piel y agarre compartan la misma cadena.
+func _override_branch(bone: int, target: Transform3D, _amount: float = 1.0, _persistent: bool = true) -> void:
+	var old: Transform3D = skel.get_bone_global_pose(bone)
+	var delta: Transform3D = target * old.affine_inverse()
+	var poses: Dictionary = {}
+	for bi in skel.get_bone_count():
+		var ancestor: int = bi
+		while ancestor >= 0 and ancestor != bone:
+			ancestor = skel.get_bone_parent(ancestor)
+		if ancestor == bone:
+			poses[bi] = delta * skel.get_bone_global_pose(bi)
+	for bi in poses:
+		skel.set_bone_global_pose_override(bi, poses[bi], 1.0, true)
+	skel.force_update_all_bone_transforms()
+
 func _raise_arm(ang: float, bone: String = "UpperArm.R") -> void :
 	var bi: = skel.find_bone(_bone_name(skel, bone))
 	if bi < 0:
 		return
 	var g: = skel.get_bone_global_pose(bi)
-	skel.set_bone_global_pose_override(bi, Transform3D(Basis(Vector3.RIGHT, ang) * g.basis, g.origin), 1.0, true)
+	_override_branch(bi, Transform3D(Basis(Vector3.RIGHT, ang) * g.basis, g.origin), 1.0, true)
 
 func _bend_torso(k: float) -> void :
 	for bn in ["Abdomen", "Torso"]:
 		var bi: = skel.find_bone(bn)
 		if bi >= 0:
 			var q: = skel.get_bone_global_pose(bi).basis.get_rotation_quaternion()
-			skel.set_bone_global_pose_override(bi, Transform3D(Basis(q * Quaternion(Vector3.RIGHT, 0.45 * k)), skel.get_bone_global_pose(bi).origin), 1.0, true)
+			_override_branch(bi, Transform3D(Basis(q * Quaternion(Vector3.RIGHT, 0.45 * k)), skel.get_bone_global_pose(bi).origin), 1.0, true)
 
 func _twist_torso(angle: float) -> void :
 	for bn in ["Torso", "Abdomen"]:
 		var bi: = skel.find_bone(bn)
 		if bi >= 0:
 			var g: = skel.get_bone_global_pose(bi)
-			skel.set_bone_global_pose_override(bi, Transform3D(Basis(Vector3.UP, angle) * g.basis, g.origin), 1.0, true)
+			_override_branch(bi, Transform3D(Basis(Vector3.UP, angle) * g.basis, g.origin), 1.0, true)
 
 func _serve_knees(k: float) -> void :
 	if skel == null or k <= 0.01:
@@ -712,6 +783,9 @@ func _ready_stance() -> void :
 	_bend_torso(0.28)
 	_raise_arm(-0.25, "UpperArm.R")
 	_raise_arm(-0.30, "UpperArm.L")
+	# brazo y raqueta relajados como en la espera de saque (referencia: cabeza
+	# de la raqueta baja junto a la pierna, mango cruzando la palma)
+	_serve_wait_arm(carry_k)
 
 var celeb_t: = 0.0
 var celeb_name: = ""
@@ -719,6 +793,7 @@ var rk_show_delay: = 0
 var serve_ready: = false
 var serve_follow_t: = 0.0
 var _serve_was_swing: = false
+var _idle_t: = 0.0
 const CELEB_ANIMS: = ["Wave", "Punch_Right", "Punch_Left", "Sword_Slash", "HitRecieve", "HitRecieve_2"]
 var had_windup: = false
 
@@ -731,6 +806,21 @@ var _last_init: = false
 
 const WINDUP: = 0.3
 const CONTACT_K: = 0.47
+
+# Mapeo del saque medido sobre el clip mocap/Servicio fotograma a fotograma
+# (toma jduribe del dataset Tennis-MoCap, ver CREDITS.md):
+# trophy (raqueta detras de la cabeza) tau~1.61, contacto en extension
+# plena tau~1.72, fin del follow-through tau~2.2.
+const SERVE_TAU_READY: = 1.35
+const SERVE_TAU_CONTACT: = 1.72
+const SERVE_TAU_END: = 2.2
+
+
+static func _serve_tau(kk: float) -> float:
+	if kk <= CONTACT_K:
+		return lerpf(SERVE_TAU_READY, SERVE_TAU_CONTACT, pow(kk / CONTACT_K, 1.4))
+	var y: float = (kk - CONTACT_K) / (1.0 - CONTACT_K)
+	return lerpf(SERVE_TAU_CONTACT, SERVE_TAU_END, 1.0 - pow(1.0 - y, 2.0))
 
 
 
@@ -745,7 +835,7 @@ static func _swing_clip(kind: String, hit_side: String) -> Array:
 
 
 
-		"smash": return ["mocap/Servicio", 0.95, 1.45]
+		"smash": return ["mocap/Servicio", 1.30, 1.70]
 		"slice": return ["Sword_Slash", 0.92, 1.12]
 		_: return ["mocap/Reves" if hit_side == "back" else "mocap/Derecha", 1.0, 1.95]
 
@@ -765,19 +855,6 @@ func celebrate(cname: String, dur: float) -> void :
 
 func update_from_sim(e, dt: float) -> void :
 	ap.advance(dt)
-	if racket_node != null and racket_hand_idx >= 0:
-		skel.force_update_all_bone_transforms()
-		var hand_pose: Transform3D = skel.get_bone_global_pose(racket_hand_idx)
-		var hp: Vector3 = skel.global_transform * hand_pose.origin
-		var hb: Basis = (global_transform.basis.inverse() * skel.global_transform.basis * hand_pose.basis).orthonormalized()
-		racket_node.basis = hb * RK_GRIP_BASIS
-		racket_node.position = to_local(hp) + hb.y * -0.09
-
-		if state in CELEB_ANIMS:
-			rk_show_delay = 0
-		elif rk_show_delay > 0:
-			rk_show_delay -= 1
-		racket_node.visible = not racket_force_hidden and rk_show_delay <= 0
 	swing_now = e.swing
 	if serve_toss >= 0.0:
 		_serve_was_swing = false
@@ -820,7 +897,7 @@ func update_from_sim(e, dt: float) -> void :
 
 	var target_y: = FOOT_LIFT
 	if e.wait_serve and e.swing <= 0.0 and e.want_t <= 0.0 and e.speed < 0.5:
-		target_y = FOOT_LIFT + absf(sin(float(Time.get_ticks_msec() % 1400) / 1400.0 * TAU * 2.6)) * 0.055
+		target_y = FOOT_LIFT + sin(_idle_t * 2.3) * 0.006
 	position.y = lerpf(position.y, target_y, minf(1.0, dt * 14.0))
 
 	if e.get("split_t") != null and e.split_t > 0.0 and e.swing <= 0.0 and e.get("dive_t") <= 0.0 and (e.get("getup_t") == null or e.getup_t <= 0.0):
@@ -937,26 +1014,39 @@ func update_from_sim(e, dt: float) -> void :
 		return
 	if serve_ready and e.swing <= 0.0:
 		_play_seek("mocap/Servicio", 0.12)
-		_raise_arm(TOSS_ARM * 0.55, "UpperArm.L")
-		_raise_arm(SERVE_ARM * 0.20, "UpperArm.R")
-		_bend_torso(0.06)
-		_serve_knees(0.22)
+		# Espera apoyada, con respiracion leve: el bote de pies anterior hacia
+		# saltar al sacador en cada ciclo. El brazo queda bajo junto a la pierna.
+		_idle_t += dt
+		var bob: float = sin(_idle_t * 2.3)
+		_bend_torso(0.025 + 0.01 * sin(_idle_t * 1.3))
+		_serve_knees(0.08 + 0.025 * (0.5 + 0.5 * bob))
+		_serve_wait_arm(1.0)
+		position.y += 0.006 * bob
+		_place_racket(dt)
 		return
+
 	if serve_toss >= 0.0 and e.swing <= 0.0:
 
 		var toss_k: float = clampf(serve_toss, 0.0, 1.0)
-		_play_seek("mocap/Servicio", lerpf(0.1, 0.55, toss_k))
-		_raise_arm(TOSS_ARM * _ease_out_cubic(clampf(serve_toss / 0.35, 0.0, 1.0)), "UpperArm.L")
+		_play_seek("mocap/Servicio", lerpf(0.12, SERVE_TAU_READY, toss_k))
+		_raise_arm(TOSS_ARM * 0.4 * _ease_out_cubic(clampf(serve_toss / 0.35, 0.0, 1.0)), "UpperArm.L")
 		position.y -= 0.17 * sin(toss_k * PI)
 		_serve_knees(1.05 * sin(toss_k * PI))
 		_twist_torso(-0.26 * sin(toss_k * PI))
+		_place_racket(dt)
 		return
 	if hold_swing and e.kind == "serve":
 
-		_play_seek("mocap/Servicio", lerpf(0.55, 1.3, clampf(k, 0.0, 1.0)))
+		var s_tau: float = _serve_tau(clampf(k, 0.0, 1.0))
+		_play_seek("mocap/Servicio", s_tau)
+		# El clip incluye una reverencia profunda (tau 1.15-1.6) que lee como
+		# gesto roto; se contrarresta en parte para que pase por coil atletico.
+		_bend_torso( - 0.75 * sin(PI * clampf((s_tau - 1.1) / 0.55, 0.0, 1.0)))
 
-		_raise_arm(TOSS_ARM * (1.0 - _ease_in_cubic(clampf((k - 0.2) / 0.5, 0.0, 1.0))), "UpperArm.L")
-		_raise_arm(SERVE_ARM * clampf(1.0 - absf(k - 0.55) / 0.3, 0.0, 1.0))
+		# Overrides suavizados: el mocap ya baja el brazo de la bola y sube el
+		# de la raqueta; las formulas a tope congelaban los brazos (efecto robot).
+		_raise_arm(TOSS_ARM * 0.35 * (1.0 - _ease_in_cubic(clampf((k - 0.2) / 0.5, 0.0, 1.0))), "UpperArm.L")
+		_raise_arm(SERVE_ARM * 0.35 * clampf(1.0 - absf(k - 0.55) / 0.3, 0.0, 1.0))
 		var _sk: float = clampf(k, 0.0, 1.0)
 		position.y += 0.3 * sin(_sk * PI)
 		_twist_torso(0.32 * sin(_sk * PI))
@@ -976,8 +1066,25 @@ func update_from_sim(e, dt: float) -> void :
 
 
 
-		tau = sc[1] + _ease_out_cubic(kk) * (sc[2] - sc[1])
+		# Dinamica del golpe: preparacion pausada, aceleracion hasta el contacto
+		# (k = CONTACT_K) y follow-through que sale rapido y termina suave.
+		# tau(CONTACT_K) coincide con el mapeo anterior para no desplazar el contacto.
+		if sc[0] == "mocap/Servicio":
+			# Smash: mismo clip que el saque, mismo contacto medido y mismo arreglo
+			# de la reverencia.
+			tau = _serve_tau(kk)
+		else:
+			var span: float = sc[2] - sc[1]
+			var e0: float = _ease_out_cubic(CONTACT_K)
+			if kk <= CONTACT_K:
+				var x: float = kk / CONTACT_K
+				tau = sc[1] + span * e0 * pow(x, 1.6)
+			else:
+				var y: float = (kk - CONTACT_K) / (1.0 - CONTACT_K)
+				tau = sc[1] + span * (e0 + (1.0 - e0) * (1.0 - pow(1.0 - y, 2.2)))
 		_play_seek(sc[0], tau)
+		if sc[0] == "mocap/Servicio":
+			_bend_torso( - 0.75 * sin(PI * clampf((tau - 1.1) / 0.55, 0.0, 1.0)))
 
 
 
@@ -1014,7 +1121,10 @@ func update_from_sim(e, dt: float) -> void :
 				wk = maxf(wk, 0.5 + 0.4 * float(e.get("charge")))
 		var hsw: String = e.hit_side if "hit_side" in e else "fore"
 		var scw: = _swing_clip(e.want, hsw)
-		_play_seek(scw[0], minf(0.18 + wk * 0.45, 0.48) * scw[1])
+		# El windup llega hasta el inicio de la ventana del golpe (scw[1]):
+		# antes se quedaba en 0.48*scw[1] y el golpe empezaba con un salto
+		# de ~medio segundo de clip (chasis visible).
+		_play_seek(scw[0], (0.18 + wk * 0.82) * scw[1])
 		had_windup = true
 
 
@@ -1052,11 +1162,20 @@ func update_from_sim(e, dt: float) -> void :
 	if _stance_on:
 		_ready_stance()
 		position.y -= 0.045
+	# Espera de saque: brazo de raqueta relajado al costado (referencia Jose),
+	# fundido con carry_k para que suba con el inicio del saque sin salto.
+	if e.wait_serve and e.swing <= 0.0 and carry_k > 0.01:
+		_serve_wait_arm(carry_k)
 	_apply_gaze()
 	_rk_rest(dt)
 	if state in CELEB_ANIMS:
 		_celebration_grip()
-
+	# La raqueta se coloca AL FINAL, leyendo la pose definitiva de la mano tras
+	# todas las poses procedurales: la culata no se despega del puno.
+	_place_racket(dt)
+	if racket_node != null and racket_node.visible:
+		# _pose_grip_fingers(): sustituido por _bake_fist() (puno horneado en la malla)
+		pass
 
 func _celebration_legs() -> void :
 	if skel == null:
@@ -1074,6 +1193,237 @@ func _celebration_grip() -> void :
 		return
 	_raise_arm(-1.05, "UpperArm.R")
 
+
+# Mano y raqueta comparten el BoneAttachment3D de la muneca.
+func _place_racket(dt: float) -> void :
+	if racket_node == null or racket_hand_idx < 0:
+		return
+	skel.force_update_all_bone_transforms()
+	# BoneAttachment3D usa la transformacion final que tambien deforma la piel;
+	# leer get_bone_global_pose en mitad del frame daba una muneca desfasada.
+	var carry_target: float = 1.0 if (swing_now <= 0.0 and serve_toss < 0.0) else 0.0
+	carry_k = move_toward(carry_k, carry_target, dt * 5.0)
+	racket_node.basis = grip_basis.scaled(Vector3.ONE / CHAR_SCALE)
+	racket_node.position = _fist_center_hand - grip_basis.y * 0.03 / CHAR_SCALE
+	var a: Vector3 = Vector3(0, -0.025, 0)
+	var b: Vector3 = _fist_center_hand + grip_basis * Vector3(-0.035, 0, 0.016) / CHAR_SCALE
+	_wrist_bridge.position = (a + b) * 0.5
+	_wrist_bridge.quaternion = Quaternion(Vector3.UP, (b - a).normalized())
+	_wrist_bridge.scale = Vector3(1, a.distance_to(b), 1)
+	_wrist_band.position = a.lerp(b, 0.34)
+	_wrist_band.quaternion = _wrist_bridge.quaternion
+	if state in CELEB_ANIMS:
+		rk_show_delay = 0
+	elif rk_show_delay > 0:
+		rk_show_delay -= 1
+	racket_node.visible = not racket_force_hidden and rk_show_delay <= 0
+	if _wrist_bridge != null:
+		_wrist_bridge.visible = racket_node.visible
+		_wrist_band.visible = racket_node.visible
+
+
+# Brazo de la raqueta relajado al costado durante la espera de saque
+# (referencia visual de Jose: brazo abajo, raqueta baja junto a la pierna).
+# Alinea un hueso (en espacio mundo) hacia una direccion objetivo dada en
+# espacio local de la figura, fundida por k. Robusta ante la pose que traiga el
+# clip: no depende de la orientacion previa del brazo.
+func _align_bone_dir(bone: String, child: String, target_local: Vector3, k: float) -> void :
+	var bi: int = skel.find_bone(_bone_name(skel, bone))
+	var ci: int = skel.find_bone(_bone_name(skel, child))
+	if bi < 0 or ci < 0:
+		return
+	var gp: Transform3D = skel.get_bone_global_pose(bi)
+	var cp: Transform3D = skel.get_bone_global_pose(ci)
+	var b0: Vector3 = skel.global_transform * gp.origin
+	var c0: Vector3 = skel.global_transform * cp.origin
+	var cd: Vector3 = (c0 - b0).normalized()
+	var td: Vector3 = (global_transform.basis * target_local).normalized()
+	if cd.dot(td) > 0.9995 or k <= 0.001:
+		return
+	var q: Quaternion = Quaternion.IDENTITY.slerp(Quaternion(cd, td), k)
+	var wb: Basis = Basis(q) * (skel.global_transform.basis * gp.basis)
+	_override_branch(bi, Transform3D((skel.global_transform.basis.inverse() * wb).orthonormalized(), gp.origin), 1.0, true)
+	skel.force_update_all_bone_transforms()
+
+
+func _serve_wait_arm(k: float) -> void :
+	_align_bone_dir("UpperArm.R", "LowerArm.R", Vector3(0.14, -1.0, -0.08), k)
+	_align_bone_dir("LowerArm.R", "Wrist.R", Vector3(0.10, -1.0, -0.22), k)
+	# la izquierda tambien cuelga relajada (referencia), y despeja la vista del puno
+	_align_bone_dir("UpperArm.L", "LowerArm.L", Vector3( - 0.16, -1.0, -0.06), k)
+	_align_bone_dir("LowerArm.L", "Wrist.L", Vector3( - 0.12, -1.0, -0.12), k)
+	# muneca orientada para que el mango cruce la palma (agarre martillo) y la
+	# cabeza cuelgue baja junto a la pierna, con cualquier pose que traiga el clip
+	_align_hand_axis(global_transform.basis * Vector3( - 0.10, - 1.0, - 0.15), k)
+
+
+# Gira la mano de la raqueta para que el eje del mango (grip_basis.y en espacio
+# del hueso de la mano) apunte a una direccion mundo dada. Asi el mango queda
+# perpendicular a los dedos (cruza la palma) y los dedos pueden envolverlo.
+func _align_hand_axis(target_world: Vector3, k: float) -> void :
+	if skel == null or racket_hand_idx < 0:
+		return
+	var g: Transform3D = skel.get_bone_global_pose(racket_hand_idx)
+	var wb: Basis = (skel.global_transform.basis * g.basis).orthonormalized()
+	var cur: Vector3 = (wb * grip_basis.y).normalized()
+	var td: Vector3 = target_world.normalized()
+	if cur.dot(td) > 0.999 or k <= 0.001:
+		return
+	var q: Quaternion = Quaternion.IDENTITY.slerp(Quaternion(cur, td), k)
+	_override_branch(racket_hand_idx, Transform3D((skel.global_transform.basis.inverse() * (Basis(q) * wb)).orthonormalized(), g.origin), 1.0, true)
+	skel.force_update_all_bone_transforms()
+
+
+# Puno y antebrazo low-poly sustituyen la piel derecha hasta el codo.
+# La cadena de huesos, los clips y las reglas del juego no cambian.
+var _closed_hand: Node3D
+var _wrist_bridge: MeshInstance3D
+var _wrist_band: MeshInstance3D
+func _build_closed_hand(skin_color: Color) -> void:
+	for mi in skel.find_children("*", "MeshInstance3D", true, false):
+		var am: ArrayMesh = mi.mesh as ArrayMesh
+		if am == null or mi.skin == null:
+			continue
+		var bind_map: Array = []
+		for i in mi.skin.get_bind_count():
+			var bone: int = mi.skin.get_bind_bone(i)
+			if bone < 0:
+				bone = skel.find_bone(mi.skin.get_bind_name(i))
+			bind_map.append(bone)
+		var dup: = ArrayMesh.new()
+		for si in am.get_surface_count():
+			var arrays: Array = am.surface_get_arrays(si).duplicate(true)
+			var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+			var bones: PackedInt32Array = arrays[Mesh.ARRAY_BONES]
+			var weights: PackedFloat32Array = arrays[Mesh.ARRAY_WEIGHTS]
+			var removed: Dictionary = {}
+			if bones.size() >= verts.size() * 4:
+				var per: int = bones.size() / verts.size()
+				for vi in verts.size():
+					var hand_weight: float = 0.0
+					var finger_weight: float = 0.0
+					for k in per:
+						var bi: int = bind_map[bones[vi * per + k]]
+						if bi == racket_hand_idx or (bi >= 0 and skel.get_bone_name(bi).ends_with("_R") and ("Index" in skel.get_bone_name(bi) or "Middle" in skel.get_bone_name(bi) or "Ring" in skel.get_bone_name(bi) or "Pinky" in skel.get_bone_name(bi) or "Thumb" in skel.get_bone_name(bi))):
+							hand_weight += weights[vi * per + k]
+							if bi != racket_hand_idx: finger_weight += weights[vi * per + k]
+					var forearm_weight: float = 0.0
+					for k in per:
+						if bind_map[bones[vi * per + k]] == skel.get_bone_parent(racket_hand_idx): forearm_weight += weights[vi * per + k]
+					if finger_weight > 0.01 or hand_weight > 0.05 or forearm_weight > 0.05:
+						removed[vi] = true
+			var idx: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
+			var kept: = PackedInt32Array()
+			for t in idx.size() / 3:
+				var a: int = idx[t * 3]
+				var b: int = idx[t * 3 + 1]
+				var c: int = idx[t * 3 + 2]
+				if not (removed.has(a) or removed.has(b) or removed.has(c)):
+					kept.append_array(PackedInt32Array([a, b, c]))
+			if kept.is_empty():
+				continue
+			arrays[Mesh.ARRAY_INDEX] = kept
+			dup.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+			dup.surface_set_material(dup.get_surface_count() - 1, am.surface_get_material(si))
+		mi.mesh = dup
+	_closed_hand = Node3D.new()
+	racket_node.add_child(_closed_hand)
+	# El origen de la raqueta esta 3cm por debajo del centro del agarre.
+	_closed_hand.position.y = 0.03
+	var mat: = _mat_kind(skin_color, "skin")
+	var forearm_attach: = BoneAttachment3D.new()
+	var elbow_idx: int = skel.get_bone_parent(racket_hand_idx)
+	forearm_attach.bone_name = skel.get_bone_name(elbow_idx)
+	skel.add_child(forearm_attach)
+	var endpoint: Vector3 = skel.get_bone_rest(racket_hand_idx).origin
+	var arm: = MeshInstance3D.new()
+	var arm_mesh: = CylinderMesh.new()
+	arm_mesh.top_radius = 0.032
+	arm_mesh.bottom_radius = 0.045
+	arm_mesh.height = endpoint.length() + 0.06
+	arm_mesh.radial_segments = 9
+	arm.mesh = arm_mesh
+	arm.position = (endpoint - endpoint.normalized() * 0.06) * 0.5
+	arm.quaternion = Quaternion(Vector3.UP, endpoint.normalized())
+	arm.material_override = mat
+	forearm_attach.add_child(arm)
+	var elbow: = MeshInstance3D.new()
+	var joint: = SphereMesh.new()
+	joint.radius = 0.044
+	joint.height = 0.088
+	joint.radial_segments = 9
+	joint.rings = 4
+	elbow.mesh = joint
+	elbow.material_override = mat
+	elbow.position = -endpoint.normalized() * 0.03
+	forearm_attach.add_child(elbow)
+	var wrist: = MeshInstance3D.new()
+	var wrist_mesh: = SphereMesh.new()
+	wrist_mesh.radius = 0.033
+	wrist_mesh.height = 0.066
+	wrist_mesh.radial_segments = 9
+	wrist_mesh.rings = 4
+	wrist.mesh = wrist_mesh
+	wrist.material_override = mat
+	racket_node.get_parent().add_child(wrist)
+	_wrist_bridge = MeshInstance3D.new()
+	var bridge_mesh: = CylinderMesh.new()
+	bridge_mesh.top_radius = 0.027
+	bridge_mesh.bottom_radius = 0.037
+	bridge_mesh.height = 1.0
+	bridge_mesh.radial_segments = 10
+	_wrist_bridge.mesh = bridge_mesh
+	_wrist_bridge.material_override = mat
+	racket_node.get_parent().add_child(_wrist_bridge)
+	_wrist_band = MeshInstance3D.new()
+	var band_mesh: = CylinderMesh.new()
+	band_mesh.top_radius = 0.034
+	band_mesh.bottom_radius = 0.035
+	band_mesh.height = 0.022
+	band_mesh.radial_segments = 10
+	_wrist_band.mesh = band_mesh
+	_wrist_band.material_override = _mat(Color("#f4f4f6"))
+	racket_node.get_parent().add_child(_wrist_band)
+	_hand_blob(Vector3(-0.009, 0, 0.025), Vector3(0.040, 0.049, 0.022), mat)
+	# Transicion palma-muneca, oculta el corte sin ensanchar el puno.
+	_hand_blob(Vector3(-0.040, 0, 0.013), Vector3(0.037, 0.031, 0.025), mat)
+	for i in 4:
+		var yy: float = -0.033 + i * 0.022
+		var pts: Array[Vector3] = [Vector3(0.022, yy, 0.025), Vector3(0.033, yy, 0.003), Vector3(0.019, yy, -0.025), Vector3(-0.009, yy, -0.026)]
+		for j in 3:
+			_hand_link(pts[j], pts[j + 1], 0.0102 if i < 3 else 0.009, mat)
+		for p in pts:
+			_hand_blob(p, Vector3.ONE * (0.0104 if i < 3 else 0.0092), mat)
+	# Pulgar opuesto, cruzado por fuera de los dedos, no un quinto dedo paralelo.
+	_hand_link(Vector3(-0.035, -0.038, 0.017), Vector3(-0.025, -0.044, -0.012), 0.013, mat)
+	_hand_link(Vector3(-0.025, -0.044, -0.012), Vector3(0.001, -0.022, -0.039), 0.0115, mat)
+	_hand_blob(Vector3(0.001, -0.022, -0.039), Vector3(0.012, 0.013, 0.010), mat)
+
+func _hand_blob(pos: Vector3, size: Vector3, mat: Material) -> void:
+	var mi: = MeshInstance3D.new()
+	var mesh: = SphereMesh.new()
+	mesh.radius = 1.0
+	mesh.height = 2.0
+	mesh.radial_segments = 8
+	mesh.rings = 4
+	mi.mesh = mesh
+	mi.material_override = mat
+	mi.position = pos
+	mi.scale = size
+	_closed_hand.add_child(mi)
+
+func _hand_link(a: Vector3, b: Vector3, radius: float, mat: Material) -> void:
+	var mi: = MeshInstance3D.new()
+	var mesh: = CylinderMesh.new()
+	mesh.top_radius = radius * 0.93
+	mesh.bottom_radius = radius
+	mesh.height = a.distance_to(b)
+	mesh.radial_segments = 8
+	mi.mesh = mesh
+	mi.material_override = mat
+	mi.position = (a + b) * 0.5
+	mi.quaternion = Quaternion(Vector3.UP, (b - a).normalized())
+	_closed_hand.add_child(mi)
 
 func _rk_rest(dt: float) -> void :
 	if racket_node == null:
