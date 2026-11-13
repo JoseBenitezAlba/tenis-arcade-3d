@@ -279,6 +279,11 @@ var racket_hand_idx: int = -1
 # Agarre continental: el mango cruza la palma (perpendicular a los dedos),
 # no la prolonga. La cara de la raqueta mantiene la orientacion de la mano.
 var grip_basis: = Basis(Vector3.FORWARD, - PI * 0.5)
+# Con el brazo colgando (espera/ready) la muneca orienta la raqueta vertical
+# "bandera". carry_basis la bascula hacia delante para un porte natural;
+# se funde a grip_basis en cuanto empieza la bola/elswing.
+var carry_basis: = Basis(Vector3.FORWARD, - PI * 0.5) * Basis(Vector3.RIGHT, -0.52)
+var carry_k: = 0.0
 var racket_force_hidden: = false
 var swing_now: = 0.0
 var trail_pts: Array = []
@@ -788,7 +793,10 @@ func update_from_sim(e, dt: float) -> void :
 		var hand_pose: Transform3D = skel.get_bone_global_pose(racket_hand_idx)
 		var hp: Vector3 = skel.global_transform * hand_pose.origin
 		var hb: Basis = (global_transform.basis.inverse() * skel.global_transform.basis * hand_pose.basis).orthonormalized()
-		racket_node.basis = hb * grip_basis
+		var carry_target: = 1.0 if (swing_now <= 0.0 and serve_toss < 0.0) else 0.0
+		carry_k = move_toward(carry_k, carry_target, dt * 5.0)
+		var grip_q: Quaternion = grip_basis.get_rotation_quaternion().slerp(carry_basis.get_rotation_quaternion(), carry_k)
+		racket_node.basis = hb * Basis(grip_q)
 		racket_node.position = to_local(hp) + hb.y * -0.09
 
 		if state in CELEB_ANIMS:
