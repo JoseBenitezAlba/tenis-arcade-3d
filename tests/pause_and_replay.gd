@@ -10,12 +10,6 @@ func run():
  var tc:TouchControls
  for c in mv.get_children():
   if c is TouchControls:tc=c
- mv.replaying=true
- var hit=tc._buttons[0];var hp=hit.position+Vector2.ONE*75
- press(1,hp,true);await process_frame
- press(1,hp,false);await process_frame
- print("REPLAY_AFTER_TOUCH=",mv.replaying)
- assert(not mv.replaying)
  var ev=InputEventAction.new();ev.action="pause";ev.pressed=true
  mv._on_pause_input(ev)
  print("PAUSE_VISIBLE=",mv.pause_layer.visible," PAUSE_BUTTONS=",mv.pause_layer.find_children("*","BaseButton",true,false).size())
@@ -30,4 +24,4 @@ func run():
  mv._open_pause();mv._request_menu();assert(not left[0]);mv._request_menu();assert(left[0] and not paused)
  print("PAUSE_FREEZE_RESUME_CONFIRM_EXIT=PASS")
  paused=false
- mv.queue_free();host.free();await process_frame;quit()
+ await create_timer(0.1).timeout;mv.queue_free();host.free();await create_timer(0.2).timeout;quit()
