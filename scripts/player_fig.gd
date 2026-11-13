@@ -721,6 +721,7 @@ var rk_show_delay: = 0
 var serve_ready: = false
 var serve_follow_t: = 0.0
 var _serve_was_swing: = false
+var _idle_t: = 0.0
 const CELEB_ANIMS: = ["Wave", "Punch_Right", "Punch_Left", "Sword_Slash", "HitRecieve", "HitRecieve_2"]
 var had_windup: = false
 
@@ -954,10 +955,15 @@ func update_from_sim(e, dt: float) -> void :
 		return
 	if serve_ready and e.swing <= 0.0:
 		_play_seek("mocap/Servicio", 0.12)
+		# Espera viva: sin este vaivén el jugador queda congelado varios
+		# segundos antes del saque (efecto maniquí).
+		_idle_t += dt
+		var bob: float = sin(_idle_t * 2.3)
 		_raise_arm(TOSS_ARM * 0.55, "UpperArm.L")
-		_raise_arm(SERVE_ARM * 0.20, "UpperArm.R")
-		_bend_torso(0.06)
-		_serve_knees(0.22)
+		_raise_arm(SERVE_ARM * 0.20 + 0.03 * sin(_idle_t * 1.7), "UpperArm.R")
+		_bend_torso(0.06 + 0.02 * sin(_idle_t * 1.3))
+		_serve_knees(0.22 + 0.06 * (0.5 + 0.5 * bob))
+		position.y += 0.012 * bob
 		return
 	if serve_toss >= 0.0 and e.swing <= 0.0:
 
