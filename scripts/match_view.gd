@@ -853,6 +853,10 @@ func _physics_process(dt: float) -> void :
 			ball_mesh.position = _pb_pos
 	if not _pb_active:
 		ball_mesh.position = Vector3(sim.ball.x, sim.ball.y, sim.ball.z)
+		# Entregar la bola de la mano al lanzamiento sin cambiar la trayectoria
+		# fisica: el desfase visual desaparece durante los primeros 180 ms.
+		if sim.state == "serve" and sim.ball.toss:
+			ball_mesh.position += rigs[sim.M.server].serve_release_offset * (1.0 - smoothstep(0.0, 0.18, sim.ball.toss_t))
 
 
 	if sim.state == "serve" and (_prev_sim_state == "point" or _prev_sim_state == "over"):
