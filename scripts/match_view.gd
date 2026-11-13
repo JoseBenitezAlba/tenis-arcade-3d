@@ -771,7 +771,10 @@ func _physics_process(dt: float) -> void :
 		rigs[i].serve_toss = clampf(sim.ball.toss_t / _tdiv, 0.0, 1.0) if (sim.state == "serve" and sim.M.server == i and sim.serve_stage == "toss") else -1.0
 		rigs[i].look_target = Vector3(sim.ball.x, sim.ball.y, sim.ball.z)
 		rigs[i].serve_ready = sim.state == "serve" and sim.M.server == i and sim.serve_stage == "ready"
-		rigs[i].force_hide_racket((sim.state == "point" or sim.state == "over") and i != _point_winner)
+		rigs[i].serve_ball_held = rigs[i].serve_ready and sim.ball.held and sim.rut_t >= 1.45
+		rigs[i].serve_ball_blend = smoothstep(1.45, 1.65, sim.rut_t)
+		rigs[i].serve_ball_source = Vector3(sim.ball.x, sim.ball.y, sim.ball.z)
+		rigs[i].force_hide_racket(false)
 		rigs[i].update_from_sim(sim.pl[i], dt)
 		if _closeup_ok and sim.state in ["point", "over"]:
 			rigs[i].rotation.y = 0.0
@@ -864,8 +867,10 @@ func _physics_process(dt: float) -> void :
 	ball_mesh.visible = not blank
 	if sim.state in ["point", "over"]:
 		ball_mesh.visible = false
-	ball_shadow.visible = not blank
-	ball_seam.visible = not blank
+	var in_hand: bool = sim.state == "serve" and sim.ball.held and sim.rut_t >= 1.45
+	ball_mesh.visible = ball_mesh.visible and not in_hand
+	ball_shadow.visible = not blank and not in_hand
+	ball_seam.visible = not blank and not in_hand
 
 	var bk: float = held_ball_scale(sim.ball.held, sim.ball.toss, sim.ball.toss_t)
 
