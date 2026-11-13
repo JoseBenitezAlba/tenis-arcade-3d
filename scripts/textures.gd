@@ -6,13 +6,13 @@ const LINE_W_BASE: = 0.16
 const LINE_W_SIDE: = 0.11
 
 const THEMES: = {
-	"clay": {"court": Color("#bd5c26"), "court2": Color("#b4551f"), "surround": Color("#a34e1d"), "out": Color("#7a3b22"), "out2": Color("#5e2c19"), "line": Color("#f6f1e6")},
+	"clay": {"court": Color("#7b4a1c"), "court2": Color("#71461a"), "surround": Color("#77491f"), "out": Color("#5c3e1b"), "out2": Color("#4d3418"), "line": Color("#f6f1e6")},
 	"hard": {"court": Color("#0d47a1"), "court2": Color("#0b3f91"), "surround": Color("#2e7d32"), "out": Color("#256b2a"), "out2": Color("#1e5a24"), "line": Color("#f4f6fa")},
 	"grass": {"court": Color("#3a6832"), "court2": Color("#355e2d"), "surround": Color("#1c341d"), "out": Color("#214022"), "out2": Color("#1a361c"), "line": Color("#f6f8f2")},
 }
 const NIGHT_THEMES: = {
 	"hard": {"court": Color("#173a5e"), "court2": Color("#143352"), "surround": Color("#2c5d32"), "out": Color("#28542d"), "out2": Color("#1f4325"), "line": Color("#f4f6fa")},
-	"clay": {"court": Color("#a94d1f"), "court2": Color("#9f471c"), "surround": Color("#8f3f18"), "out": Color("#67301b"), "out2": Color("#4e2413"), "line": Color("#f6f1e6")},
+	"clay": {"court": Color("#64411a"), "court2": Color("#5e3c18"), "surround": Color("#543614"), "out": Color("#3d2917"), "out2": Color("#2e1f10"), "line": Color("#f6f1e6")},
 }
 const L: = 23.77
 const NZ: = L / 2.0
@@ -53,11 +53,17 @@ static func court_texture(surface: String, night: bool = false) -> ImageTexture:
 	if surface == "clay":
 		for i in 12:
 			var yy: = rng.randi_range(iy0, iy1)
-			img.fill_rect(Rect2i(ix0, yy, ix1 - ix0, maxi(1, int(pxm_z * 0.06))), Color(0, 0, 0, 0.035))
+			var hh: = maxi(1, int(pxm_z * 0.06))
+			for sy in range(yy, mini(yy + hh, h)):
+				for sx in range(ix0, ix1):
+					img.set_pixel(sx, sy, img.get_pixel(sx, sy).lerp(Color(0, 0, 0), 0.035))
 		for zc in [0.9, L - 0.9]:
 			var wy0: int = int(py_of.call(zc - 1.0))
 			var wy1: int = int(py_of.call(zc + 1.0))
-			img.fill_rect(Rect2i(ix0, wy0, ix1 - ix0, maxi(1, wy1 - wy0)), Color(0.08, 0.04, 0.02, 0.10))
+			var wear: = Color(0.08, 0.04, 0.02)
+			for sy2 in range(wy0, wy1):
+				for sx2 in range(ix0, ix1):
+					img.set_pixel(sx2, sy2, img.get_pixel(sx2, sy2).lerp(wear, 0.10))
 	elif surface == "grass":
 		var wear_c: = Color(0.33, 0.36, 0.20)
 		for zc in [0.7, L - 0.7]:
