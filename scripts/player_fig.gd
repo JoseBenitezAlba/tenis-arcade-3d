@@ -283,8 +283,24 @@ var grip_basis: = Basis(Vector3.FORWARD, - PI * 0.5)
 # Con el brazo colgando (espera/ready) la muneca orienta la raqueta vertical
 # "bandera". carry_basis la bascula hacia delante para un porte natural;
 # se funde a grip_basis en cuanto empieza la bola/elswing.
-var carry_basis: = Basis(Vector3.FORWARD, - PI * 0.5) * Basis(Vector3.RIGHT, -0.52)
+# Porte en espera (referencia de Jose 13:16): brazo relajado al costado y
+# raqueta colgando con la cabeza ABAJO junto a la pierna. Se define en espacio
+# de la FIGURA (no de la mano): con el brazo colgando la orientacion de la
+# muneca varia y una base relativa a la mano puede quedar cabeza-arriba.
+# y = direccion culata->cabeza (abajo y un pelo adelante), cara hacia el lado.
+var carry_basis: = _make_carry_basis()
+static func _make_carry_basis() -> Basis:
+	var y: Vector3 = Vector3( - 0.10, - 1.0, - 0.15).normalized()
+	var x: Vector3 = y.cross(Vector3(0.9, 0.0, 0.25)).normalized()
+	var z: Vector3 = x.cross(y).normalized()
+	return Basis(x, y, z).orthonormalized()
 var carry_k: = 0.0
+# Flexion procedural de los dedos de la mano de la raqueta alrededor del mango.
+# Los clips mocap no animan dedos (bind pose abierta); se curvan por segmento.
+const GRIP_CURL: = {"Index": [0.7, 0.6, 0.4], "Middle": [0.75, 0.65, 0.45], "Ring": [0.7, 0.6, 0.4], "Pinky": [0.55, 0.5, 0.35]}
+const GRIP_THUMB: = [0.3, 0.25]
+var _grip_bones: = {}
+var _thumb_bones: = []
 var racket_force_hidden: = false
 var swing_now: = 0.0
 var trail_pts: Array = []
@@ -792,25 +808,6 @@ func celebrate(cname: String, dur: float) -> void :
 
 func update_from_sim(e, dt: float) -> void :
 	ap.advance(dt)
-	if racket_node != null and racket_hand_idx >= 0:
-		skel.force_update_all_bone_transforms()
-		var hand_pose: Transform3D = skel.get_bone_global_pose(racket_hand_idx)
-		var hb: Basis = (global_transform.basis.inverse() * skel.global_transform.basis * hand_pose.basis).orthonormalized()
-		var hp: Vector3 = skel.global_transform * hand_pose.origin
-		if racket_palm_idx >= 0:
-			hp = skel.global_transform * skel.get_bone_global_pose(racket_palm_idx).origin
-		var carry_target: = 1.0 if (swing_now <= 0.0 and serve_toss < 0.0) else 0.0
-		carry_k = move_toward(carry_k, carry_target, dt * 5.0)
-		var grip_q: Quaternion = grip_basis.get_rotation_quaternion().slerp(carry_basis.get_rotation_quaternion(), carry_k)
-		var rk_basis: = hb * Basis(grip_q)
-		racket_node.basis = rk_basis
-		racket_node.position = to_local(hp) + rk_basis.y * -0.03
-
-		if state in CELEB_ANIMS:
-			rk_show_delay = 0
-		elif rk_show_delay > 0:
-			rk_show_delay -= 1
-		racket_node.visible = not racket_force_hidden and rk_show_delay <= 0
 	swing_now = e.swing
 	if serve_toss >= 0.0:
 		_serve_was_swing = false
@@ -1116,10 +1113,19 @@ func update_from_sim(e, dt: float) -> void :
 	if _stance_on:
 		_ready_stance()
 		position.y -= 0.045
+	# Espera de saque: brazo de raqueta relajado al costado (referencia Jose),
+	# fundido con carry_k para que suba con el inicio del saque sin salto.
+	if e.wait_serve and e.swing <= 0.0 and carry_k > 0.01:
+		_serve_wait_arm(carry_k)
 	_apply_gaze()
 	_rk_rest(dt)
 	if state in CELEB_ANIMS:
 		_celebration_grip()
+	# La raqueta se coloca AL FINAL, leyendo la pose definitiva de la mano tras
+	# todas las poses procedurales: la culata no se despega del puno.
+	_place_racket(dt)
+	if racket_node != null and racket_node.visible:
+		_pose_grip_fingers()
 
 
 func _celebration_legs() -> void :
@@ -1137,6 +1143,129 @@ func _celebration_grip() -> void :
 	if racket_node == null:
 		return
 	_raise_arm(-1.05, "UpperArm.R")
+
+
+# Coloca la raqueta leyendo la pose final de la mano. Antes iba al principio de
+# update_from_sim y las poses procedurales posteriores desplazaban la mano,
+# dejando el mango separado del puno; al final del frame la union es exacta.
+func _place_racket(dt: float) -> void :
+	if racket_node == null or racket_hand_idx < 0:
+		return
+	skel.force_update_all_bone_transforms()
+	var hand_pose: Transform3D = skel.get_bone_global_pose(racket_hand_idx)
+	var hb: Basis = (global_transform.basis.inverse() * skel.global_transform.basis * hand_pose.basis).orthonormalized()
+	var hp: Vector3 = skel.global_transform * hand_pose.origin
+	if racket_palm_idx >= 0:
+		hp = skel.global_transform * skel.get_bone_global_pose(racket_palm_idx).origin
+	var carry_target: = 1.0 if (swing_now <= 0.0 and serve_toss < 0.0) else 0.0
+	carry_k = move_toward(carry_k, carry_target, dt * 5.0)
+	var grip_q: Quaternion = (hb * grip_basis).get_rotation_quaternion()
+	var carry_q: Quaternion = carry_basis.get_rotation_quaternion()
+	var rk_basis: = Basis(grip_q.slerp(carry_q, carry_k))
+	racket_node.basis = rk_basis
+	racket_node.position = to_local(hp) + rk_basis.y * -0.03
+	if state in CELEB_ANIMS:
+		rk_show_delay = 0
+	elif rk_show_delay > 0:
+		rk_show_delay -= 1
+	racket_node.visible = not racket_force_hidden and rk_show_delay <= 0
+
+
+# Brazo de la raqueta relajado al costado durante la espera de saque
+# (referencia visual de Jose: brazo abajo, raqueta baja junto a la pierna).
+# Alinea un hueso (en espacio mundo) hacia una direccion objetivo dada en
+# espacio local de la figura, fundida por k. Robusta ante la pose que traiga el
+# clip: no depende de la orientacion previa del brazo.
+func _align_bone_dir(bone: String, child: String, target_local: Vector3, k: float) -> void :
+	var bi: int = skel.find_bone(_bone_name(skel, bone))
+	var ci: int = skel.find_bone(_bone_name(skel, child))
+	if bi < 0 or ci < 0:
+		return
+	var gp: Transform3D = skel.get_bone_global_pose(bi)
+	var cp: Transform3D = skel.get_bone_global_pose(ci)
+	var b0: Vector3 = skel.global_transform * gp.origin
+	var c0: Vector3 = skel.global_transform * cp.origin
+	var cd: Vector3 = (c0 - b0).normalized()
+	var td: Vector3 = (global_transform.basis * target_local).normalized()
+	if cd.dot(td) > 0.9995 or k <= 0.001:
+		return
+	var q: Quaternion = Quaternion.IDENTITY.slerp(Quaternion(cd, td), k)
+	var wb: Basis = Basis(q) * (skel.global_transform.basis * gp.basis)
+	skel.set_bone_global_pose_override(bi, Transform3D((skel.global_transform.basis.inverse() * wb).orthonormalized(), gp.origin), 1.0, true)
+	skel.force_update_all_bone_transforms()
+
+
+func _serve_wait_arm(k: float) -> void :
+	_align_bone_dir("UpperArm.R", "LowerArm.R", Vector3(0.14, -1.0, -0.08), k)
+	_align_bone_dir("LowerArm.R", "Wrist.R", Vector3(0.10, -1.0, -0.22), k)
+	# la izquierda tambien cuelga relajada (referencia), y despeja la vista del puno
+	_align_bone_dir("UpperArm.L", "LowerArm.L", Vector3( - 0.16, -1.0, -0.06), k)
+	_align_bone_dir("LowerArm.L", "Wrist.L", Vector3( - 0.12, -1.0, -0.12), k)
+	# giro de muneca sobre el eje del antebrazo: la palma queda perpendicular al
+	# mango vertical y los dedos lo envuelven (barrido visual: +1.05 rad)
+	var la: int = skel.find_bone(_bone_name(skel, "LowerArm.R"))
+	var wr: int = skel.find_bone(_bone_name(skel, "Wrist.R"))
+	if la >= 0 and wr >= 0:
+		var la_g: Transform3D = skel.get_bone_global_pose(la)
+		var wr_g: Transform3D = skel.get_bone_global_pose(wr)
+		var fax: Vector3 = (wr_g.origin - la_g.origin).normalized()
+		skel.set_bone_global_pose_override(wr, Transform3D(Basis(fax, 1.05 * k) * wr_g.basis, wr_g.origin), 1.0, true)
+		skel.force_update_all_bone_transforms()
+
+
+# Curva los dedos de la mano de la raqueta alrededor del mango. Se llama al final
+# de update_from_sim (tras clear_bones_global_pose_override y el resto de poses)
+# para que nada pise la pose. Los segmentos hijos siguen al padre, asi que cada
+# rotacion es incremental sobre el eje X local del hueso (eje de flexion).
+func _pose_grip_fingers() -> void :
+	if skel == null:
+		return
+	# FK propio + overrides globales persistentes: los overrides globales no
+	# propagan a hijos y la pose local se reevalua cada frame, asi que se calcula
+	# la cadena entera (origen y base de cada segmento) y se fija en global.
+	if _grip_bones.is_empty():
+		for f in GRIP_CURL.keys():
+			var arr: = []
+			for s in range(1, 5):
+				var bi: int = skel.find_bone(_bone_name(skel, "%s%d.R" % [f, s]))
+				if bi >= 0:
+					arr.append(bi)
+			_grip_bones[f] = arr
+		for s2 in range(1, 4):
+			var bi2: int = skel.find_bone(_bone_name(skel, "Thumb%d.R" % s2))
+			if bi2 >= 0:
+				_thumb_bones.append(bi2)
+	for f in _grip_bones:
+		var angs: Array = GRIP_CURL[f]
+		var arr2: Array = _grip_bones[f]
+		if arr2.is_empty():
+			continue
+		var globals: = []
+		for bi3 in arr2:
+			globals.append(skel.get_bone_global_pose(bi3))
+		var parent_idx: int = skel.get_bone_parent(arr2[0])
+		var gp: Transform3D = skel.get_bone_global_pose(parent_idx)
+		for si in range(globals.size()):
+			var ang: float = angs[mini(si, angs.size() - 1)]
+			var lk: Transform3D = gp.affine_inverse() * globals[si]
+			lk.basis = lk.basis * Basis(Quaternion(Vector3(1, 0, 0), ang))
+			gp = gp * lk
+			skel.set_bone_global_pose_override(arr2[si], gp, 1.0, true)
+	if not _thumb_bones.is_empty():
+		var tglob: = []
+		for bi4 in _thumb_bones:
+			tglob.append(skel.get_bone_global_pose(bi4))
+		var tparent: int = skel.get_bone_parent(_thumb_bones[0])
+		var tgp: Transform3D = skel.get_bone_global_pose(tparent)
+		for si2 in range(tglob.size()):
+			var ang2: float = GRIP_THUMB[mini(si2, GRIP_THUMB.size() - 1)]
+			var lk2: Transform3D = tgp.affine_inverse() * tglob[si2]
+			lk2.basis = lk2.basis * Basis(Quaternion(Vector3(1, 0, 0), ang2))
+			if si2 == 0:
+				lk2.basis = lk2.basis * Basis(Quaternion(Vector3(0, 1, 0), -0.35))
+			tgp = tgp * lk2
+			skel.set_bone_global_pose_override(_thumb_bones[si2], tgp, 1.0, true)
+	skel.force_update_all_bone_transforms()
 
 
 func _rk_rest(dt: float) -> void :
