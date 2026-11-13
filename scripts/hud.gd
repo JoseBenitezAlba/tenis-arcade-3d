@@ -59,7 +59,8 @@ func _ready() -> void :
 	ui_bold.variation_embolden = 0.55
 
 	var panel: = PanelContainer.new()
-	panel.position = Vector2(28, 618)
+	panel.position = Vector2(20, 642)
+	panel.scale = Vector2(0.72, 0.72)
 	var sb: = StyleBoxFlat.new()
 	sb.bg_color = Color(0.10, 0.13, 0.07, 0.74)
 	sb.corner_radius_top_left = 10
