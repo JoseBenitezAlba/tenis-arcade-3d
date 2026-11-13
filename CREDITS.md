@@ -1,19 +1,24 @@
 # Creditos
 
-## Animacion de saque (mocap/Servicio)
+## Animaciones mocap de golpes (Derecha, Reves, Servicio, Smash)
 
-La animacion de saque deriva de la toma `jduribe_Servicio.bvh` del dataset
-**Tennis-MoCap** (https://github.com/jdpulgarin/Tennis-MoCap), publicada bajo
-licencia **Creative Commons Atribucion-CompartirIgual 3.0 (CC BY-SA 3.0)**
-(https://creativecommons.org/licenses/by-sa/3.0/).
+Las animaciones de golpes derivan de tomas del dataset **Tennis-MoCap**
+(https://github.com/jdpulgarin/Tennis-MoCap), licenciado bajo
+**Creative Commons Atribucion-CompartirIgual 3.0 Unported (CC BY-SA 3.0)**
+(https://creativecommons.org/licenses/by-sa/3.0/), segun consta en el
+archivo Copyright.md de dicho repositorio.
 
-Autores del dataset: Pulgarin-Giraldo, J. D. et al. Referencia:
-"Un sistema de captura de movimiento de bajo costo para el analisis del
-servicio en tenis" (2017), DOI 10.1007/978-3-319-52277-7_38.
+Mantenedor del dataset: Juan Diego Pulgarin-Giraldo (Universidad Autonoma de
+Occidente, Colombia). Citacion solicitada por los autores:
 
-La toma original fue re-segmentada y retargeteada al esqueleto del personaje
-del juego (adaptacion). De acuerdo con la condicion CompartirIgual, esta
-animacion derivada se distribuye bajo la misma licencia CC BY-SA 3.0.
+Pulgarin-Giraldo J.D., Alvarez-Meza A.M., Melo-Betancourt L.G.,
+Ramos-Bermudez S., Castellanos-Dominguez G. "A Similarity Indicator for
+Differentiating Kinematic Performance Between Qualified Tennis Players."
+Lecture Notes in Computer Science 10125, pp. 309-317, 2017.
+https://doi.org/10.1007/978-3-319-52277-7_38
 
-El resto de animaciones del juego (Derecha, Reves, Smash) provienen del mismo
-dataset con el mismo tratamiento y licencia.
+Las tomas BVH originales fueron re-segmentadas y retargeteadas al esqueleto
+del personaje del juego (adaptacion). La toma de saque actual deriva de
+`data/jduribe_Servicio.bvh`. De acuerdo con la condicion CompartirIgual,
+estas animaciones derivadas se distribuyen bajo la misma licencia
+CC BY-SA 3.0.
