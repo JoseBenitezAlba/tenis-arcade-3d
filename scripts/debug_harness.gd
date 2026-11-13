@@ -47,11 +47,36 @@ func run_early(args: Array) -> bool:
 
 
 func run_late(args: Array) -> bool:
+	if OS.has_feature("web"):
+		var q = JavaScriptBridge.eval("location.search", true)
+		if q is String and "demo" in q:
+			call_deferred("_webdemo_harness", args)
+			return true
 	for flag in LATE:
 		if args.has(flag):
 			call_deferred(LATE[flag], args)
 			return true
 	return false
+
+func _webdemo_harness(_args: Array) -> void :
+	m.menus.visible = false
+	m.match_view = MatchView.new()
+	m.match_view.set_meta("surface", "grass")
+	m.match_view.set_meta("tod", 0)
+	m.match_view.set_meta("cpu_look", 2)
+	m.match_view.set_meta("my_name", "TÚ")
+	m.match_view.set_meta("cpu_label", "CPU · NORMAL")
+	m.match_view.setup({"demo": true, "surface": "grass", "AIP": m.DIFF_PARAMS[1], "sets_to_win": 1})
+	add_child(m.match_view)
+	var qq = JavaScriptBridge.eval("location.search", true)
+	if qq is String and "fast" in qq:
+		Engine.time_scale = 4.0
+	var ok: = await _wait_until( func(): return m.match_view.sim.state == "serve", 30.0)
+	print("WEBDEMO serve=", ok)
+	for tick in 40:
+		await get_tree().create_timer(5.0, true, false, true).timeout
+		var s = m.match_view.sim
+		print("WEBDEMO t", tick * 5 + 5, " state=", s.state, " hits=", s.rally_hits, " pts=", s.pts)
 
 func _careertest() -> void :
 	randomize()

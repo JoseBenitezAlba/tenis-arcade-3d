@@ -59,10 +59,24 @@ static func court_texture(surface: String, night: bool = false) -> ImageTexture:
 			var wy1: int = int(py_of.call(zc + 1.0))
 			img.fill_rect(Rect2i(ix0, wy0, ix1 - ix0, maxi(1, wy1 - wy0)), Color(0.08, 0.04, 0.02, 0.10))
 	elif surface == "grass":
+		var wear_c: = Color(0.33, 0.36, 0.20)
 		for zc in [0.7, L - 0.7]:
-			var gy0: int = int(py_of.call(zc - 0.8))
-			var gy1: int = int(py_of.call(zc + 0.8))
-			img.fill_rect(Rect2i(ix0 + int((ix1 - ix0) * 0.30), gy0, int((ix1 - ix0) * 0.40), maxi(1, gy1 - gy0)), Color(0.33, 0.36, 0.20, 0.035))
+			var px0: int = int(px_of.call(-4.6))
+			var px1: int = int(px_of.call(4.6))
+			var py0: int = int(py_of.call(zc - 1.2))
+			var py1: int = int(py_of.call(zc + 1.2))
+			for yy in range(py0, py1):
+				var zz: float = z_of.call(yy)
+				var dep: float = exp(-pow(zz - zc, 2.0) / (2.0 * 0.45 * 0.45))
+				for xx in range(px0, px1):
+					var wx: float = xx / pxm_x - 7.2
+					var lat: float = 1.0 - smoothstep(2.0, 4.2, absf(wx))
+					if lat <= 0.0:
+						continue
+					var nse: float = 0.65 * _vnoise(wx * 1.7, zz * 1.7) + 0.35 * _vnoise(wx * 5.1 + 40.0, zz * 5.1)
+					var a: float = clampf(lat * dep * (0.30 + 0.70 * nse), 0.0, 1.0) * 0.14
+					if a > 0.004:
+						img.set_pixel(xx, yy, img.get_pixel(xx, yy).lerp(wear_c, a))
 	var _ss: float = 0.06 if surface == "clay" else 0.035
 	for n in 14000:
 		var x: = rng.randi() % w
@@ -119,6 +133,24 @@ static func court_texture(surface: String, night: bool = false) -> ImageTexture:
 	line.call(0, L, 0, L - 0.1, LINE_W_SIDE)
 	img.generate_mipmaps()
 	return ImageTexture.create_from_image(img)
+
+static func _hash2(x: int, y: int) -> float:
+	var n: int = x * 374761393 + y * 668265263
+	n = (n ^ (n >> 13)) * 1274126177
+	return float((n ^ (n >> 16)) & 0x7fffffff) / float(0x7fffffff)
+
+static func _vnoise(x: float, y: float) -> float:
+	var xi: int = int(floor(x))
+	var yi: int = int(floor(y))
+	var xf: float = x - xi
+	var yf: float = y - yi
+	var u: float = xf * xf * (3.0 - 2.0 * xf)
+	var v: float = yf * yf * (3.0 - 2.0 * yf)
+	var a: float = _hash2(xi, yi)
+	var b: float = _hash2(xi + 1, yi)
+	var c: float = _hash2(xi, yi + 1)
+	var d: float = _hash2(xi + 1, yi + 1)
+	return lerpf(lerpf(a, b, u), lerpf(c, d, u), v)
 
 static func ground_texture(surface: String, night: bool = false) -> ImageTexture:
 	var T: Dictionary = NIGHT_THEMES[surface] if night and NIGHT_THEMES.has(surface) else THEMES[surface]
