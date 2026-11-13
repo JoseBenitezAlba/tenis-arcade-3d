@@ -299,6 +299,7 @@ var carry_k: = 0.0
 # Los clips mocap no animan dedos (bind pose abierta); se curvan por segmento.
 const GRIP_CURL: = {"Index": [0.7, 0.6, 0.4], "Middle": [0.75, 0.65, 0.45], "Ring": [0.7, 0.6, 0.4], "Pinky": [0.55, 0.5, 0.35]}
 const GRIP_THUMB: = [0.3, 0.25]
+const GRIP_WRAP_SIGN: = 1.0
 var _grip_bones: = {}
 var _thumb_bones: = []
 var racket_force_hidden: = false
@@ -1235,6 +1236,12 @@ func _pose_grip_fingers() -> void :
 			var bi2: int = skel.find_bone(_bone_name(skel, "Thumb%d.R" % s2))
 			if bi2 >= 0:
 				_thumb_bones.append(bi2)
+	# Eje del mango en espacio del esqueleto: los dedos se enrollan ALREDEDOR de
+	# el, no sobre su eje local (la muñeca puede mirar a cualquier parte).
+	var hs: = Vector3(0, 1, 0)
+	if racket_node != null:
+		var hw: Vector3 = (global_transform.basis * racket_node.basis.y).normalized()
+		hs = (skel.global_transform.basis.inverse() * hw).normalized()
 	for f in _grip_bones:
 		var angs: Array = GRIP_CURL[f]
 		var arr2: Array = _grip_bones[f]
@@ -1248,8 +1255,9 @@ func _pose_grip_fingers() -> void :
 		for si in range(globals.size()):
 			var ang: float = angs[mini(si, angs.size() - 1)]
 			var lk: Transform3D = gp.affine_inverse() * globals[si]
-			lk.basis = lk.basis * Basis(Quaternion(Vector3(1, 0, 0), ang))
-			gp = gp * lk
+			var r: = Basis(Quaternion(hs, ang * GRIP_WRAP_SIGN))
+			var goff: Vector3 = gp.basis * lk.origin
+			gp = Transform3D((r * gp.basis * lk.basis).orthonormalized(), gp.origin + r * goff)
 			skel.set_bone_global_pose_override(arr2[si], gp, 1.0, true)
 	if not _thumb_bones.is_empty():
 		var tglob: = []
@@ -1260,10 +1268,9 @@ func _pose_grip_fingers() -> void :
 		for si2 in range(tglob.size()):
 			var ang2: float = GRIP_THUMB[mini(si2, GRIP_THUMB.size() - 1)]
 			var lk2: Transform3D = tgp.affine_inverse() * tglob[si2]
-			lk2.basis = lk2.basis * Basis(Quaternion(Vector3(1, 0, 0), ang2))
-			if si2 == 0:
-				lk2.basis = lk2.basis * Basis(Quaternion(Vector3(0, 1, 0), -0.35))
-			tgp = tgp * lk2
+			var r2: = Basis(Quaternion(hs, - ang2 * GRIP_WRAP_SIGN))
+			var goff2: Vector3 = tgp.basis * lk2.origin
+			tgp = Transform3D((r2 * tgp.basis * lk2.basis).orthonormalized(), tgp.origin + r2 * goff2)
 			skel.set_bone_global_pose_override(_thumb_bones[si2], tgp, 1.0, true)
 	skel.force_update_all_bone_transforms()
 
