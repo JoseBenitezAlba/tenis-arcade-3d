@@ -763,10 +763,10 @@ const CONTACT_K: = 0.47
 
 # Mapeo del saque medido sobre el clip mocap/Servicio fotograma a fotograma
 # (toma jduribe del dataset Tennis-MoCap, ver CREDITS.md):
-# trophy (brazos arriba) tau~1.35, contacto overhead real tau~1.60,
-# fin del follow-through tau~2.2.
+# trophy (raqueta detras de la cabeza) tau~1.61, contacto en extension
+# plena tau~1.72, fin del follow-through tau~2.2.
 const SERVE_TAU_READY: = 1.35
-const SERVE_TAU_CONTACT: = 1.60
+const SERVE_TAU_CONTACT: = 1.72
 const SERVE_TAU_END: = 2.2
 
 
@@ -789,7 +789,7 @@ static func _swing_clip(kind: String, hit_side: String) -> Array:
 
 
 
-		"smash": return ["mocap/Servicio", 1.28, 1.58]
+		"smash": return ["mocap/Servicio", 1.30, 1.70]
 		"slice": return ["Sword_Slash", 0.92, 1.12]
 		_: return ["mocap/Reves" if hit_side == "back" else "mocap/Derecha", 1.0, 1.95]
 
