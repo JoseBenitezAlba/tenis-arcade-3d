@@ -276,6 +276,7 @@ static func shoe_dust_color(d: float) -> Color:
 const TRAIL_LIFE: = 0.09
 var racket_node: Node3D = null
 var racket_hand_idx: int = -1
+var racket_palm_idx: int = -1
 # Agarre continental: el mango cruza la palma (perpendicular a los dedos),
 # no la prolonga. La cara de la raqueta mantiene la orientacion de la mano.
 var grip_basis: = Basis(Vector3.FORWARD, - PI * 0.5)
@@ -480,6 +481,9 @@ func _build_racket() -> void :
 	racket_hand_idx = skel.find_bone(_bone_name(skel, "Hand.R"))
 	if racket_hand_idx < 0:
 		racket_hand_idx = skel.find_bone(_bone_name(skel, "Wrist.R"))
+	# anclaje de posicion en la palma (base del dedo corazon): la muneca sola
+	# dejaba el mango flotando fuera de la mano
+	racket_palm_idx = skel.find_bone(_bone_name(skel, "Middle1.R"))
 	var rk: = Node3D.new()
 	rk.scale = Vector3.ONE
 	rk.position = Vector3.ZERO
@@ -791,13 +795,16 @@ func update_from_sim(e, dt: float) -> void :
 	if racket_node != null and racket_hand_idx >= 0:
 		skel.force_update_all_bone_transforms()
 		var hand_pose: Transform3D = skel.get_bone_global_pose(racket_hand_idx)
-		var hp: Vector3 = skel.global_transform * hand_pose.origin
 		var hb: Basis = (global_transform.basis.inverse() * skel.global_transform.basis * hand_pose.basis).orthonormalized()
+		var hp: Vector3 = skel.global_transform * hand_pose.origin
+		if racket_palm_idx >= 0:
+			hp = skel.global_transform * skel.get_bone_global_pose(racket_palm_idx).origin
 		var carry_target: = 1.0 if (swing_now <= 0.0 and serve_toss < 0.0) else 0.0
 		carry_k = move_toward(carry_k, carry_target, dt * 5.0)
 		var grip_q: Quaternion = grip_basis.get_rotation_quaternion().slerp(carry_basis.get_rotation_quaternion(), carry_k)
-		racket_node.basis = hb * Basis(grip_q)
-		racket_node.position = to_local(hp) + hb.y * -0.09
+		var rk_basis: = hb * Basis(grip_q)
+		racket_node.basis = rk_basis
+		racket_node.position = to_local(hp) + rk_basis.y * -0.03
 
 		if state in CELEB_ANIMS:
 			rk_show_delay = 0
