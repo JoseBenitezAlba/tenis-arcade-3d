@@ -491,6 +491,7 @@ func _ready() -> void :
 	if not demo:
 		touch_ui = get_meta("force_touch", false) or TouchControls.should_show()
 		if touch_ui:
+			hud.use_touch_layout()
 			var tc: = TouchControls.new()
 			add_child(tc)
 	if not demo:
@@ -700,6 +701,9 @@ func _on_pause_input(event: InputEvent) -> void :
 		paused_game = false
 		quit_to_menu.emit()
 
+static func movement_input(v: Vector2) -> Vector2:
+	return v.limit_length(1.0)
+
 func _physics_process(dt: float) -> void :
 	if paused_game:
 		return
@@ -708,8 +712,9 @@ func _physics_process(dt: float) -> void :
 		return
 	_perf_t0 = Time.get_ticks_usec()
 	if not demo:
-		sim.inp.x = Input.get_axis("move_left", "move_right")
-		sim.inp.y = Input.get_axis("move_down", "move_up")
+		var movement := movement_input(Vector2(Input.get_axis("move_left", "move_right"), Input.get_axis("move_down", "move_up")))
+		sim.inp.x = movement.x
+		sim.inp.y = movement.y
 		if Input.is_action_just_pressed("drop"):
 			sim.inp.drop = true
 		elif Input.is_action_just_pressed("hit"):
@@ -1078,10 +1083,12 @@ func _physics_process(dt: float) -> void :
 		hint_t -= dt
 		if hint_t <= 0.0:
 			hud.set_hint("")
+	elif not demo and sim.state == "point" and not sim.match_over and sim.state_t > 0.8:
+		hud.set_hint("GOLPE: siguiente punto" if touch_ui else "ESPACIO / A: siguiente punto")
 	elif not demo and _tut_n < 2 and sim.state == "serve" and sim.M.server == 0 and sim.serve_stage != "hit":
 		_tut_seen = true
 		if touch_ui:
-			hud.set_hint("SAQUE: pulsa A/ESPACIO para lanzar" if sim.serve_stage == "ready" else "SAQUE: pulsa A/ESPACIO en el punto alto")
+			hud.set_hint("SAQUE: toca GOLPE para lanzar" if sim.serve_stage == "ready" else "SAQUE: toca GOLPE en el punto alto")
 		else:
 			hud.set_hint("SAQUE: pulsa A/ESPACIO para lanzar" if sim.serve_stage == "ready" else "SAQUE: pulsa A/ESPACIO en el punto alto")
 	elif not demo and hint_t <= 0.0:
@@ -1089,7 +1096,7 @@ func _physics_process(dt: float) -> void :
 			_tut_seen = false
 			_tut_n += 1
 
-		if hud.hint.text.begins_with("Otro toque") or hud.hint.text.begins_with("A / ESPACIO") or hud.hint.text.begins_with("GOLPE"):
+		if hud.hint.text.ends_with("siguiente punto") or hud.hint.text.begins_with("SAQUE:") or hud.hint.text.begins_with("Otro toque") or hud.hint.text.begins_with("A / ESPACIO") or hud.hint.text.begins_with("GOLPE"):
 			hud.set_hint("")
 
 
@@ -1518,6 +1525,8 @@ func drain_events() -> void :
 					hud.show_speed_kmh(hkmh, false)
 				var perfect: bool = ev.get("perfect", false) and ev.id == 0 and not demo
 				var tper: bool = ev.get("tper", false) and ev.id == 0 and not demo
+				if ev.id == 0 and not demo and ev.get("tq", "ok") in ["early", "late"]:
+					hud.show_timing("MUY PRONTO" if ev.tq == "early" else "TARDE")
 				var charged: float = ev.get("charge", 1.0)
 				spawn_ring(Vector3(ev.x, ev.y, ev.z), ev.get("spd", 20.0))
 				rigs[ev.id].punch(ev.get("spd", 20.0))
