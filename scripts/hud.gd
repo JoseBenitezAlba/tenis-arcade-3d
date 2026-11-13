@@ -177,6 +177,9 @@ func _ready() -> void :
 
 
 	hint = Label.new()
+	var hint_bg := StyleBoxFlat.new()
+	hint_bg.bg_color = Color(0.02, 0.03, 0.06, 0.92)
+	hint.add_theme_stylebox_override("normal", hint_bg)
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hint.position = Vector2(0, 14)
 	hint.size = Vector2(1280, 34)
