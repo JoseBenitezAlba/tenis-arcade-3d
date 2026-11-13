@@ -665,12 +665,18 @@ func _build_eyes() -> void :
 var last_spd: = 1.0
 func _play(name: String, spd: float = 1.0) -> void :
 
-	if state == name and signf(spd) == signf(last_spd): return
+	# Ajustar la cadencia aunque siga el mismo clip: antes se conservaba
+	# la velocidad del primer paso al acelerar o frenar (pies deslizandose).
+	ap.speed_scale = spd
+	if state == name and signf(spd) == signf(last_spd):
+		last_spd = spd
+		return
 	state = name
 	last_spd = spd
-	ap.play(name, blend, spd)
+	ap.play(name, blend)
 
 func _play_seek(name: String, tau: float) -> void :
+	ap.speed_scale = 1.0
 	if state != name:
 		state = name
 		ap.play(name, 0.05)
@@ -891,7 +897,7 @@ func update_from_sim(e, dt: float) -> void :
 
 	var target_y: = FOOT_LIFT
 	if e.wait_serve and e.swing <= 0.0 and e.want_t <= 0.0 and e.speed < 0.5:
-		target_y = FOOT_LIFT + absf(sin(float(Time.get_ticks_msec() % 1400) / 1400.0 * TAU * 2.6)) * 0.055
+		target_y = FOOT_LIFT + sin(_idle_t * 2.3) * 0.006
 	position.y = lerpf(position.y, target_y, minf(1.0, dt * 14.0))
 
 	if e.get("split_t") != null and e.split_t > 0.0 and e.swing <= 0.0 and e.get("dive_t") <= 0.0 and (e.get("getup_t") == null or e.getup_t <= 0.0):
@@ -1008,16 +1014,17 @@ func update_from_sim(e, dt: float) -> void :
 		return
 	if serve_ready and e.swing <= 0.0:
 		_play_seek("mocap/Servicio", 0.12)
-		# Espera viva: sin este vaivén el jugador queda congelado varios
-		# segundos antes del saque (efecto maniquí).
+		# Espera apoyada, con respiracion leve: el bote de pies anterior hacia
+		# saltar al sacador en cada ciclo. El brazo queda bajo junto a la pierna.
 		_idle_t += dt
 		var bob: float = sin(_idle_t * 2.3)
-		_raise_arm(TOSS_ARM * 0.55, "UpperArm.L")
-		_raise_arm(SERVE_ARM * 0.20 + 0.03 * sin(_idle_t * 1.7), "UpperArm.R")
-		_bend_torso(0.06 + 0.02 * sin(_idle_t * 1.3))
-		_serve_knees(0.22 + 0.06 * (0.5 + 0.5 * bob))
-		position.y += 0.012 * bob
+		_bend_torso(0.025 + 0.01 * sin(_idle_t * 1.3))
+		_serve_knees(0.08 + 0.025 * (0.5 + 0.5 * bob))
+		_serve_wait_arm(1.0)
+		position.y += 0.006 * bob
+		_place_racket(dt)
 		return
+
 	if serve_toss >= 0.0 and e.swing <= 0.0:
 
 		var toss_k: float = clampf(serve_toss, 0.0, 1.0)
@@ -1026,6 +1033,7 @@ func update_from_sim(e, dt: float) -> void :
 		position.y -= 0.17 * sin(toss_k * PI)
 		_serve_knees(1.05 * sin(toss_k * PI))
 		_twist_torso(-0.26 * sin(toss_k * PI))
+		_place_racket(dt)
 		return
 	if hold_swing and e.kind == "serve":
 
