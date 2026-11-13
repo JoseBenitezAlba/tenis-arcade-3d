@@ -26,6 +26,8 @@ var skel: Skeleton3D
 var inst: Node3D
 var state: = ""
 var blend: = 0.14
+var _skin_bind: Dictionary = {}
+var _pose_overrides: Dictionary = {}
 
 static func _mat(color: Color) -> StandardMaterial3D:
 	var m: = StandardMaterial3D.new()
@@ -120,6 +122,17 @@ func _init(look: int, is_player0: bool) -> void :
 	for nm in ["Idle", "Idle_Sword", "Idle_Neutral", "Run", "Run_Left", "Run_Right", "Run_Back", "Walk"]:
 		if base_lib.has_animation(nm):
 			base_lib.get_animation(nm).loop_mode = Animation.LOOP_LINEAR
+	# La pose de reposo del Skeleton incluye una pose importada distinta del
+	# bind de la piel. Los zapatos deben reconstruirse desde el bind real.
+	for mesh in skel.find_children("*", "MeshInstance3D", true, false):
+		if mesh.skin == null:
+			continue
+		for index in mesh.skin.get_bind_count():
+			var bone: int = mesh.skin.get_bind_bone(index)
+			if bone < 0:
+				bone = skel.find_bone(mesh.skin.get_bind_name(index))
+			if bone >= 0:
+				_skin_bind[bone] = mesh.skin.get_bind_pose(index).affine_inverse()
 	_transplant_shorts()
 	_apply_look(pal)
 	_build_racket()
@@ -716,6 +729,7 @@ func _override_branch(bone: int, target: Transform3D, _amount: float = 1.0, _per
 			poses[bi] = delta * skel.get_bone_global_pose(bi)
 	for bi in poses:
 		skel.set_bone_global_pose_override(bi, poses[bi], 1.0, true)
+		_pose_overrides[bi] = poses[bi]
 	skel.force_update_all_bone_transforms()
 
 func _raise_arm(ang: float, bone: String = "UpperArm.R") -> void :
@@ -880,6 +894,7 @@ func update_from_sim(e, dt: float) -> void:
 	_feet_follow_legs = false
 	_update_pose(e, dt)
 	_show_serve_ball()
+	_serve_wait_feet()
 	_sync_mocap_feet()
 	if e.get("dive_t") == null or (e.dive_t <= 0.0 and e.getup_t <= 0.0):
 		_ground_final_pose(eff_sp < 0.4 or state.begins_with("mocap/"))
@@ -918,26 +933,67 @@ func _bone_pose_now(bi: int) -> Transform3D:
 		parent = skel.get_bone_parent(parent)
 	return pose
 
+func _current_global_pose(bone: int) -> Transform3D:
+	# clear_bones_global_pose_override desactiva el ajuste, pero el getter
+	# conserva su transformacion antigua. Solo consultar ajustes de este frame.
+	return _pose_overrides[bone] if _pose_overrides.has(bone) else _bone_pose_now(bone)
+
 # Este modelo lleva los pies como hijos de Root, no de las espinillas.
 # El mocap anima las piernas pero no aporta posiciones para esos pies.
 # Recuperar el enlace del bind evita dejar los zapatos clavados mientras
 # la rodilla y el tobillo se mueven.
 func _sync_mocap_feet() -> void:
-	if not state.begins_with("mocap/") and not _feet_follow_legs:
-		return
+	var mocap_pose: bool = state.begins_with("mocap/") or _feet_follow_legs
 	for side in ["L", "R"]:
 		var leg: int = skel.find_bone(_bone_name(skel, "LowerLeg." + side))
 		var foot: int = skel.find_bone(_bone_name(skel, "Foot." + side))
 		if leg < 0 or foot < 0:
 			continue
-		var link: Transform3D = skel.get_bone_global_rest(leg).affine_inverse() * skel.get_bone_global_rest(foot)
-		var leg_pose: Transform3D = skel.get_bone_global_pose_override(leg)
-		if leg_pose == Transform3D.IDENTITY:
-			leg_pose = _bone_pose_now(leg)
+		var link: Transform3D = _skin_bind[leg].affine_inverse() * _skin_bind[foot]
+		var leg_pose: Transform3D = _current_global_pose(leg)
 		var ankle: Transform3D = leg_pose * link
-		var planted: Basis = skel.get_bone_global_rest(foot).basis
-		ankle.basis = planted.slerp(ankle.basis.orthonormalized(), 0.35 if _pose_air > 0.01 else 0.0)
+		if mocap_pose:
+			var planted: Basis = _skin_bind[foot].basis
+			ankle.basis = planted.slerp(ankle.basis.orthonormalized(), 0.35 if _pose_air > 0.01 else 0.0)
+		else:
+			# Conservar la rodadura de la zancada nativa, corrigiendo solo el
+			# enlace al tobillo durante los fundidos entre clips.
+			ankle.basis = _current_global_pose(foot).basis
 		skel.set_bone_global_pose_override(foot, ankle, 1.0, true)
+		_pose_overrides[foot] = ankle
+
+# Base de saque con dos apoyos separados. La muestra inicial del mocap
+# tiene los tobillos casi cruzados; seguirla no crea una base de apoyo.
+func _serve_wait_feet() -> void:
+	var k: float = 1.0 if serve_ready else (1.0 - smoothstep(0.0, 0.40, serve_toss) if serve_toss >= 0.0 else 0.0)
+	if k <= 0.001 or repositioning:
+		return
+	for side in ["L", "R"]:
+		var hip: int = skel.find_bone(_bone_name(skel, "UpperLeg." + side))
+		var knee: int = skel.find_bone(_bone_name(skel, "LowerLeg." + side))
+		var foot: int = skel.find_bone(_bone_name(skel, "Foot." + side))
+		var hp: Transform3D = skel.get_bone_global_pose(hip)
+		var kp: Transform3D = skel.get_bone_global_pose(knee)
+		var link: Transform3D = _skin_bind[knee].affine_inverse() * _skin_bind[foot]
+		var old_ankle: Vector3 = (kp * link).origin
+		var target: Vector3 = Vector3(0.19 if side == "L" else -0.19, 0.03, 0.14 if side == "L" else -0.10)
+		var top_length: float = hp.origin.distance_to(kp.origin)
+		var low_length: float = kp.origin.distance_to(old_ankle)
+		var axis: Vector3 = (target - hp.origin).normalized()
+		var reach: float = minf(hp.origin.distance_to(target), top_length + low_length - 0.015)
+		target = hp.origin + axis * reach
+		var along: float = (top_length * top_length - low_length * low_length + reach * reach) / (2.0 * reach)
+		var bend: Vector3 = (Vector3(0.0, 0.0, 1.0) - axis * axis.dot(Vector3(0.0, 0.0, 1.0))).normalized()
+		var knee_target: Vector3 = hp.origin + axis * along + bend * sqrt(maxf(0.0, top_length * top_length - along * along))
+		var upper_turn: Basis = Basis(Quaternion((kp.origin - hp.origin).normalized(), (knee_target - hp.origin).normalized()))
+		var lower_turn: Basis = Basis(Quaternion((old_ankle - kp.origin).normalized(), (target - knee_target).normalized()))
+		var hip_target: Transform3D = Transform3D(upper_turn * hp.basis, hp.origin)
+		var knee_pose: Transform3D = Transform3D(lower_turn * kp.basis, knee_target)
+		_pose_overrides[hip] = hp.interpolate_with(hip_target, k)
+		_pose_overrides[knee] = kp.interpolate_with(knee_pose, k)
+		skel.set_bone_global_pose_override(hip, _pose_overrides[hip], 1.0, true)
+		skel.set_bone_global_pose_override(knee, _pose_overrides[knee], 1.0, true)
+	skel.force_update_all_bone_transforms()
 
 # Medir tras los ajustes. skel.global_transform ya contiene la figura.
 func _ground_final_pose(allow_lower: bool) -> void:
@@ -948,10 +1004,7 @@ func _ground_final_pose(allow_lower: bool) -> void:
 	for bn in ["Foot.L", "Foot.R"]:
 		var bi: int = skel.find_bone(_bone_name(skel, bn))
 		if bi >= 0:
-			var foot_pose: Transform3D = _bone_pose_now(bi)
-			var override: Transform3D = skel.get_bone_global_pose_override(bi)
-			if override != Transform3D.IDENTITY:
-				foot_pose = override
+			var foot_pose: Transform3D = _current_global_pose(bi)
 			low = minf(low, (skel.global_transform * foot_pose.origin).y)
 	if is_finite(low):
 		var correction: float = 0.086 + _pose_air - low
@@ -976,6 +1029,7 @@ func _update_pose(e, dt: float) -> void:
 
 
 
+	_pose_overrides.clear()
 	skel.clear_bones_global_pose_override()
 	skel.force_update_all_bone_transforms()
 	if e.swing <= 0.0 and e.want_t <= 0.0:
@@ -1132,7 +1186,7 @@ func _update_pose(e, dt: float) -> void:
 			clip = "Run_Left" if (v.x > 0.0) == e.near else "Run_Right"
 		elif (v.z < 0.0) == e.near:
 			clip = "Run_Back"
-		_play(clip, clampf(eff_sp / 4.4, 0.7, 1.5))
+		_play(clip, clampf(eff_sp / (1.45 if clip == "Walk" else 3.34), 0.15, 2.5))
 		_place_racket(dt)
 		return
 	if serve_ready and e.swing <= 0.0:
@@ -1256,21 +1310,21 @@ func _update_pose(e, dt: float) -> void:
 		_play("Idle_Sword")
 	elif eff_sp > 0.9 and eff_sp <= 5.5 and absf(e.vx) > absf(e.vz) * 1.15:
 
-		_play("Run_Left" if e.vx > 0.0 else "Run_Right", clampf(eff_sp / 3.4, 0.65, 1.6))
+		_play("Run_Left" if e.vx > 0.0 else "Run_Right", clampf(eff_sp / 3.34, 0.15, 2.5))
 	elif eff_sp > 1.6 and ((e.vz < 0.0) if e.near else (e.vz > 0.0)) and absf(e.vz) > absf(e.vx) * 0.7:
 
-		_play("Run_Back", clampf(eff_sp / 5.0, 0.7, 1.4))
+		_play("Run_Back", clampf(eff_sp / 3.38, 0.15, 2.5))
 	elif eff_sp > 6.5:
-		_play("Run", clampf(eff_sp / 4.4, 1.0, 1.6) * (1.0 - 0.18 * _fatk))
+		_play("Run", clampf(eff_sp / 3.34, 0.15, 2.5))
 	elif eff_sp > 2.8:
-		_play("Run", clampf(eff_sp / 4.6, 0.6, 1.35) * (1.0 - 0.18 * _fatk))
+		_play("Run", clampf(eff_sp / 3.34, 0.15, 2.5))
 	elif eff_sp > 1.6 and absf(e.vx) > absf(e.vz) * 1.2:
 
 
-		_play("Run_Left" if e.vx > 0.0 else "Run_Right", clampf(eff_sp / 3.4, 0.7, 1.4))
+		_play("Run_Left" if e.vx > 0.0 else "Run_Right", clampf(eff_sp / 3.34, 0.15, 2.5))
 	elif eff_sp > 0.4:
 
-		_play("Walk", clampf(eff_sp / 2.2, 0.8, 1.6))
+		_play("Walk", clampf(eff_sp / 1.45, 0.15, 2.0))
 	else:
 		_play("Idle_Sword")
 
