@@ -734,6 +734,21 @@ var _last_init: = false
 const WINDUP: = 0.3
 const CONTACT_K: = 0.47
 
+# Mapeo del saque medido sobre el clip mocap/Servicio fotograma a fotograma:
+# trophy (brazos arriba) tau~1.05, contacto overhead real tau~1.65,
+# fin del follow-through tau~2.2. El mapeo anterior (0.55->1.3) ponia el
+# contacto del sim en tau~0.90, con la raqueta aun baja delante del cuerpo.
+const SERVE_TAU_READY: = 1.05
+const SERVE_TAU_CONTACT: = 1.65
+const SERVE_TAU_END: = 2.2
+
+
+static func _serve_tau(kk: float) -> float:
+	if kk <= CONTACT_K:
+		return lerpf(SERVE_TAU_READY, SERVE_TAU_CONTACT, pow(kk / CONTACT_K, 1.4))
+	var y: float = (kk - CONTACT_K) / (1.0 - CONTACT_K)
+	return lerpf(SERVE_TAU_CONTACT, SERVE_TAU_END, 1.0 - pow(1.0 - y, 2.0))
+
 
 
 static func _swing_clip(kind: String, hit_side: String) -> Array:
@@ -947,18 +962,24 @@ func update_from_sim(e, dt: float) -> void :
 	if serve_toss >= 0.0 and e.swing <= 0.0:
 
 		var toss_k: float = clampf(serve_toss, 0.0, 1.0)
-		_play_seek("mocap/Servicio", lerpf(0.1, 0.55, toss_k))
-		_raise_arm(TOSS_ARM * _ease_out_cubic(clampf(serve_toss / 0.35, 0.0, 1.0)), "UpperArm.L")
+		_play_seek("mocap/Servicio", lerpf(0.12, SERVE_TAU_READY, toss_k))
+		_raise_arm(TOSS_ARM * 0.4 * _ease_out_cubic(clampf(serve_toss / 0.35, 0.0, 1.0)), "UpperArm.L")
 		position.y -= 0.17 * sin(toss_k * PI)
 		_serve_knees(1.05 * sin(toss_k * PI))
 		_twist_torso(-0.26 * sin(toss_k * PI))
 		return
 	if hold_swing and e.kind == "serve":
 
-		_play_seek("mocap/Servicio", lerpf(0.55, 1.3, clampf(k, 0.0, 1.0)))
+		var s_tau: float = _serve_tau(clampf(k, 0.0, 1.0))
+		_play_seek("mocap/Servicio", s_tau)
+		# El clip incluye una reverencia profunda (tau 1.15-1.6) que lee como
+		# gesto roto; se contrarresta en parte para que pase por coil atletico.
+		_bend_torso( - 0.75 * sin(PI * clampf((s_tau - 1.1) / 0.55, 0.0, 1.0)))
 
-		_raise_arm(TOSS_ARM * (1.0 - _ease_in_cubic(clampf((k - 0.2) / 0.5, 0.0, 1.0))), "UpperArm.L")
-		_raise_arm(SERVE_ARM * clampf(1.0 - absf(k - 0.55) / 0.3, 0.0, 1.0))
+		# Overrides suavizados: el mocap ya baja el brazo de la bola y sube el
+		# de la raqueta; las formulas a tope congelaban los brazos (efecto robot).
+		_raise_arm(TOSS_ARM * 0.35 * (1.0 - _ease_in_cubic(clampf((k - 0.2) / 0.5, 0.0, 1.0))), "UpperArm.L")
+		_raise_arm(SERVE_ARM * 0.35 * clampf(1.0 - absf(k - 0.55) / 0.3, 0.0, 1.0))
 		var _sk: float = clampf(k, 0.0, 1.0)
 		position.y += 0.3 * sin(_sk * PI)
 		_twist_torso(0.32 * sin(_sk * PI))
@@ -978,8 +999,25 @@ func update_from_sim(e, dt: float) -> void :
 
 
 
-		tau = sc[1] + _ease_out_cubic(kk) * (sc[2] - sc[1])
+		# Dinamica del golpe: preparacion pausada, aceleracion hasta el contacto
+		# (k = CONTACT_K) y follow-through que sale rapido y termina suave.
+		# tau(CONTACT_K) coincide con el mapeo anterior para no desplazar el contacto.
+		if sc[0] == "mocap/Servicio":
+			# Smash: mismo clip que el saque, mismo contacto medido y mismo arreglo
+			# de la reverencia.
+			tau = _serve_tau(kk)
+		else:
+			var span: float = sc[2] - sc[1]
+			var e0: float = _ease_out_cubic(CONTACT_K)
+			if kk <= CONTACT_K:
+				var x: float = kk / CONTACT_K
+				tau = sc[1] + span * e0 * pow(x, 1.6)
+			else:
+				var y: float = (kk - CONTACT_K) / (1.0 - CONTACT_K)
+				tau = sc[1] + span * (e0 + (1.0 - e0) * (1.0 - pow(1.0 - y, 2.2)))
 		_play_seek(sc[0], tau)
+		if sc[0] == "mocap/Servicio":
+			_bend_torso( - 0.75 * sin(PI * clampf((tau - 1.1) / 0.55, 0.0, 1.0)))
 
 
 
@@ -1016,7 +1054,10 @@ func update_from_sim(e, dt: float) -> void :
 				wk = maxf(wk, 0.5 + 0.4 * float(e.get("charge")))
 		var hsw: String = e.hit_side if "hit_side" in e else "fore"
 		var scw: = _swing_clip(e.want, hsw)
-		_play_seek(scw[0], minf(0.18 + wk * 0.45, 0.48) * scw[1])
+		# El windup llega hasta el inicio de la ventana del golpe (scw[1]):
+		# antes se quedaba en 0.48*scw[1] y el golpe empezaba con un salto
+		# de ~medio segundo de clip (chasis visible).
+		_play_seek(scw[0], (0.18 + wk * 0.82) * scw[1])
 		had_windup = true
 
 
