@@ -44,6 +44,8 @@ var point_card_title: Label
 var point_card_pts: Label
 var point_card_reason: Label
 var point_card_t: = 0.0
+var timing_label: Label
+var timing_t := 0.0
 
 func _ready() -> void :
 	layer = 10
@@ -429,6 +431,9 @@ func hide_replay() -> void :
 		replay_tag.visible = false
 
 func show_banner(txt: String, sub: String, color: Color, big: = false) -> void :
+	if timing_label != null:
+		timing_label.visible = false
+		timing_t = 0.0
 	banner.text = txt
 	banner.add_theme_color_override("font_color", color)
 	banner.add_theme_font_size_override("font_size", 60 if big else 44)
@@ -447,6 +452,32 @@ func hide_banner() -> void :
 
 func set_hint(t: String) -> void :
 	hint.text = t
+	hint.visible = t != ""
+
+func use_touch_layout() -> void:
+	# Leave the thumb zones free; the desktop score stays bottom-left.
+	score_panel.position = Vector2(22, 112)
+	rs_panel.position = Vector2(1000, 145)
+	hint.position = Vector2(205, 15)
+	hint.size.x = 840
+	hint.add_theme_font_size_override("font_size", 20)
+
+func show_timing(txt: String) -> void:
+	if timing_label == null:
+		timing_label = Label.new()
+		timing_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		timing_label.position = Vector2(420, 135)
+		timing_label.size = Vector2(440, 40)
+		timing_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		timing_label.add_theme_font_size_override("font_size", 23)
+		timing_label.add_theme_color_override("font_color", Color("#ffce98"))
+		timing_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
+		timing_label.add_theme_constant_override("outline_size", 6)
+		add_child(timing_label)
+	timing_label.text = txt
+	timing_label.visible = true
+	timing_label.modulate.a = 1.0
+	timing_t = 0.85
 
 func popup_side(txt: String, color: Color) -> void :
 	if callout != null and callout.visible:
@@ -581,6 +612,10 @@ func set_score_glow(level: int) -> void :
 		_ensure_vignette()
 
 func _process(dt: float) -> void :
+	if timing_t > 0.0:
+		timing_t = maxf(0.0, timing_t - dt)
+		timing_label.modulate.a = minf(1.0, timing_t / 0.2)
+		timing_label.visible = timing_t > 0.0
 
 	_glow_t += dt
 	if vignette != null:
@@ -612,12 +647,6 @@ func _process(dt: float) -> void :
 	if replay_tag != null and replay_tag.visible:
 		replay_t += dt
 		replay_tag.modulate.a = 1.0 if fmod(replay_t, 0.9) < 0.6 else 0.35
-	if side_popup_t > 0.0:
-		side_popup_t -= dt
-		if side_popup_t <= 0.0:
-			side_popup.visible = false
-		elif side_popup_t < 0.5:
-			side_popup.modulate.a = side_popup_t / 0.5
 	if point_card_t > 0.0:
 		point_card_t -= dt
 		if point_card != null:
