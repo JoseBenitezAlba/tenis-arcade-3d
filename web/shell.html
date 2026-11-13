@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="es">
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0">
+		<title>$GODOT_PROJECT_NAME</title>
+		<style>
+html, body, #canvas {
+	margin: 0;
+	padding: 0;
+	border: 0;
+}
+
+body {
+	color: white;
+	background-color: black;
+	overflow: hidden;
+	touch-action: none;
+}
+
+#canvas {
+	display: block;
+}
+
+#canvas:focus {
+	outline: none;
+}
+
+#status, #status-splash, #status-progress {
+	position: absolute;
+	left: 0;
+	right: 0;
+}
+
+#status, #status-splash {
+	top: 0;
+	bottom: 0;
+}
+
+#status {
+	background-color: $GODOT_SPLASH_COLOR;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	align-items: center;
+	visibility: hidden;
+}
+
+#status-splash {
+	max-height: 100%;
+	max-width: 100%;
+	margin: auto;
+}
+
+#status-splash.show-image--false {
+	display: none;
+}
+
+#status-splash.fullsize--true {
+	height: 100%;
+	width: 100%;
+	object-fit: contain;
+}
+
+#status-splash.use-filter--false {
+	image-rendering: pixelated;
+}
+
+#status-progress, #status-notice {
+	display: none;
+}
+
+#status-progress {
+	bottom: 10%;
+	width: 50%;
+	margin: 0 auto;
+}
+
+#status-notice {
+	background-color: #5b3943;
+	border-radius: 0.5rem;
+	border: 1px solid #9b3943;
+	color: #e0e0e0;
+	font-family: 'Noto Sans', 'Droid Sans', Arial, sans-serif;
+	line-height: 1.3;
+	margin: 0 2rem;
+	overflow: hidden;
+	padding: 1rem;
+	text-align: center;
+	z-index: 1;
+}
+		
+#mobile-tools { display:none; position:fixed; z-index:9; left:max(10px,env(safe-area-inset-left)); top:max(8px,env(safe-area-inset-top)); font:14px system-ui,sans-serif; }
+#mobile-tools button { color:#fff; background:#182c38e8; border:1px solid #a4c4c9; border-radius:9px; padding:10px 14px; min-height:44px; touch-action:manipulation; }
+#mobile-guide { display:none; position:fixed; z-index:8; top:6vh; left:6%; right:6%; max-width:480px; margin:auto; padding:20px; box-sizing:border-box; border:1px solid #53746b; border-radius:16px; background:#10241f; color:#f1f6ee; font:16px/1.5 system-ui,sans-serif; }
+#mobile-guide strong {display:block;font-size:21px;margin-bottom:8px;}
+#mobile-guide p {margin:4px 0;}
+body.mobile #mobile-tools {display:block;}
+@media (orientation:portrait) {body.mobile #mobile-guide {display:block;} body.mobile #mobile-tools {top:auto;bottom:max(24px,env(safe-area-inset-bottom));left:0;right:0;text-align:center;}}
+</style>
+		$GODOT_HEAD_INCLUDE
+	</head>
+	<body>
+		<aside id="mobile-guide" aria-label="Jugar en el móvil"><strong>Más pista, menos bandas</strong><p>Gira el móvil para jugar en horizontal. Verás la pista completa con los controles a los lados.</p><p>Pantalla completa oculta la barra del navegador cuando tu móvil lo permite.</p></aside>
+		<div id="mobile-tools"><button id="display-toggle" type="button">Pantalla completa</button></div>
+		<canvas id="canvas">
+			Your browser does not support the canvas tag.
+		</canvas>
+
+		<noscript>
+			Your browser does not support JavaScript.
+		</noscript>
+
+		<div id="status">
+			<img id="status-splash" class="$GODOT_SPLASH_CLASSES" src="$GODOT_SPLASH" alt="">
+			<progress id="status-progress"></progress>
+			<div id="status-notice"></div>
+		</div>
+
+		<script src="$GODOT_URL"></script>
+		<script>
+const GODOT_CONFIG = $GODOT_CONFIG;
+const GODOT_THREADS_ENABLED = $GODOT_THREADS_ENABLED;
+const engine = new Engine(GODOT_CONFIG);
+
+(function () {
+	const statusOverlay = document.getElementById('status');
+	const statusProgress = document.getElementById('status-progress');
+	const statusNotice = document.getElementById('status-notice');
+
+	let initializing = true;
+	let statusMode = '';
+
+	function setStatusMode(mode) {
+		if (statusMode === mode || !initializing) {
+			return;
+		}
+		if (mode === 'hidden') {
+			statusOverlay.remove();
+			initializing = false;
+			return;
+		}
+		statusOverlay.style.visibility = 'visible';
+		statusProgress.style.display = mode === 'progress' ? 'block' : 'none';
+		statusNotice.style.display = mode === 'notice' ? 'block' : 'none';
+		statusMode = mode;
+	}
+
+	function setStatusNotice(text) {
+		while (statusNotice.lastChild) {
+			statusNotice.removeChild(statusNotice.lastChild);
+		}
+		const lines = text.split('\n');
+		lines.forEach((line) => {
+			statusNotice.appendChild(document.createTextNode(line));
+			statusNotice.appendChild(document.createElement('br'));
+		});
+	}
+
+	function displayFailureNotice(err) {
+		console.error(err);
+		if (err instanceof Error) {
+			setStatusNotice(err.message);
+		} else if (typeof err === 'string') {
+			setStatusNotice(err);
+		} else {
+			setStatusNotice('An unknown error occurred.');
+		}
+		setStatusMode('notice');
+		initializing = false;
+	}
+
+	const missing = Engine.getMissingFeatures({
+		threads: GODOT_THREADS_ENABLED,
+	});
+
+	if (missing.length !== 0) {
+		if (GODOT_CONFIG['serviceWorker'] && GODOT_CONFIG['ensureCrossOriginIsolationHeaders'] && 'serviceWorker' in navigator) {
+			let serviceWorkerRegistrationPromise;
+			try {
+				serviceWorkerRegistrationPromise = navigator.serviceWorker.getRegistration();
+			} catch (err) {
+				serviceWorkerRegistrationPromise = Promise.reject(new Error('Service worker registration failed.'));
+			}
+			// There's a chance that installing the service worker would fix the issue
+			Promise.race([
+				serviceWorkerRegistrationPromise.then((registration) => {
+					if (registration != null) {
+						return Promise.reject(new Error('Service worker already exists.'));
+					}
+					return registration;
+				}).then(() => engine.installServiceWorker()),
+				// For some reason, `getRegistration()` can stall
+				new Promise((resolve) => {
+					setTimeout(() => resolve(), 2000);
+				}),
+			]).then(() => {
+				// Reload if there was no error.
+				window.location.reload();
+			}).catch((err) => {
+				console.error('Error while registering service worker:', err);
+			});
+		} else {
+			// Display the message as usual
+			const missingMsg = 'Error\nThe following features required to run Godot projects on the Web are missing:\n';
+			displayFailureNotice(missingMsg + missing.join('\n'));
+		}
+	} else {
+		setStatusMode('progress');
+		engine.startGame({
+			'onProgress': function (current, total) {
+				if (current > 0 && total > 0) {
+					statusProgress.value = current;
+					statusProgress.max = total;
+				} else {
+					statusProgress.removeAttribute('value');
+					statusProgress.removeAttribute('max');
+				}
+			},
+		}).then(() => {
+			setStatusMode('hidden');
+		}, displayFailureNotice);
+	}
+}());
+		</script>
+	<script>
+(() => {
+ const mobile = navigator.maxTouchPoints > 0 && (matchMedia('(pointer: coarse)').matches || /Android|iPhone|iPad|Mobile|Tablet/i.test(navigator.userAgent));
+ if (!mobile) return;
+ document.body.classList.add('mobile');
+ const button = document.getElementById('display-toggle');
+ const standard = !!document.documentElement.requestFullscreen;
+ if (!standard) button.textContent = 'Gira el móvil para ampliar la pista';
+ button.addEventListener('click', async () => {
+  if (!standard) return;
+  try {
+   if (document.fullscreenElement) {await document.exitFullscreen(); return;}
+   await document.documentElement.requestFullscreen();
+   if (screen.orientation && screen.orientation.lock) {
+    try {await screen.orientation.lock('landscape');} catch (_) { /* Manual rotation remains available. */ }
+   }
+  } catch (_) {button.textContent = 'Gira el móvil para ampliar la pista';}
+ });
+ document.addEventListener('fullscreenchange', () => {
+  button.textContent = document.fullscreenElement ? 'Salir de pantalla completa' : 'Pantalla completa';
+  document.getElementById('canvas').focus();
+ });
+})();
+</script>
+</body>
+</html>
