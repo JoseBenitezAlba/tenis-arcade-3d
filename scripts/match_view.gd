@@ -44,7 +44,7 @@ var night_mode: bool = false
 
 const CAM_MODES: = [
 	{"pos": Vector3(0, 3.3, -8.3), "fov": 40.0, "look_y": 0.95},
-	{"pos": Vector3(0, 5.7, -10.7), "fov": 42.0, "look_y": 0.85},
+	{"pos": Vector3(0, 10.5, -21.4), "fov": 19.46, "look_y": -0.78},
 ]
 var cam_mode: = 1
 var hud: MatchHUD
@@ -474,6 +474,7 @@ func _ready() -> void :
 	var cc: Dictionary = CAM_MODES[cam_mode]
 	cam.position = cc["pos"]
 	cam.fov = cc["fov"]
+	cam.near = 16.0 if cam_mode == 1 else 0.05
 	add_child(cam)
 	cam.look_at(Vector3(0, cc["look_y"], NZ))
 	cam.make_current()
@@ -1005,15 +1006,15 @@ func _physics_process(dt: float) -> void :
 
 
 		var cc: Dictionary = CAM_MODES[cam_mode]
-		var target_x: float = clampf(sim.ball.x * 0.35 + sim.pl[0].x * 0.15, -2.6, 2.6)
+		var target_x: float = clampf(sim.ball.x * 0.06 + sim.pl[0].x * 0.04, -0.6, 0.6) if cam_mode == 1 else clampf(sim.ball.x * 0.35 + sim.pl[0].x * 0.15, -2.6, 2.6)
 		goal_pos = Vector3(target_x, cc["pos"].y, cc["pos"].z)
 		goal_fov = cc["fov"]
-		goal_look = Vector3(sim.ball.x * 0.2, cc["look_y"], NZ)
+		goal_look = Vector3(sim.ball.x * (0.025 if cam_mode == 1 else 0.2), cc["look_y"], NZ)
 
 
 
 		var push: float = cam_push(_hot_level(), sim.state)
-		if push > 0.0:
+		if push > 0.0 and cam_mode != 1:
 			goal_pos = goal_pos.lerp(Vector3(goal_pos.x, goal_pos.y - 0.18, NZ), 0.06 * push)
 			goal_fov -= 2.5 * push
 	# Cut directly to the established celebration shot, never sweep through the court.
@@ -1037,6 +1038,8 @@ func _physics_process(dt: float) -> void :
 		cam.position.z = goal_pos.z + randf_range(-1.0, 1.0) * shake * 0.38
 	elif shake > 0.0:
 		shake = maxf(0.0, shake - dt)
+	# Recorta solo la grada proxima, nunca jugadores ni pelota.
+	cam.near = 16.0 if cam_mode == 1 and not closeup else 0.05
 	cam.look_at(cam_look)
 	if fill_light != null:
 		var fgoal: float = (0.95 if closeup else 0.0) if night_mode else 0.0
@@ -1155,6 +1158,7 @@ func _start_replay() -> void :
 	replay_side = side
 	cam.position = Vector3(9.2 * side, 7.0, clampf(rec[0].b.z - NZ, -8.0, 8.0) * 0.55)
 	cam.fov = 42.0
+	cam.near = 0.05
 	cam.look_at(Vector3(rec[0].b.x * 0.7, 0.9, rec[0].b.z))
 
 func _replay_tick(dt: float) -> void :
@@ -1191,6 +1195,7 @@ func _end_replay() -> void :
 	var cc: Dictionary = CAM_MODES[cam_mode]
 	cam.position = cc["pos"]
 	cam.fov = cc["fov"]
+	cam.near = 16.0 if cam_mode == 1 else 0.05
 	cam.look_at(Vector3(0, cc["look_y"], NZ))
 
 func _pts_line() -> String:
