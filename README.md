@@ -19,7 +19,7 @@ Descomprime y ejecuta `TenisArcade3D.exe`.
 
 ## Fuente
 Proyecto Godot 4.7. Abrir `project.godot` con el editor Godot 4.7+.
-Todos los assets son procedurales (generados por codigo) o CC0; sin costes ni licencias.
+Los assets visuales son procedurales (generados por codigo); las animaciones de golpes derivan del dataset Tennis-MoCap, licencia CC BY-SA 3.0 (ver CREDITS.md).
 Los nombres del roster son un tributo, sin semejanza con jugadores reales.
 
 ## Builds de verificacion
