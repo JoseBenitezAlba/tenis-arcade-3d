@@ -803,6 +803,7 @@ var serve_ball_held: bool = false
 var serve_ball_blend: float = 0.0
 var serve_ball_source: Vector3 = Vector3.ZERO
 var _held_ball_mesh: MeshInstance3D
+var serve_release_offset: Vector3 = Vector3.ZERO
 var serve_follow_t: = 0.0
 var _serve_was_swing: = false
 var _idle_t: = 0.0
@@ -813,6 +814,12 @@ var eff_sp: = 0.0
 var _last_px: = 0.0
 var _last_pz: = 0.0
 var _last_init: = false
+var repositioning: bool = false
+var _reposition_age: float = 0.0
+var _reposition_duration: float = 0.42
+var _reposition_from: Vector3
+var _reposition_velocity: Vector3
+const REPOSITION_TIME: float = 0.42
 
 
 
@@ -866,16 +873,20 @@ func celebrate(cname: String, dur: float) -> void :
 	_play(celeb_name)
 
 var _pose_air: float = 0.0
+var _feet_follow_legs: bool = false
 
 func update_from_sim(e, dt: float) -> void:
 	_pose_air = 0.0
+	_feet_follow_legs = false
 	_update_pose(e, dt)
 	_show_serve_ball()
 	_sync_mocap_feet()
 	if e.get("dive_t") == null or (e.dive_t <= 0.0 and e.getup_t <= 0.0):
-		_ground_final_pose(e.speed < 0.4 or state.begins_with("mocap/"))
+		_ground_final_pose(eff_sp < 0.4 or state.begins_with("mocap/"))
 
 func _show_serve_ball() -> void:
+	if serve_ready and not serve_ball_held:
+		serve_release_offset = Vector3.ZERO
 	if _held_ball_mesh == null and serve_ball_held:
 		var attach: = BoneAttachment3D.new()
 		attach.bone_name = _bone_name(skel, "Wrist.L")
@@ -894,6 +905,7 @@ func _show_serve_ball() -> void:
 	if _held_ball_mesh != null:
 		_held_ball_mesh.visible = serve_ball_held
 		if serve_ball_held:
+			serve_release_offset = _held_ball_mesh.global_position - serve_ball_source
 			var attach: Node3D = _held_ball_mesh.get_parent()
 			var palm: Vector3 = Vector3(0.0, 0.075, 0.025)
 			_held_ball_mesh.position = attach.to_local(serve_ball_source).lerp(palm, serve_ball_blend)
@@ -911,7 +923,7 @@ func _bone_pose_now(bi: int) -> Transform3D:
 # Recuperar el enlace del bind evita dejar los zapatos clavados mientras
 # la rodilla y el tobillo se mueven.
 func _sync_mocap_feet() -> void:
-	if not state.begins_with("mocap/"):
+	if not state.begins_with("mocap/") and not _feet_follow_legs:
 		return
 	for side in ["L", "R"]:
 		var leg: int = skel.find_bone(_bone_name(skel, "LowerLeg." + side))
@@ -919,7 +931,10 @@ func _sync_mocap_feet() -> void:
 		if leg < 0 or foot < 0:
 			continue
 		var link: Transform3D = skel.get_bone_global_rest(leg).affine_inverse() * skel.get_bone_global_rest(foot)
-		var ankle: Transform3D = _bone_pose_now(leg) * link
+		var leg_pose: Transform3D = skel.get_bone_global_pose_override(leg)
+		if leg_pose == Transform3D.IDENTITY:
+			leg_pose = _bone_pose_now(leg)
+		var ankle: Transform3D = leg_pose * link
 		var planted: Basis = skel.get_bone_global_rest(foot).basis
 		ankle.basis = planted.slerp(ankle.basis.orthonormalized(), 0.35 if _pose_air > 0.01 else 0.0)
 		skel.set_bone_global_pose_override(foot, ankle, 1.0, true)
@@ -934,8 +949,9 @@ func _ground_final_pose(allow_lower: bool) -> void:
 		var bi: int = skel.find_bone(_bone_name(skel, bn))
 		if bi >= 0:
 			var foot_pose: Transform3D = _bone_pose_now(bi)
-			if state.begins_with("mocap/"):
-				foot_pose = skel.get_bone_global_pose_override(bi)
+			var override: Transform3D = skel.get_bone_global_pose_override(bi)
+			if override != Transform3D.IDENTITY:
+				foot_pose = override
 			low = minf(low, (skel.global_transform * foot_pose.origin).y)
 	if is_finite(low):
 		var correction: float = 0.086 + _pose_air - low
@@ -946,6 +962,8 @@ func _ground_final_pose(allow_lower: bool) -> void:
 
 func _update_pose(e, dt: float) -> void:
 	ap.advance(dt)
+	celeb_t = maxf(0.0, celeb_t - dt)
+	serve_follow_t = maxf(0.0, serve_follow_t - dt)
 	swing_now = e.swing
 	if serve_toss >= 0.0:
 		_serve_was_swing = false
@@ -973,17 +991,31 @@ func _update_pose(e, dt: float) -> void:
 	_last_pz = e.z
 
 	var target_sp: float = minf(e.speed, mvd / maxf(dt, 0.0001) * 1.15 + 0.35)
-	eff_sp = lerpf(eff_sp, target_sp, minf(1.0, dt * 14.0))
 	var target_pos: = Vector3(e.x, FOOT_LIFT, e.z)
-	var rig_gap: float = position.distance_to(target_pos)
-	if rig_gap > 0.8 and e.swing <= 0.0:
-		eff_sp = maxf(eff_sp, minf(rig_gap * 4.0, 6.0))
-	# Reposiciones de saque/punto: deslizar en vez de teletransportar el rig.
-	if position.distance_to(target_pos) > 2.2:
-		position = position.lerp(target_pos, minf(1.0, dt * 11.0))
+	# Un salto de la simulacion al nuevo lado de saque no es movimiento de
+	# juego. Completar todo el trayecto visual, sin el salto final de 2,2 m.
+	if mvd > 0.75 and e.swing <= 0.0:
+		repositioning = true
+		_reposition_age = 0.0
+		_reposition_from = position
+		_reposition_duration = clampf(mvd / 7.0, REPOSITION_TIME, 1.2)
+	# Nunca retrasar un golpe ni mantener su figura lejos del contacto.
+	if e.swing > 0.0 or serve_toss >= 0.0:
+		repositioning = false
+	var previous_position: Vector3 = position
+	if repositioning:
+		_reposition_age = minf(_reposition_duration, _reposition_age + dt)
+		var k: float = smoothstep(0.0, _reposition_duration, _reposition_age)
+		position = _reposition_from.lerp(target_pos, k)
+		_reposition_velocity = (position - previous_position) / maxf(dt, 0.0001)
+		_reposition_velocity.y = 0.0
+		target_sp = _reposition_velocity.length()
+		if _reposition_age >= _reposition_duration:
+			repositioning = false
 	else:
 		position = target_pos
-
+		_reposition_velocity = Vector3.ZERO
+	eff_sp = lerpf(eff_sp, target_sp, minf(1.0, dt * 14.0))
 
 
 	var target_y: = FOOT_LIFT
@@ -1093,6 +1125,16 @@ func _update_pose(e, dt: float) -> void:
 				ap.play("Idle_Sword", 0.34)
 			ap.seek(0.0, true)
 		return
+	if repositioning and e.swing <= 0.0:
+		var v: Vector3 = _reposition_velocity
+		var clip: String = "Run" if eff_sp > 2.8 else "Walk"
+		if absf(v.x) > absf(v.z) * 1.15:
+			clip = "Run_Left" if (v.x > 0.0) == e.near else "Run_Right"
+		elif (v.z < 0.0) == e.near:
+			clip = "Run_Back"
+		_play(clip, clampf(eff_sp / 4.4, 0.7, 1.5))
+		_place_racket(dt)
+		return
 	if serve_ready and e.swing <= 0.0:
 		_play_seek("mocap/Servicio", 0.12)
 		# Espera apoyada, con respiracion leve: el bote de pies anterior hacia
@@ -1131,7 +1173,6 @@ func _update_pose(e, dt: float) -> void:
 		_pose_air = 0.12 * sin(_sk * PI)
 		_twist_torso(0.32 * sin(_sk * PI))
 	elif serve_follow_t > 0.0 and e.swing <= 0.0:
-		serve_follow_t = maxf(0.0, serve_follow_t - dt)
 		var recovery: float = 1.0 - serve_follow_t / 0.30
 		_play_seek("mocap/Servicio", lerpf(SERVE_TAU_END, 2.30, recovery))
 		_place_racket(dt)
@@ -1210,7 +1251,6 @@ func _update_pose(e, dt: float) -> void:
 		if its != 0.0:
 			rotation.y += its * 0.22 * wk * (1.0 if e.near else -1.0)
 	elif celeb_t > 0.0:
-		celeb_t -= dt
 		_play(celeb_name)
 	elif e.want_t > 0.0 and e.speed <= 2.2:
 		_play("Idle_Sword")
@@ -1238,6 +1278,7 @@ func _update_pose(e, dt: float) -> void:
 		_bend_torso(0.5 * clampf((_fatk - 0.55) / 0.45, 0.0, 1.0))
 	var _stance_on: bool = state == "Idle_Sword" and eff_sp < 0.5 and e.swing <= 0.0 and celeb_t <= 0.0 and (e.get("split_t") == null or e.split_t <= 0.0) and (e.get("dive_t") == null or e.dive_t <= 0.0)
 	if _stance_on:
+		_feet_follow_legs = true
 		_ready_stance()
 		position.y -= 0.045
 	# Espera de saque: brazo de raqueta relajado al costado (referencia Jose),
