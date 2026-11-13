@@ -112,6 +112,14 @@ func _init(look: int, is_player0: bool) -> void :
 
 	if ResourceLoader.exists("res://models/mocap_anims_mm.tres"):
 		ap.add_animation_library("mocap", _remap_library(load("res://models/mocap_anims_mm.tres"), skel))
+	# Las zancadas importadas son acciones de una sola vez. Repetir solo
+	# locomocion y reposo; saques, golpes y reacciones deben acabar.
+	var base_lib: AnimationLibrary = ap.get_animation_library("").duplicate(true)
+	ap.remove_animation_library("")
+	ap.add_animation_library("", base_lib)
+	for nm in ["Idle", "Idle_Sword", "Idle_Neutral", "Run", "Run_Left", "Run_Right", "Run_Back", "Walk"]:
+		if base_lib.has_animation(nm):
+			base_lib.get_animation(nm).loop_mode = Animation.LOOP_LINEAR
 	_transplant_shorts()
 	_apply_look(pal)
 	_build_racket()
@@ -740,21 +748,21 @@ func _serve_knees(k: float) -> void :
 			continue
 		var g: = skel.get_bone_global_pose(bi)
 		var rot: = Basis(Vector3.RIGHT, -0.26 * k) * Basis(Vector3.BACK, 0.06 * k * float(side[1]))
-		skel.set_bone_global_pose_override(bi, Transform3D(rot * g.basis, g.origin), 1.0, true)
+		_override_branch(bi, Transform3D(rot * g.basis, g.origin))
 	skel.force_update_all_bone_transforms()
 	for bn in ["LowerLeg.L", "LowerLeg.R"]:
 		var li: = skel.find_bone(_bone_name(skel, bn))
 		if li < 0:
 			continue
 		var lg: = skel.get_bone_global_pose(li)
-		skel.set_bone_global_pose_override(li, Transform3D(Basis(Vector3.RIGHT, 0.55 * k) * lg.basis, lg.origin), 1.0, true)
+		_override_branch(li, Transform3D(Basis(Vector3.RIGHT, 0.55 * k) * lg.basis, lg.origin))
 	skel.force_update_all_bone_transforms()
 	for fn in ["Foot.L", "Foot.R"]:
 		var fi: = skel.find_bone(_bone_name(skel, fn))
 		if fi < 0:
 			continue
 		var fg: = skel.get_bone_global_pose(fi)
-		skel.set_bone_global_pose_override(fi, Transform3D(Basis(Vector3.RIGHT, -0.22 * k) * fg.basis, fg.origin), 1.0, true)
+		_override_branch(fi, Transform3D(Basis(Vector3.RIGHT, -0.22 * k) * fg.basis, fg.origin))
 
 func _ready_stance() -> void :
 	if skel == null:
@@ -765,21 +773,21 @@ func _ready_stance() -> void :
 			continue
 		var g: = skel.get_bone_global_pose(bi)
 		var rot: = Basis(Vector3.RIGHT, -0.18) * Basis(Vector3.BACK, 0.08 * float(side[1]))
-		skel.set_bone_global_pose_override(bi, Transform3D(rot * g.basis, g.origin), 1.0, true)
+		_override_branch(bi, Transform3D(rot * g.basis, g.origin))
 	skel.force_update_all_bone_transforms()
 	for bn in ["LowerLeg.L", "LowerLeg.R"]:
 		var li: = skel.find_bone(_bone_name(skel, bn))
 		if li < 0:
 			continue
 		var lg: = skel.get_bone_global_pose(li)
-		skel.set_bone_global_pose_override(li, Transform3D(Basis(Vector3.RIGHT, 0.40) * lg.basis, lg.origin), 1.0, true)
+		_override_branch(li, Transform3D(Basis(Vector3.RIGHT, 0.40) * lg.basis, lg.origin))
 	skel.force_update_all_bone_transforms()
 	for fn in ["Foot.L", "Foot.R"]:
 		var fi: = skel.find_bone(_bone_name(skel, fn))
 		if fi < 0:
 			continue
 		var fg: = skel.get_bone_global_pose(fi)
-		skel.set_bone_global_pose_override(fi, Transform3D(Basis(Vector3.RIGHT, -0.14) * fg.basis, fg.origin), 1.0, true)
+		_override_branch(fi, Transform3D(Basis(Vector3.RIGHT, -0.14) * fg.basis, fg.origin))
 	_bend_torso(0.28)
 	_raise_arm(-0.25, "UpperArm.R")
 	_raise_arm(-0.30, "UpperArm.L")
@@ -791,6 +799,10 @@ var celeb_t: = 0.0
 var celeb_name: = ""
 var rk_show_delay: = 0
 var serve_ready: = false
+var serve_ball_held: bool = false
+var serve_ball_blend: float = 0.0
+var serve_ball_source: Vector3 = Vector3.ZERO
+var _held_ball_mesh: MeshInstance3D
 var serve_follow_t: = 0.0
 var _serve_was_swing: = false
 var _idle_t: = 0.0
@@ -853,7 +865,86 @@ func celebrate(cname: String, dur: float) -> void :
 	state = ""
 	_play(celeb_name)
 
-func update_from_sim(e, dt: float) -> void :
+var _pose_air: float = 0.0
+
+func update_from_sim(e, dt: float) -> void:
+	_pose_air = 0.0
+	_update_pose(e, dt)
+	_show_serve_ball()
+	_sync_mocap_feet()
+	if e.get("dive_t") == null or (e.dive_t <= 0.0 and e.getup_t <= 0.0):
+		_ground_final_pose(e.speed < 0.4 or state.begins_with("mocap/"))
+
+func _show_serve_ball() -> void:
+	if _held_ball_mesh == null and serve_ball_held:
+		var attach: = BoneAttachment3D.new()
+		attach.bone_name = _bone_name(skel, "Wrist.L")
+		skel.add_child(attach)
+		_held_ball_mesh = MeshInstance3D.new()
+		var sphere: = SphereMesh.new()
+		sphere.radius = 0.055 / CHAR_SCALE
+		sphere.height = 0.11 / CHAR_SCALE
+		_held_ball_mesh.mesh = sphere
+		var material: = StandardMaterial3D.new()
+		material.albedo_color = Color("#e6ff4d")
+		material.roughness = 0.9
+		_held_ball_mesh.material_override = material
+		_held_ball_mesh.position = Vector3(0.0, 0.075, 0.025)
+		attach.add_child(_held_ball_mesh)
+	if _held_ball_mesh != null:
+		_held_ball_mesh.visible = serve_ball_held
+		if serve_ball_held:
+			var attach: Node3D = _held_ball_mesh.get_parent()
+			var palm: Vector3 = Vector3(0.0, 0.075, 0.025)
+			_held_ball_mesh.position = attach.to_local(serve_ball_source).lerp(palm, serve_ball_blend)
+
+func _bone_pose_now(bi: int) -> Transform3D:
+	var pose: Transform3D = skel.get_bone_pose(bi)
+	var parent: int = skel.get_bone_parent(bi)
+	while parent >= 0:
+		pose = skel.get_bone_pose(parent) * pose
+		parent = skel.get_bone_parent(parent)
+	return pose
+
+# Este modelo lleva los pies como hijos de Root, no de las espinillas.
+# El mocap anima las piernas pero no aporta posiciones para esos pies.
+# Recuperar el enlace del bind evita dejar los zapatos clavados mientras
+# la rodilla y el tobillo se mueven.
+func _sync_mocap_feet() -> void:
+	if not state.begins_with("mocap/"):
+		return
+	for side in ["L", "R"]:
+		var leg: int = skel.find_bone(_bone_name(skel, "LowerLeg." + side))
+		var foot: int = skel.find_bone(_bone_name(skel, "Foot." + side))
+		if leg < 0 or foot < 0:
+			continue
+		var link: Transform3D = skel.get_bone_global_rest(leg).affine_inverse() * skel.get_bone_global_rest(foot)
+		var ankle: Transform3D = _bone_pose_now(leg) * link
+		var planted: Basis = skel.get_bone_global_rest(foot).basis
+		ankle.basis = planted.slerp(ankle.basis.orthonormalized(), 0.35 if _pose_air > 0.01 else 0.0)
+		skel.set_bone_global_pose_override(foot, ankle, 1.0, true)
+
+# Medir tras los ajustes. skel.global_transform ya contiene la figura.
+func _ground_final_pose(allow_lower: bool) -> void:
+	if skel == null:
+		return
+	skel.force_update_all_bone_transforms()
+	var low: float = INF
+	for bn in ["Foot.L", "Foot.R"]:
+		var bi: int = skel.find_bone(_bone_name(skel, bn))
+		if bi >= 0:
+			var foot_pose: Transform3D = _bone_pose_now(bi)
+			if state.begins_with("mocap/"):
+				foot_pose = skel.get_bone_global_pose_override(bi)
+			low = minf(low, (skel.global_transform * foot_pose.origin).y)
+	if is_finite(low):
+		var correction: float = 0.086 + _pose_air - low
+		# No bajar al corredor cuando ambos pies estan en vuelo.
+		if not allow_lower:
+			correction = maxf(0.0, correction)
+		position.y += clampf(correction, -0.45, 0.45)
+
+func _update_pose(e, dt: float) -> void:
 	ap.advance(dt)
 	swing_now = e.swing
 	if serve_toss >= 0.0:
@@ -862,7 +953,7 @@ func update_from_sim(e, dt: float) -> void :
 		_serve_was_swing = true
 	elif _serve_was_swing and e.kind == "serve" and e.swing <= 0.0:
 		_serve_was_swing = false
-		serve_follow_t = 0.15
+		serve_follow_t = 0.30
 	var _fatk: float = e.get("fat") if e.get("fat") != null else 0.0
 
 
@@ -902,27 +993,17 @@ func update_from_sim(e, dt: float) -> void :
 
 	if e.get("split_t") != null and e.split_t > 0.0 and e.swing <= 0.0 and e.get("dive_t") <= 0.0 and (e.get("getup_t") == null or e.getup_t <= 0.0):
 		var sph: float = 1.0 - e.split_t / 0.32
-		position.y = FOOT_LIFT + sin(sph * PI) * 0.09
+		_pose_air = sin(sph * PI) * 0.09
+		position.y = FOOT_LIFT + _pose_air
 
 	if hop_age < HOP_DUR:
 		hop_age += dt
-		position.y += hop_y(hop_age, hop_h)
+		_pose_air = hop_y(hop_age, hop_h)
+		position.y += _pose_air
 		if hop_age >= HOP_DUR:
 			hop_landed = true
 
 
-	if foot_bones.is_empty():
-		for fbn in ["Foot.L", "Foot.R"]:
-			var fbi: = skel.find_bone(_bone_name(skel, fbn))
-			if fbi >= 0:
-				foot_bones.append(fbi)
-	var fmin: = 99.0
-	for fbi2 in foot_bones:
-		var fy: float = (global_transform * skel.global_transform * skel.get_bone_global_pose(fbi2)).origin.y
-		fmin = minf(fmin, fy)
-	var fneed: float = 0.06 + 0.026 - fmin
-	if fmin < 90.0 and fneed > 0.0:
-		position.y += minf(fneed, 0.25)
 
 
 
@@ -1030,8 +1111,7 @@ func update_from_sim(e, dt: float) -> void :
 		var toss_k: float = clampf(serve_toss, 0.0, 1.0)
 		_play_seek("mocap/Servicio", lerpf(0.12, SERVE_TAU_READY, toss_k))
 		_raise_arm(TOSS_ARM * 0.4 * _ease_out_cubic(clampf(serve_toss / 0.35, 0.0, 1.0)), "UpperArm.L")
-		position.y -= 0.17 * sin(toss_k * PI)
-		_serve_knees(1.05 * sin(toss_k * PI))
+		_serve_knees(0.24 * sin(toss_k * PI))
 		_twist_torso(-0.26 * sin(toss_k * PI))
 		_place_racket(dt)
 		return
@@ -1048,15 +1128,13 @@ func update_from_sim(e, dt: float) -> void :
 		_raise_arm(TOSS_ARM * 0.35 * (1.0 - _ease_in_cubic(clampf((k - 0.2) / 0.5, 0.0, 1.0))), "UpperArm.L")
 		_raise_arm(SERVE_ARM * 0.35 * clampf(1.0 - absf(k - 0.55) / 0.3, 0.0, 1.0))
 		var _sk: float = clampf(k, 0.0, 1.0)
-		position.y += 0.3 * sin(_sk * PI)
+		_pose_air = 0.12 * sin(_sk * PI)
 		_twist_torso(0.32 * sin(_sk * PI))
 	elif serve_follow_t > 0.0 and e.swing <= 0.0:
 		serve_follow_t = maxf(0.0, serve_follow_t - dt)
-		_play("Idle_Sword", 1.0)
-		_apply_gaze()
-		_raise_arm(0.0, "UpperArm.R")
-		_raise_arm(0.0, "UpperArm.L")
-		_rk_rest(dt)
+		var recovery: float = 1.0 - serve_follow_t / 0.30
+		_play_seek("mocap/Servicio", lerpf(SERVE_TAU_END, 2.30, recovery))
+		_place_racket(dt)
 		return
 	elif hold_swing:
 		var hs: String = e.hit_side if "hit_side" in e else "fore"
@@ -1186,7 +1264,7 @@ func _celebration_legs() -> void :
 			continue
 		var g: = skel.get_bone_global_pose(bi)
 		var rot: = Basis(Vector3.BACK, 0.22 * float(side[1]))
-		skel.set_bone_global_pose_override(bi, Transform3D(rot * g.basis, g.origin), 1.0, true)
+		_override_branch(bi, Transform3D(rot * g.basis, g.origin))
 
 func _celebration_grip() -> void :
 	if racket_node == null:
@@ -1251,7 +1329,8 @@ func _serve_wait_arm(k: float) -> void :
 	_align_bone_dir("LowerArm.R", "Wrist.R", Vector3(0.10, -1.0, -0.22), k)
 	# la izquierda tambien cuelga relajada (referencia), y despeja la vista del puno
 	_align_bone_dir("UpperArm.L", "LowerArm.L", Vector3( - 0.16, -1.0, -0.06), k)
-	_align_bone_dir("LowerArm.L", "Wrist.L", Vector3( - 0.12, -1.0, -0.12), k)
+	var ball_arm: Vector3 = Vector3(-0.12, -1.0, -0.12).lerp(Vector3(-0.12, -0.22, 0.9), serve_ball_blend if serve_ball_held else 0.0)
+	_align_bone_dir("LowerArm.L", "Wrist.L", ball_arm, k)
 	# muneca orientada para que el mango cruce la palma (agarre martillo) y la
 	# cabeza cuelgue baja junto a la pierna, con cualquier pose que traiga el clip
 	_align_hand_axis(global_transform.basis * Vector3( - 0.10, - 1.0, - 0.15), k)
