@@ -420,9 +420,7 @@ func show_replay() -> void :
 	if replay_tag == null:
 		replay_tag = Label.new()
 		replay_tag.text = "  REPETICION"
-		replay_tag.position = Vector2(260, 62)
-		replay_tag.size = Vector2(760, 40)
-		replay_tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		replay_tag.position = Vector2(14, 12)
 		replay_tag.add_theme_font_size_override("font_size", 24)
 		replay_tag.add_theme_color_override("font_color", Color(1, 1, 1))
 		replay_tag.add_theme_color_override("font_outline_color", Color(0.5, 0, 0, 0.9))
