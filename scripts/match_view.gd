@@ -692,7 +692,7 @@ func _unhandled_input(event: InputEvent) -> void :
 		cam_mode = (cam_mode + 1) % CAM_MODES.size()
 		return
 	if replaying:
-		if (event is InputEventKey and event.pressed and not event.echo) or (event is InputEventJoypadButton and event.pressed) or event.is_action_pressed("hit") or event.is_action_pressed("lob") or event.is_action_pressed("drop"):
+		if (event is InputEventKey and event.pressed and not event.echo) or (event is InputEventJoypadButton and event.pressed):
 			_end_replay()
 		return
 
@@ -752,6 +752,8 @@ func _request_menu() -> void:
 		return
 	get_tree().paused = false
 	paused_game = false
+	if is_instance_valid(_amb):
+		_amb.stop()
 	quit_to_menu.emit()
 
 static func movement_input(v: Vector2) -> Vector2:
@@ -1215,7 +1217,6 @@ func _start_replay() -> void :
 	replay_i = 0.0
 	bounce_ring.visible = false
 	hud.show_replay()
-	hud.replay_tag.text = "REPETICIÓN · GOLPE para saltar" if touch_ui else "REPETICIÓN · tecla o botón para saltar"
 	for t in trail:
 		t.m.visible = false
 
