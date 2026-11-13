@@ -173,6 +173,12 @@ var touch_ui: = false
 var is_career: = false
 var paused_game: = false
 var pause_layer: CanvasLayer
+var pause_title: Label
+var pause_help: Label
+var pause_resume: Button
+var pause_menu: Button
+var pause_confirm := false
+var touch_controls: TouchControls
 var over_sent: = false
 var shake: = 0.0
 var hitstop_t: = 0.0
@@ -492,8 +498,8 @@ func _ready() -> void :
 		touch_ui = get_meta("force_touch", false) or TouchControls.should_show()
 		if touch_ui:
 			hud.use_touch_layout()
-			var tc: = TouchControls.new()
-			add_child(tc)
+			touch_controls = TouchControls.new()
+			add_child(touch_controls)
 	if not demo:
 		if touch_ui:
 			hud.set_hint("Joystick izquierdo mover · GOLPE / GLOBO / DEJADA a la derecha · II pausa")
@@ -503,7 +509,8 @@ func _ready() -> void :
 		hud.set_hint("")
 
 	pause_layer = CanvasLayer.new()
-	pause_layer.layer = 5
+	pause_layer.layer = 30
+	pause_layer.process_mode = Node.PROCESS_MODE_ALWAYS
 	pause_layer.visible = false
 	add_child(pause_layer)
 
@@ -513,23 +520,40 @@ func _ready() -> void :
 	dim.size = Vector2(1280, 720)
 	pause_layer.add_child(dim)
 	var pl: = Label.new()
+	pause_title = pl
 	pl.text = "PAUSA"
 	pl.add_theme_font_size_override("font_size", 44)
 	pl.add_theme_color_override("font_color", Color.WHITE)
 	pl.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
 	pl.add_theme_constant_override("outline_size", 10)
-	pl.position = Vector2(0, 272)
+	pl.position = Vector2(0, 210)
 	pl.size = Vector2(1280, 100)
 	pl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	pause_layer.add_child(pl)
 	var pl2: = Label.new()
-	pl2.text = "P / START continuar · ESC menú"
+	pause_help = pl2
+	pl2.text = "Toca Continuar o Salir al menú" if touch_ui else "P / START continuar · ESC salir"
 	pl2.add_theme_font_size_override("font_size", 22)
 	pl2.add_theme_color_override("font_color", Color("#9fb3e8"))
-	pl2.position = Vector2(0, 328)
+	pl2.position = Vector2(0, 272)
 	pl2.size = Vector2(1280, 40)
 	pl2.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	pause_layer.add_child(pl2)
+
+	pause_resume = Button.new()
+	pause_resume.text = "Continuar"
+	pause_resume.position = Vector2(400, 350)
+	pause_resume.size = Vector2(480, 72)
+	pause_resume.add_theme_font_size_override("font_size", 26)
+	pause_resume.pressed.connect(_resume_pause)
+	pause_layer.add_child(pause_resume)
+	pause_menu = Button.new()
+	pause_menu.text = "Salir al menú"
+	pause_menu.position = Vector2(400, 442)
+	pause_menu.size = Vector2(480, 72)
+	pause_menu.add_theme_font_size_override("font_size", 26)
+	pause_menu.pressed.connect(_request_menu)
+	pause_layer.add_child(pause_menu)
 
 	var pv: = Label.new()
 	pv.text = GameMenus.VERSION
@@ -668,38 +692,67 @@ func _unhandled_input(event: InputEvent) -> void :
 		cam_mode = (cam_mode + 1) % CAM_MODES.size()
 		return
 	if replaying:
-		if (event is InputEventKey and event.pressed and not event.echo) or (event is InputEventJoypadButton and event.pressed):
+		if (event is InputEventKey and event.pressed and not event.echo) or (event is InputEventJoypadButton and event.pressed) or event.is_action_pressed("hit") or event.is_action_pressed("lob") or event.is_action_pressed("drop"):
 			_end_replay()
 		return
 
 
-func _on_pause_input(event: InputEvent) -> void :
+func _on_pause_input(event: InputEvent) -> void:
 	if event.is_action_pressed("pause") and not demo:
 		if paused_game:
-			paused_game = false
-			get_tree().paused = false
-			pause_layer.visible = false
-			if _hint_hidden:
-				hud.hint.visible = true
-				_hint_hidden = false
+			_resume_pause()
 		else:
-
-			if replaying:
-				_end_replay()
-			paused_game = true
-			get_tree().paused = true
-			pause_layer.visible = true
-			hud.hide_banner()
-			banner_t = 0.0
-
-			hud.hide_popups()
-			hud.hint.visible = false
-			hud.serve_meter_hide()
-			_hint_hidden = true
+			_open_pause()
 	elif event.is_action_pressed("quit") and paused_game:
-		get_tree().paused = false
-		paused_game = false
-		quit_to_menu.emit()
+		_request_menu()
+
+func _open_pause() -> void:
+	if replaying:
+		_end_replay()
+	paused_game = true
+	get_tree().paused = true
+	pause_confirm = false
+	pause_title.text = "PAUSA"
+	pause_help.text = "Toca Continuar o Salir al menú" if touch_ui else "P / START continuar · ESC salir"
+	pause_resume.text = "Continuar"
+	pause_menu.text = "Salir al menú"
+	pause_layer.visible = true
+	pause_resume.grab_focus()
+	if is_instance_valid(touch_controls):
+		touch_controls._release_all()
+		touch_controls.visible = false
+		touch_controls.set_process_input(false)
+	hud.hide_banner()
+	banner_t = 0.0
+	hud.hide_popups()
+	_hint_hidden = hud.hint.visible
+	hud.hint.visible = false
+	hud.serve_meter_hide()
+
+func _resume_pause() -> void:
+	paused_game = false
+	get_tree().paused = false
+	pause_layer.visible = false
+	if is_instance_valid(touch_controls):
+		touch_controls._release_all()
+		touch_controls.visible = true
+		touch_controls.set_process_input(true)
+	if _hint_hidden:
+		hud.hint.visible = true
+		_hint_hidden = false
+
+func _request_menu() -> void:
+	if not pause_confirm:
+		pause_confirm = true
+		pause_title.text = "¿SALIR DEL PARTIDO?"
+		pause_help.text = "Este partido no se guardará"
+		pause_resume.text = "Seguir jugando"
+		pause_menu.text = "Sí, salir al menú"
+		pause_resume.grab_focus()
+		return
+	get_tree().paused = false
+	paused_game = false
+	quit_to_menu.emit()
 
 static func movement_input(v: Vector2) -> Vector2:
 	return v.limit_length(1.0)
@@ -1162,6 +1215,7 @@ func _start_replay() -> void :
 	replay_i = 0.0
 	bounce_ring.visible = false
 	hud.show_replay()
+	hud.replay_tag.text = "REPETICIÓN · GOLPE para saltar" if touch_ui else "REPETICIÓN · tecla o botón para saltar"
 	for t in trail:
 		t.m.visible = false
 
