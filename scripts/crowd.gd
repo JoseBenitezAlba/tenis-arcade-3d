@@ -236,11 +236,11 @@ func _add_person(p0: Vector3, rot: Basis, r: int, c: int, org: Vector3, rng: Ran
 		col = Color(SHIRTS[prng.randi_range(0, SHIRTS.size() - 1)])
 	elif prng.randf() < 0.12:
 		col = Color(MUTED[prng.randi_range(0, MUTED.size() - 1)])
-	col = col.lerp(Color(0.31, 0.28, 0.26), prng.randf_range(0.1, 0.22))
+	col = col.lerp(Color(0.24, 0.22, 0.21), prng.randf_range(0.55, 0.75))
 	shirt_cols.append(col)
 	skin_cols.append(Color(SKINS[prng.randi_range(0, SKINS.size() - 1)]))
 	pants_cols.append(Color(PANTS[prng.randi_range(0, PANTS.size() - 1)]).lerp(Color(0.18, 0.18, 0.22), prng.randf_range(0.0, 0.2)))
-	empty.append(r == 6 or prng.randf() < 0.02)
+	empty.append(r == 6 or prng.randf() < 0.18)
 	var CAPS: = ["#e8e4da", "#d94f3d", "#3f7fd9", "#2f3644", "#e8b53a"]
 	cap_ok.append(prng.randf() < 0.32 and not empty[empty.size() - 1])
 	cap_cols.append(Color(CAPS[prng.randi_range(0, CAPS.size() - 1)]))
