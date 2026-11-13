@@ -276,7 +276,9 @@ static func shoe_dust_color(d: float) -> Color:
 const TRAIL_LIFE: = 0.09
 var racket_node: Node3D = null
 var racket_hand_idx: int = -1
-const RK_GRIP_BASIS: = Basis.IDENTITY
+# Agarre continental: el mango cruza la palma (perpendicular a los dedos),
+# no la prolonga. La cara de la raqueta mantiene la orientacion de la mano.
+var grip_basis: = Basis(Vector3.FORWARD, - PI * 0.5)
 var racket_force_hidden: = false
 var swing_now: = 0.0
 var trail_pts: Array = []
@@ -770,7 +772,7 @@ func update_from_sim(e, dt: float) -> void :
 		var hand_pose: Transform3D = skel.get_bone_global_pose(racket_hand_idx)
 		var hp: Vector3 = skel.global_transform * hand_pose.origin
 		var hb: Basis = (global_transform.basis.inverse() * skel.global_transform.basis * hand_pose.basis).orthonormalized()
-		racket_node.basis = hb * RK_GRIP_BASIS
+		racket_node.basis = hb * grip_basis
 		racket_node.position = to_local(hp) + hb.y * -0.09
 
 		if state in CELEB_ANIMS:

@@ -19,6 +19,9 @@ const LATE: = {
 	"--shots": "_shots_harness", 
 	"--latshot": "_latshot_harness", "--ballshot": "_ballshot_harness", "--topshot": "_topshot_harness", "--celnight": "_celnight_harness", "--startshot": "_startshot_harness", "--servepose": "_servepose_harness", "--gameshot": "_gameshot_harness", "--faulttest": "_faulttest_harness", "--prepshot": "_prepshot_harness", "--legshot": "_legshot_harness", "--rallylabel": "_rallylabel_harness", "--celshot": "_celshot_harness", "--rkshot": "_rkshot_harness", "--jshot": "_jshot_harness", "--seqshot": "_seqshot_harness", "--ppshot": "_ppshot_harness", "--cpuserve": "_cpuserve_harness", "--cpuserveclose": "_cpuserveclose_harness", "--audit169": "_audit169_harness", "--cap171": "_cap171_harness", "--gday": "_gday_harness", "--matchmovie": "_matchmovie_harness", "--windupchk": "_windupchk_harness", "--prepcheck": "_prepcheck_harness", "--pose178": "_pose178_harness", "--net178": "_net178_harness", "--full178": "_full178_harness",
 	"--v31shots": "_v31shots", "--audit173": "_audit173_harness", 
+	"--t13": "_t13_harness", 
+	"--grip": "_grip_harness", 
+	"--contact": "_contact_harness", 
 }
 
 
@@ -645,6 +648,149 @@ func _courtshot_harness(args: Array) -> void :
 		await get_tree().process_frame
 	get_tree().quit(0)
 
+
+
+func _t13_harness(args: Array) -> void :
+	var i: = args.find("--t13")
+	var out: String = args[i + 1] if i + 1 < args.size() else "/tmp/t13"
+	var surface: String = "grass"
+	for a in args:
+		if a.begins_with("surface="):
+			surface = a.split("=")[1]
+	DirAccess.make_dir_recursive_absolute(out)
+	m.menus.visible = false
+	m.match_view = MatchView.new()
+	m.match_view.set_meta("surface", surface)
+	m.match_view.set_meta("tod", 0)
+	m.match_view.set_meta("cpu_look", 2)
+	m.match_view.set_meta("my_name", "TÚ")
+	m.match_view.set_meta("cpu_label", "CPU · NORMAL")
+	m.match_view.setup({"demo": true, "surface": surface, "AIP": m.DIFF_PARAMS[1], "sets_to_win": 1})
+	add_child(m.match_view)
+	var ok: = await _wait_until( func(): return m.match_view.sim.state == "serve", 30.0)
+	print("t13 serve state: ", ok)
+	await _wait_sim(0.4)
+	await _grab(out + "/00_ready_wide.png")
+	# closeups of near player during the serve
+	var jc: = Camera3D.new()
+	add_child(jc)
+	jc.fov = 30.0
+	var p0: Vector3 = m.match_view.rigs[0].global_position
+	jc.position = p0 + Vector3( - 3.1, 1.4, -1.2)
+	jc.look_at(p0 + Vector3(0, 0.95, 0.3))
+	jc.current = true
+	await get_tree().process_frame
+	await _grab(out + "/01_ready_side.png")
+	for n in 14:
+		await _wait_sim(0.14)
+		await _grab(out + "/serve_%02d.png" % n)
+	# back to match cam for rally wides
+	m.match_view.cam.current = true
+	for n in 16:
+		await _wait_sim(0.45)
+		await _grab(out + "/rally_%02d.png" % n)
+		print("t13 rally ", n, " state=", m.match_view.sim.state, " hits=", m.match_view.sim.rally_hits)
+	print("T13 DONE")
+	get_tree().quit()
+
+
+func _grip_harness(args: Array) -> void :
+	var i: = args.find("--grip")
+	var out: String = args[i + 1] if i + 1 < args.size() else "/tmp/grip"
+	DirAccess.make_dir_recursive_absolute(out)
+	m.menus.visible = false
+	m.match_view = MatchView.new()
+	m.match_view.set_meta("surface", "grass")
+	m.match_view.set_meta("tod", 0)
+	m.match_view.set_meta("cpu_look", 2)
+	m.match_view.set_meta("my_name", "TU")
+	m.match_view.set_meta("cpu_label", "CPU")
+	m.match_view.setup({"demo": true, "surface": "grass", "AIP": m.DIFF_PARAMS[0], "sets_to_win": 1})
+	add_child(m.match_view)
+	await _wait_sim(0.5)
+	m.match_view.process_mode = Node.PROCESS_MODE_DISABLED
+	var rg = m.match_view.rigs[0]
+	m.match_view.rigs[1].visible = false
+	rg.reparent(self)
+	rg.position = Vector3.ZERO
+	rg.rotation = Vector3.ZERO
+	var jc: = Camera3D.new()
+	add_child(jc)
+	jc.fov = 28.0
+	jc.current = true
+	var wb: = WorldEnvironment.new()
+	jc.position = Vector3( - 2.6, 1.5, 1.6)
+	jc.look_at(Vector3(0, 0.95, 0))
+	var cands: = [
+		["id", Basis.IDENTITY],
+		["xp90", Basis(Vector3.RIGHT, PI * 0.5)],
+		["xm90", Basis(Vector3.RIGHT, - PI * 0.5)],
+		["zp90", Basis(Vector3.FORWARD, PI * 0.5)],
+		["zm90", Basis(Vector3.FORWARD, - PI * 0.5)],
+		["x180", Basis(Vector3.RIGHT, PI)],
+	]
+	var poses: = [
+		["ready", "Idle_Sword", 0.4],
+		["fore", "mocap/Derecha", 1.8],
+		["back", "mocap/Reves", 1.7],
+		["serve", "mocap/Servicio", 1.05],
+	]
+	for c in cands:
+		rg.grip_basis = c[1]
+		for p in poses:
+			rg.state = ""
+			rg._play_seek(p[1], p[2])
+			rg.ap.advance(0.2)
+			rg.ap.pause()
+			rg.ap.seek(p[2], true)
+			if p[0] == "ready":
+				rg._ready_stance()
+			else:
+				rg.skel.clear_bones_global_pose_override()
+			rg.skel.force_update_all_bone_transforms()
+			var hand_pose: Transform3D = rg.skel.get_bone_global_pose(rg.racket_hand_idx)
+			var hp: Vector3 = rg.skel.global_transform * hand_pose.origin
+			var hb: Basis = (rg.global_transform.basis.inverse() * rg.skel.global_transform.basis * hand_pose.basis).orthonormalized()
+			rg.racket_node.basis = hb * rg.grip_basis
+			rg.racket_node.position = rg.to_local(hp) + hb.y * -0.09
+			await get_tree().process_frame
+			await _grab(out + "/%s_%s.png" % [c[0], p[0]])
+	print("GRIP DONE")
+	get_tree().quit()
+
+
+func _contact_harness(args: Array) -> void :
+	var i: = args.find("--contact")
+	var out: String = args[i + 1] if i + 1 < args.size() else "/tmp/contact"
+	DirAccess.make_dir_recursive_absolute(out)
+	m.menus.visible = false
+	m.match_view = MatchView.new()
+	m.match_view.set_meta("surface", "grass")
+	m.match_view.set_meta("tod", 0)
+	m.match_view.set_meta("cpu_look", 2)
+	m.match_view.set_meta("my_name", "TU")
+	m.match_view.set_meta("cpu_label", "CPU")
+	m.match_view.setup({"demo": true, "surface": "grass", "AIP": m.DIFF_PARAMS[1], "sets_to_win": 1})
+	add_child(m.match_view)
+	var jc: = Camera3D.new()
+	add_child(jc)
+	jc.fov = 30.0
+	var n: = 0
+	while n < 6:
+		var ok: = await _wait_until( func(): return m.match_view.sim.pl[0].swing > 0.0 and m.match_view.sim.pl[0].kind != "serve", 60.0)
+		if not ok:
+			break
+		await _wait_sim(0.10)
+		var p0: Vector3 = m.match_view.rigs[0].global_position
+		jc.position = p0 + Vector3( - 2.8, 1.5, -1.4)
+		jc.look_at(p0 + Vector3(0, 0.95, 0.3))
+		jc.current = true
+		for k in 3:
+			await _grab(out + "/hit_%d_%d.png" % [n, k])
+			await _wait_sim(0.06)
+		n += 1
+	print("CONTACT DONE")
+	get_tree().quit()
 
 
 func _watchtest_harness(args: Array) -> void :
