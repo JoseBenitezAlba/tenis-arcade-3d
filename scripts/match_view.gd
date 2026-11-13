@@ -46,7 +46,7 @@ const CAM_MODES: = [
 	{"pos": Vector3(0, 3.3, -8.3), "fov": 40.0, "look_y": 0.95},
 	{"pos": Vector3(0, 5.7, -10.7), "fov": 42.0, "look_y": 0.85},
 ]
-var cam_mode: = 0
+var cam_mode: = 1
 var hud: MatchHUD
 var sfx: SoundKit
 var dust_pool: = []
