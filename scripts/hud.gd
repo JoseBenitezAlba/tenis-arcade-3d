@@ -214,8 +214,9 @@ func _ready() -> void :
 
 	callout = Label.new()
 	callout.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	callout.position = Vector2(806, 500)
-	callout.size = Vector2(450, 76)
+	# Va a la izquierda de los botones táctiles (GOLPE empieza en x~1096): no los tapa.
+	callout.position = Vector2(700, 470)
+	callout.size = Vector2(380, 76)
 	callout.add_theme_font_size_override("font_size", 42)
 	callout.add_theme_font_override("font", ui_bold)
 	callout.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.95))

@@ -8,6 +8,14 @@ var joy_ofs := Vector2.ZERO
 var joy_layer: Control
 var _vp := Vector2.ZERO
 var _buttons: Array[TouchScreenButton] = []
+var _charge := 0.0
+var _golpe_center := Vector2.ZERO
+var _golpe_r := 0.0
+
+func set_charge(v: float) -> void:
+	if absf(v - _charge) > 0.01 or (v <= 0.0) != (_charge <= 0.0):
+		_charge = v
+		joy_layer.queue_redraw()
 
 static func should_show() -> bool:
 	if not OS.has_feature("web"):
@@ -74,6 +82,8 @@ func _layout() -> void:
 		label.position = Vector2.ZERO
 		label.size = Vector2(128, 128)
 		label.add_theme_font_size_override("font_size", 24 if i < 3 else 25)
+	_golpe_center = centers[0]
+	_golpe_r = radii[0]
 	joy_center = Vector2(m * 0.20, _vp.y - m * 0.23)
 	joy_layer.queue_redraw()
 
@@ -132,6 +142,8 @@ func _axis(neg: String, pos: String, s: float) -> void:
 		Input.action_press(neg, -s)
 
 func _draw_joy() -> void:
+	if _charge > 0.0 and _golpe_r > 0.0:
+		joy_layer.draw_arc(_golpe_center, _golpe_r + 7.0, -PI / 2.0, -PI / 2.0 + TAU * _charge, 48, Color(1.0, 0.9, 0.3, 0.95), 7.0, true)
 	var r := _joy_r()
 	joy_layer.draw_circle(joy_center, r, Color(0.05, 0.08, 0.14, 0.22))
 	joy_layer.draw_arc(joy_center, r, 0.0, TAU, 48, Color(1, 1, 1, 0.45), 3.0)
