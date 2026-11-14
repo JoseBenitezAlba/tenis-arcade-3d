@@ -2415,22 +2415,38 @@ func _fit_twohand(head:Vector3,source:Basis,source_wrist:Vector3)->Basis:
 	var src:Vector3=(source*grip_basis.y).normalized()
 	var best:Basis=source
 	var score:float=INF
-	for y in 21:
-		var yy:float=-0.95+y*0.095
-		var rr:float=sqrt(1.0-yy*yy)
-		for k in 48:
-			var az:float=k*TAU/48.0
-			var axis:Vector3=Vector3(rr*cos(az),yy,rr*sin(az))
-			var hb:Basis=Basis(Quaternion(src,axis))*source
-			var rw:Vector3=head-hb*(_fist_center_hand+grip_basis.y*0.57/CHAR_SCALE)
-			var lc:Vector3=head-axis*0.475/CHAR_SCALE
-			var lb:Basis=_twohand_left_basis(axis,lc)
-			var lw:Vector3=lc+lb*Vector3(0.065,0,-0.012)/CHAR_SCALE
-			var er:float=maxf(0,rs.distance_to(rw)-limit)
-			var el:float=maxf(0,ls.distance_to(lw)-limit)
-			var cost:float=(er*er+el*el)*10000.0+rw.distance_squared_to(source_wrist)+(1.0-axis.dot(src))*0.0001
-			if cost<score:score=cost;best=hb
+	# The left shoulder and these offsets do not change during the sweep;
+	# compute them once instead of on every candidate.
+	var grip_off:Vector3=_fist_center_hand+grip_basis.y*0.57/CHAR_SCALE
+	var left_off:Vector3=Vector3(0.065,0,-0.012)/CHAR_SCALE
+	for axis in _fit_twohand_axes():
+		var hb:Basis=Basis(Quaternion(src,axis))*source
+		var rw:Vector3=head-hb*grip_off
+		var lc:Vector3=head-axis*0.475/CHAR_SCALE
+		var toward:Vector3=ls-lc;toward-=axis*axis.dot(toward)
+		if toward.length()<0.001:toward=Vector3.FORWARD
+		var x:Vector3=toward.normalized()
+		var lb:Basis=Basis(x,axis,x.cross(axis).normalized())
+		var lw:Vector3=lc+lb*left_off
+		var er:float=maxf(0,rs.distance_to(rw)-limit)
+		var el:float=maxf(0,ls.distance_to(lw)-limit)
+		var cost:float=(er*er+el*el)*10000.0+rw.distance_squared_to(source_wrist)+(1.0-axis.dot(src))*0.0001
+		if cost<score:score=cost;best=hb
 	return best
+
+static var _fit_axes: Array = []
+
+static func _fit_twohand_axes() -> Array:
+	# Fixed 21x48 sweep grid, built once with the same expressions as the
+	# old per-iteration computation, so candidate axes are identical.
+	if _fit_axes.is_empty():
+		for y in 21:
+			var yy:float=-0.95+y*0.095
+			var rr:float=sqrt(1.0-yy*yy)
+			for k in 48:
+				var az:float=k*TAU/48.0
+				_fit_axes.append(Vector3(rr*cos(az),yy,rr*sin(az)))
+	return _fit_axes
 
 # Reversible proportional experiment: move elbows/wrists with their skin,
 # never stretch a solved limb separately from its rendered mesh.
