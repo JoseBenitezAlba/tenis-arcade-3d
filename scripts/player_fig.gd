@@ -1297,7 +1297,10 @@ func _update_pose(e, dt: float) -> void:
 	var _serve_pose: bool = serve_ready or serve_toss >= 0.0 or (e.kind == "serve" and e.swing > 0.0)
 	var face_target: float = facing
 	if celeb_t > 0.0 or state in CELEB_ANIMS:
-		face_target = 0.0
+		# mirar a la cámara del primer plano (situada a wp.x+side, wp.z+front*4)
+		var _cside: float = 0.9 if e.x >= 0.0 else -0.9
+		var _cfront: float = 1.0 if e.near else -1.0
+		face_target = atan2(_cside, _cfront * 4.0)
 	if _serve_pose:
 		face_target = facing + (0.65 if e.near else -0.65)
 	var ball_delta: Vector3 = look_target-Vector3(e.x,look_target.y,e.z)
@@ -1668,7 +1671,9 @@ func _celebration_legs() -> void :
 func _celebration_grip() -> void :
 	if racket_node == null:
 		return
-	_raise_arm(-1.05, "UpperArm.R")
+	_raise_arm(-0.55, "UpperArm.R")
+	# cabeza de la raqueta hacia abajo para que no cruce la cara en el primer plano
+	_align_hand_axis(global_transform.basis * Vector3(0.12, - 1.0, 0.08), 1.0)
 
 
 # Mano y raqueta comparten el BoneAttachment3D de la muneca.
