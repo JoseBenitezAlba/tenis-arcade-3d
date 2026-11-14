@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 	<head>
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0">
@@ -89,12 +89,22 @@ body {
 	text-align: center;
 	z-index: 1;
 }
-		</style>
+		
+#mobile-tools { display:none; position:fixed; z-index:9; left:max(10px,env(safe-area-inset-left)); top:max(8px,env(safe-area-inset-top)); font:14px system-ui,sans-serif; }
+#mobile-tools button { color:#fff; background:#182c38e8; border:1px solid #a4c4c9; border-radius:9px; padding:10px 14px; min-height:44px; touch-action:manipulation; }
+#mobile-guide { display:none; position:fixed; z-index:8; top:6vh; left:6%; right:6%; max-width:480px; margin:auto; padding:20px; box-sizing:border-box; border:1px solid #53746b; border-radius:16px; background:#10241f; color:#f1f6ee; font:16px/1.5 system-ui,sans-serif; }
+#mobile-guide strong {display:block;font-size:21px;margin-bottom:8px;}
+#mobile-guide p {margin:4px 0;}
+body.mobile #mobile-tools {display:block;}
+@media (orientation:portrait) {body.mobile #mobile-guide {display:block;} body.mobile #mobile-tools {top:auto;bottom:max(24px,env(safe-area-inset-bottom));left:0;right:0;text-align:center;}}
+</style>
 		<link id="-gd-engine-icon" rel="icon" type="image/png" href="index.icon.png" />
 <link rel="apple-touch-icon" href="index.apple-touch-icon.png"/>
 
 	</head>
 	<body>
+		<aside id="mobile-guide" aria-label="Jugar en el móvil"><strong>Más pista, menos bandas</strong><p>Gira el móvil para jugar en horizontal. Verás la pista completa con los controles a los lados.</p><p>Pantalla completa oculta la barra del navegador cuando tu móvil lo permite.</p></aside>
+		<div id="mobile-tools"><button id="display-toggle" type="button">Pantalla completa</button></div>
 		<canvas id="canvas">
 			Your browser does not support the canvas tag.
 		</canvas>
@@ -111,7 +121,7 @@ body {
 
 		<script src="index.js"></script>
 		<script>
-const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":true,"executable":"index","experimentalVK":false,"mainPack":"1-index.pck","fileSizes":{"1-index.pck":3423152,"index.wasm":39514754},"focusCanvas":true,"gdextensionLibs":[],"godotPoolSize":4};
+const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":true,"executable":"index","experimentalVK":false,"fileSizes":{"index.pck":4380676,"index.wasm":39509339},"focusCanvas":true,"gdextensionLibs":[],"godotPoolSize":4};
 const GODOT_THREADS_ENABLED = false;
 const engine = new Engine(GODOT_CONFIG);
 
@@ -215,5 +225,30 @@ const engine = new Engine(GODOT_CONFIG);
 	}
 }());
 		</script>
-	</body>
+	<script>
+(() => {
+ const mobile = navigator.maxTouchPoints > 0 && (matchMedia('(pointer: coarse)').matches || /Android|iPhone|iPad|Mobile|Tablet/i.test(navigator.userAgent));
+ if (!mobile) return;
+ document.body.classList.add('mobile');
+ const button = document.getElementById('display-toggle');
+ const standard = !!document.documentElement.requestFullscreen;
+ if (!standard) button.textContent = 'Gira el móvil para ampliar la pista';
+ button.addEventListener('click', async () => {
+  if (!standard) return;
+  try {
+   if (document.fullscreenElement) {await document.exitFullscreen(); return;}
+   await document.documentElement.requestFullscreen();
+   if (screen.orientation && screen.orientation.lock) {
+    try {await screen.orientation.lock('landscape');} catch (_) { /* Manual rotation remains available. */ }
+   }
+  } catch (_) {button.textContent = 'Gira el móvil para ampliar la pista';}
+ });
+ document.addEventListener('fullscreenchange', () => {
+  button.textContent = document.fullscreenElement ? 'Salir de pantalla completa' : 'Pantalla completa';
+  document.getElementById('canvas').focus();
+ });
+})();
+</script>
+</body>
 </html>
+
