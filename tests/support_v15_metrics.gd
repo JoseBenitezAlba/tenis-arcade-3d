@@ -1,0 +1,22 @@
+extends SceneTree
+func _initialize():call_deferred("run")
+func run():
+ var host=load("res://scripts/main.gd").new();host._register_inputs();seed(42117)
+ var mv=MatchView.new();mv.set_meta("surface","clay");mv.setup({"demo":true,"surface":"clay","AIP":host.DIFF_PARAMS[1],"sets_to_win":1});root.add_child(mv);await process_frame;mv.set_physics_process(false)
+ var last:Array[float]=[0.0,0.0]
+ var samples:int=0;var maxgap:float=0.0;var gapframes:int=0
+ for i in 840:
+  mv._physics_process(1.0/60)
+  for k in 2:
+   var f=mv.rigs[k];var e=mv.sim.pl[k]
+   var r:Transform3D=f._current_global_pose(f.racket_hand_idx)
+   var center:Vector3=r*f._fist_center_hand+(r.basis*f.grip_basis.y)*0.095/f.CHAR_SCALE
+   var gap:float=center.distance_to(f._closed_left.position)*f.CHAR_SCALE
+   if f._support_age<0.16 and f._support_foot>=0: print("SUPPORT ",i," actor=",k," age=",f._support_age," error=",f._support_measured_error)
+   if f._closed_left.visible:
+    samples+=1;maxgap=maxf(maxgap,gap)
+   if e.swing>last[k] and e.hit_side=="back" and e.kind!="serve":
+    print("BACK_CONTACT frame=",i," actor=",k," gap_m=",gap," closed=",f._closed_left.visible," racket_contact_m=",(f.skel.global_transform*(r*(f._fist_center_hand+f.grip_basis.y*0.57/f.CHAR_SCALE))).distance_to(f.visual_contact))
+   last[k]=e.swing
+ print("CLOSED_GRIP samples=",samples," maxgap_m=",maxgap)
+ mv._amb.stop();mv.queue_free();host.free();await process_frame;quit()

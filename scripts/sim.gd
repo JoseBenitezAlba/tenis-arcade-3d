@@ -627,7 +627,7 @@ func do_hit(e: Player, kind: String, ai: bool) -> void :
 	if e.id == M.server and state == "serve" and serve_stage != "rally":
 		if serve_stage == "toss" and ball.toss:
 			var sq: float = 1.0 - clampf(absf(ball.toss_t - 0.5) / 0.45, 0.0, 1.0)
-			if sq <= 0.02 or ball.y < 1.25:
+			if sq <= 0.02 or ball.y < 2.75:
 				fault("SIN CONTACTO")
 			else:
 				do_serve(e, maxf(sq, 0.4), "")
@@ -1411,7 +1411,8 @@ func toss_ball() -> void :
 	ball.held = false
 	ball.toss = true
 	ball.toss_t = 0.0
-	ball.vy = 10.5
+	ball.y = 1.25
+	ball.vy = 5.85
 	ball.vx = 0.0
 	ball.vz = 0.0
 	serve_stage = "toss"
@@ -1539,7 +1540,7 @@ func step_ball(dt: float) -> void :
 
 
 		rut_t += dt
-		ball.x = sv.x + 0.28
+		ball.x = sv.x + 0.28 * sdir
 		ball.z = sv.z + 0.3 * sdir
 		var ny: float = rut_y(rut_t)
 		if rut_b < int(rut_t / 0.55) and rut_t < 1.66:
@@ -1552,9 +1553,9 @@ func step_ball(dt: float) -> void :
 		return
 	if ball.toss:
 		ball.toss_t += dt
-		ball.vy -= g_eff(ball.spin) * dt
+		ball.vy -= 9.8 * dt
 		ball.y += ball.vy * dt
-		ball.x = sv.x + 0.28
+		ball.x = sv.x + 0.28 * sdir
 		ball.z = sv.z + 0.3 * sdir
 		if ball.vy < 0.0 and ball.y <= 0.25:
 			ball.toss = false
@@ -2045,7 +2046,7 @@ func ai_control(e: Player, dt: float) -> void :
 		var ymax: = 2.35 if volley_zone else 1.8
 		if ball.y > 2.15 and not (serve_unreturned and M.server != e.id):
 			ymax = 2.7
-		if dx < gx and dz < gz and ball.y < ymax and ball.y > 0.15 and e.letgo_for != ball.hit_id and (state != "serve" or ball.bounces >= 1):
+		if _physical_contact_ok(e,ball.x,ball.y,ball.z) and dx < gx and dz < gz and ball.y < ymax and ball.y > 0.15 and e.letgo_for != ball.hit_id and (state != "serve" or ball.bounces >= 1):
 			var stretch: = dx > 1.0 or dz > 1.0
 
 			var miss_p: float = D.miss * (0.35 if srv_ret2 else 1.0)
@@ -2245,7 +2246,7 @@ func human_control(e: Player, dt: float) -> void :
 
 				var _st: = "kick" if want_lob else ("slice" if inp.y < -0.4 else "")
 				var _q: float = 1.0 - clamp(absf(ball.toss_t - 0.5) / 0.45, 0.0, 1.0)
-				if _q <= 0.03 or ball.y < 1.25:
+				if _q <= 0.03 or ball.y < 2.75:
 					# Intento de swing sin contacto o dejar caer el lanzamiento = falta.
 					e.swing = 0.3
 					events.append({"t": "swing_miss"})
@@ -2622,3 +2623,11 @@ func _skim_cross_height(v: Vector3) -> float:
 		if y <= BR:
 			return -1.0
 	return -1.0
+
+# Separate experiment: no instant remote contacts through a rectangular
+# approach window. Same check for both demo actors, no random miss removed.
+func _physical_contact_ok(e:Player,bx:float,by:float,bz:float)->bool:
+	var distance:float=Vector2(bx-e.x,bz-e.z).length()
+	var vertical:float=maxf(0.0,absf(by-1.35)-0.20)
+	var reach:float=1.35 if e.dive_t<=0.0 else 1.65
+	return distance*distance+vertical*vertical<=reach*reach
