@@ -19,6 +19,13 @@ https://doi.org/10.1007/978-3-319-52277-7_38
 
 Las tomas BVH originales fueron re-segmentadas y retargeteadas al esqueleto
 del personaje del juego (adaptacion). La toma de saque actual deriva de
-`data/jduribe_Servicio.bvh`. De acuerdo con la condicion CompartirIgual,
+`data/cferrero_Servicio.bvh` (9.96-12.36 s). De acuerdo con la condicion CompartirIgual,
 estas animaciones derivadas se distribuyen bajo la misma licencia
 CC BY-SA 3.0.
+
+En la alternativa experimental de articulacion se vuelven a adaptar
+`data/cferrero_Servicio.bvh` (9.96-12.36 s),
+`data/adorozco_Derecha.bvh` (19.0-21.4 s) y
+`data/adorozco_Reves_14seg.bvh` (1.7-4.1 s), usando el bind y la jerarquia
+del personaje actual. Las tres animaciones derivadas nuevas conservan
+CC BY-SA 3.0; no cambian la licencia de las tomas ni su atribucion.

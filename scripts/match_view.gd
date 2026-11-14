@@ -739,10 +739,6 @@ func _physics_process(dt: float) -> void :
 	serve_speed_hold = maxf(0.0, serve_speed_hold - dt)
 	drain_events()
 	_check_score_fallback()
-	if ( not demo or replay_test) and sim.state not in ["point", "over"] and sim.ball.in_play:
-		rec.append({"b": Vector3(sim.ball.x, sim.ball.y, sim.ball.z), "p0": _snap(sim.pl[0]), "p1": _snap(sim.pl[1])})
-		if rec.size() > REC_MAX:
-			rec.pop_front()
 	var exc: float = clampf(sim.rally_hits / 10.0, 0.0, 1.0) if sim.state not in ["point", "over"] else 0.0
 	_update_rally_label(dt)
 	crowd.ball_pos = ball_mesh.position
@@ -771,10 +767,37 @@ func _physics_process(dt: float) -> void :
 
 
 	for i in 2:
+		rigs[i].point_finished_visual=sim.state in ["point","over"]
 		rigs[i].look_on = (sim.state == "play")
-		var _tdiv: float = 0.5 if i == 0 else 0.72
+		var _tdiv: float = 0.42
+		if sim.demo or i==1:
+			_tdiv=maxf(0.10,sim.cpu_serve_at-sim.time+sim.ball.toss_t) if sim.cpu_serve_at>0.0 else 0.76
 		rigs[i].serve_toss = clampf(sim.ball.toss_t / _tdiv, 0.0, 1.0) if (sim.state == "serve" and sim.M.server == i and sim.serve_stage == "toss") else -1.0
+		rigs[i].serve_contact_preview=Vector3(sim.ball.x,sim.ball.y,sim.ball.z)
+		if sim.state=="serve" and sim.M.server==i and sim.serve_stage=="toss" and sim.cpu_serve_at>sim.time:
+			var remain:float=sim.cpu_serve_at-sim.time
+			rigs[i].serve_contact_preview.y+=sim.ball.vy*remain-4.9*remain*remain
 		rigs[i].look_target = Vector3(sim.ball.x, sim.ball.y, sim.ball.z)
+		# La peticion de golpe no es el reloj visual: su temporizador expira
+		# antes de que llegue la pelota. Anticipar desde su velocidad real.
+		rigs[i].approach_active = sim.state == "play" and sim.ball.in_play and sim.ball.last != i and sim.ball.vz*(1.0 if sim.pl[i].near else -1.0)<0.0
+		var approach_delta: Vector2 = Vector2(sim.pl[i].x-sim.ball.x,sim.pl[i].z-sim.ball.z)
+		var closing: float = Vector2(sim.ball.vx-sim.pl[i].vx,sim.ball.vz-sim.pl[i].vz).dot(approach_delta.normalized())
+		rigs[i].approach_time = maxf(0.0,(approach_delta.length()-1.2)/maxf(closing,5.0)) if rigs[i].approach_active else 9.0
+		rigs[i].approach_velocity=Vector3(sim.ball.vx,sim.ball.vy,sim.ball.vz)
+		rigs[i].approach_contact=Vector3(sim.ball.x,sim.ball.y,sim.ball.z)
+		if rigs[i].approach_active:
+			var predictive_velocity:Vector3=rigs[i].approach_velocity
+			var remaining:float=minf(0.65,rigs[i].approach_time)
+			while remaining>0.00001:
+				var step:float=minf(0.01,remaining)
+				predictive_velocity.y-=sim.g_eff(sim.ball.spin)*step
+				rigs[i].approach_contact+=predictive_velocity*step
+				if rigs[i].approach_contact.y<=sim.BR and predictive_velocity.y<0.0:
+					rigs[i].approach_contact.y=sim.BR
+					var bounce:Array=sim._bounce_factors(sim.ball.spin)
+					predictive_velocity.y*=-bounce[0];predictive_velocity.x*=bounce[1];predictive_velocity.z*=bounce[1]
+				remaining-=step
 		rigs[i].serve_ready = sim.state == "serve" and sim.M.server == i and sim.serve_stage == "ready"
 		rigs[i].serve_ball_held = rigs[i].serve_ready and sim.ball.held and sim.rut_t >= 1.45
 		rigs[i].serve_ball_blend = smoothstep(1.45, 1.65, sim.rut_t)
@@ -828,6 +851,10 @@ func _physics_process(dt: float) -> void :
 			step_t[i] = step_interval(pv.speed)
 		elif pv.speed <= 2.2:
 			step_t[i] = 0.0
+
+	if (not demo or replay_test) and sim.state not in ["point","over"] and (sim.ball.in_play or sim.ball.toss):
+		rec.append({"b":Vector3(sim.ball.x,sim.ball.y,sim.ball.z),"p0":_snap(sim.pl[0]),"p1":_snap(sim.pl[1]),"v0":rigs[0].capture_visual_pose(),"v1":rigs[1].capture_visual_pose()})
+		if rec.size()>REC_MAX:rec.pop_front()
 
 	if sim.state == "play" or sim.state == "serve":
 		if _pb_active:
@@ -1189,8 +1216,12 @@ func _replay_tick(dt: float) -> void :
 	var cam_target: = Vector3(8.6 * replay_side, 6.8, clampf(f.b.z - NZ, -6.5, 6.5) * 0.55)
 	cam.position = cam.position.lerp(cam_target, minf(1.0, dt * 2.6))
 	cam.look_at(Vector3(f.b.x * 0.75, 0.55, f.b.z))
-	rigs[0].update_from_sim(f.p0, dt)
-	rigs[1].update_from_sim(f.p1, dt)
+	if f.has("v0"):
+		rigs[0].restore_visual_pose(f.v0)
+		rigs[1].restore_visual_pose(f.v1)
+	else:
+		rigs[0].update_from_sim(f.p0, dt)
+		rigs[1].update_from_sim(f.p1, dt)
 	ball_mesh.position = f.b
 	ball_shadow.position.x = f.b.x
 	ball_shadow.position.z = f.b.z
@@ -1510,6 +1541,7 @@ func drain_events() -> void :
 	for ev in sim.events:
 		match ev.t:
 			"hit":
+				rigs[ev.id].register_contact(Vector3(ev.x,ev.y,ev.z))
 
 
 
@@ -1601,6 +1633,7 @@ func drain_events() -> void :
 				if ev.kind == "smash" or ev.get("stretch", 0.0) >= 1.3 or charged >= 1.3:
 					sfx.play("grunt", 0.55 if ev.id == 0 else 0.35, randf_range(0.9, 1.12))
 			"serve":
+				rigs[ev.id].register_serve_contact(Vector3(ev.x,ev.y,ev.z))
 				_srv_bounce_ok = false
 				if _hot_level() >= 1 and not _serve_armed:
 					sfx.play("murmur", 0.8)
@@ -1821,6 +1854,8 @@ func drain_events() -> void :
 
 
 				rec.clear()
+			"swing_miss":
+				if sim.state=="serve":rigs[sim.M.server].register_serve_miss()
 			"fault":
 				hud.hide_popups()
 				_call_line_judges(sim.ball.x)
