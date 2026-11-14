@@ -213,6 +213,15 @@ func build() -> void :
 	mm_cap.multimesh = mmc
 	mm_cap.material_override = _mat()
 	add_child(mm_cap)
+	var zero_t: = Transform3D(Basis.IDENTITY.scaled(Vector3.ZERO), Vector3.ZERO)
+	for i in n:
+		if empty[i]:
+			mmb.set_instance_transform(i, zero_t)
+			mmh.set_instance_transform(i, zero_t)
+			mml.set_instance_transform(i, zero_t)
+			mmc.set_instance_transform(i, zero_t)
+		elif not cap_ok[i]:
+			mmc.set_instance_transform(i, zero_t)
 
 func _add_person(p0: Vector3, rot: Basis, r: int, c: int, org: Vector3, rng: RandomNumberGenerator, extra: bool = false) -> void :
 	var p: Vector3 = p0
@@ -330,12 +339,6 @@ func update(dt: float, rally_exc: float) -> void :
 	var frozen: = sil_t > 0.0 and not ova
 	for i in n:
 		if empty[i]:
-
-			var tz: = Transform3D(Basis.IDENTITY.scaled(Vector3.ZERO), base_pos[i])
-			mm_body.multimesh.set_instance_transform(i, tz)
-			mm_head.multimesh.set_instance_transform(i, tz)
-			mm_legs.multimesh.set_instance_transform(i, tz)
-			mm_cap.multimesh.set_instance_transform(i, tz)
 			continue
 		var p: Vector3 = base_pos[i] + Vector3(0, 0.13, 0)
 		var ph: float = phases[i]
@@ -373,5 +376,3 @@ func update(dt: float, rally_exc: float) -> void :
 
 		if cap_ok[i]:
 			mm_cap.multimesh.set_instance_transform(i, Transform3D(Basis.IDENTITY, p + Vector3(0, head_base + 0.14, 0)))
-		else:
-			mm_cap.multimesh.set_instance_transform(i, Transform3D(Basis.IDENTITY.scaled(Vector3.ZERO), p))
