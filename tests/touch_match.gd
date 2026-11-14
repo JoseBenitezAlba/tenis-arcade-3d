@@ -11,6 +11,11 @@ func run():
   if child is TouchControls:tc=child
  mv.set_physics_process(false)
  var hit=tc._buttons[0];var hp=hit.position+Vector2.ONE*75
+ # Cooldown de 0,4 s al entrar al saque: un toque inmediato no lanza.
+ press(1,hp,true);await process_frame;mv._physics_process(1.0/60)
+ press(1,hp,false);await process_frame
+ print("TOUCH SERVE cooldown stage ",mv.sim.serve_stage);assert(mv.sim.serve_stage=="ready")
+ mv.sim.state_t=0.45
  press(1,hp,true);await process_frame;mv._physics_process(1.0/60)
  press(1,hp,false);await process_frame
  print("TOUCH SERVE stage ",mv.sim.serve_stage);assert(mv.sim.serve_stage=="toss")
