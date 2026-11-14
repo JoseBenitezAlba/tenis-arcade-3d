@@ -1581,7 +1581,7 @@ func _update_pose(e, dt: float) -> void:
 	# Espera de saque: brazo de raqueta relajado al costado (referencia Jose),
 	# fundido con carry_k para que suba con el inicio del saque sin salto.
 	if e.wait_serve and e.swing <= 0.0 and carry_k > 0.01:
-		_serve_wait_arm(carry_k)
+		_receive_ready_arm(carry_k)
 	_apply_gaze()
 	_rk_rest(dt)
 	if state in CELEB_ANIMS:
@@ -1738,6 +1738,16 @@ func _serve_wait_arm(k: float) -> void :
 	# muneca orientada para que el mango cruce la palma (agarre martillo) y la
 	# cabeza cuelgue baja junto a la pierna, con cualquier pose que traiga el clip
 	_align_hand_axis(global_transform.basis * Vector3( - 0.10, - 1.0, - 0.15), k)
+
+
+# Espera de recepcion: el restador sostiene la raqueta delante del cuerpo con
+# la cabeza alta, listo para el golpe, en vez de dejarla colgar junto a la pierna.
+func _receive_ready_arm(k: float) -> void :
+	_align_bone_dir("UpperArm.R", "LowerArm.R", Vector3(0.32, -0.85, 0.25), k)
+	_align_bone_dir("LowerArm.R", "Wrist.R", Vector3(0.12, -0.62, 0.78), k)
+	_align_bone_dir("UpperArm.L", "LowerArm.L", Vector3( - 0.25, -0.65, 0.45), k)
+	_align_bone_dir("LowerArm.L", "Wrist.L", Vector3( - 0.15, -0.25, 0.92), k)
+	_align_hand_axis(global_transform.basis * Vector3(0.05, 0.72, 0.90), k)
 
 
 # Gira la mano de la raqueta para que el eje del mango (grip_basis.y en espacio
