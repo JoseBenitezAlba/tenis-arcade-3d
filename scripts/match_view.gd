@@ -806,7 +806,10 @@ func _physics_process(dt: float) -> void :
 		rigs[i].force_hide_racket(false)
 		rigs[i].update_from_sim(sim.pl[i], dt)
 		if _closeup_ok and sim.state in ["point", "over"]:
-			rigs[i].rotation.y = 0.0
+			# de cara a la camara del primer plano, no a la valla
+			var _pside: float = 0.9 if sim.pl[i].x >= 0.0 else -0.9
+			var _pfront: float = 1.0 if sim.pl[i].near else -1.0
+			rigs[i].rotation.y = atan2(_pside, _pfront * 4.0)
 		var _hide_ps: bool = _closeup_ok and sim.state in ["point", "over"]
 		shadows[i].visible = not _hide_ps
 		shadow_heads[i].visible = not _hide_ps
@@ -1340,12 +1343,12 @@ static func winner_celebration_plan(txt: String, hot: int, games: int = 0) -> Ar
 
 	if txt == "PARTIDO":
 
-		return ["Wave", 3.0]
+		return ["Wave", 3.0]  # el saludo a la grada se reserva para ganar el partido
 	if txt == "SET":
 
 		return ["Punch_Left", 2.0]
 	if txt == "JUEGO":
-		return ["Wave", 1.5]
+		return ["Punch_Left", 1.5]
 	if txt == "PUNTO" and hot >= 2:
 		return ["Punch_Left", 1.2]
 	return []
@@ -1390,7 +1393,7 @@ func _check_score_fallback() -> void :
 		hud.show_banner(title + "  " + pn, _pts_line(), col, title != "PUNTO")
 		banner_t = 1.8 if title != "PUNTO" else 1.4
 		if title == "JUEGO":
-			rigs[sim.last_winner].celebrate("Wave", 1.3)
+			rigs[sim.last_winner].celebrate("Punch_Left", 1.3)
 	_last_sets = M.sets.duplicate()
 	_last_games = M.games.duplicate()
 	_last_pts = M.pts.duplicate()
@@ -1754,7 +1757,10 @@ func drain_events() -> void :
 				_closeup_ok = ev.txt in ["JUEGO", "SET", "PARTIDO"]
 				if _closeup_ok:
 					ball_mesh.visible = false
-					rigs[ev.w].rotation.y = 0.0
+					var _cw = sim.pl[ev.w]
+					var _cside: float = 0.9 if _cw.x >= 0.0 else -0.9
+					var _cfront: float = 1.0 if _cw.near else -1.0
+					rigs[ev.w].rotation.y = atan2(_cside, _cfront * 4.0)
 				hud.hide_speed()
 				_fatigue = fatigue_from_rally(sim.rally_hits)
 				var is_err: bool = ev.txt in ["FUERA", "RED", "DOBLE FALTA"]
