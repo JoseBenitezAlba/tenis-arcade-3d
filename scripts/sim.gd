@@ -2240,7 +2240,9 @@ func human_control(e: Player, dt: float) -> void :
 	inp.drop = false
 	if state == "serve" and M.server == 0:
 		if want_hit or want_lob:
-			if serve_stage == "ready":
+			# Pausa corta al entrar al saque: un toque de GOLPE para avanzar el punto
+			# no debe lanzar la bola al instante (dobles faltas accidentales en táctil).
+			if serve_stage == "ready" and state_t >= 0.4:
 				toss_ball()
 			elif serve_stage == "toss":
 

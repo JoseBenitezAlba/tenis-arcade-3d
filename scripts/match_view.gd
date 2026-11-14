@@ -170,6 +170,7 @@ var hint_t: = 9.0
 var demo: = false
 
 var touch_ui: = false
+var touch_ctl: TouchControls = null
 var is_career: = false
 var paused_game: = false
 var pause_layer: CanvasLayer
@@ -492,8 +493,8 @@ func _ready() -> void :
 		touch_ui = get_meta("force_touch", false) or TouchControls.should_show()
 		if touch_ui:
 			hud.use_touch_layout()
-			var tc: = TouchControls.new()
-			add_child(tc)
+			touch_ctl = TouchControls.new()
+			add_child(touch_ctl)
 	if not demo:
 		if touch_ui:
 			hud.set_hint("Joystick izquierdo mover · GOLPE / GLOBO / DEJADA a la derecha · II pausa")
@@ -851,6 +852,9 @@ func _physics_process(dt: float) -> void :
 			step_t[i] = step_interval(pv.speed)
 		elif pv.speed <= 2.2:
 			step_t[i] = 0.0
+
+	if touch_ctl != null:
+		touch_ctl.set_charge(sim.pl[0].charge if sim.pl[0].charging else 0.0)
 
 	if (not demo or replay_test) and sim.state not in ["point","over"] and (sim.ball.in_play or sim.ball.toss):
 		rec.append({"b":Vector3(sim.ball.x,sim.ball.y,sim.ball.z),"p0":_snap(sim.pl[0]),"p1":_snap(sim.pl[1]),"v0":rigs[0].capture_visual_pose(),"v1":rigs[1].capture_visual_pose()})
