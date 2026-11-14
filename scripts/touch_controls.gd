@@ -117,7 +117,10 @@ func _set_axes(v: Vector2) -> void:
 		v = Vector2.ZERO
 	else:
 		v = v.normalized() * ((v.length() - DEAD) / (1.0 - DEAD))
-	_axis("move_left", "move_right", v.x)
+	# La camara del partido mira desde -z: la derecha de la pantalla es -x mundo.
+	# El eje X del joystick sigue el mismo criterio que el mando (pad_inv_x):
+	# arrastrar a la derecha mueve al jugador a la derecha de la pantalla.
+	_axis("move_right", "move_left", v.x)
 	_axis("move_up", "move_down", v.y)
 
 func _axis(neg: String, pos: String, s: float) -> void:
