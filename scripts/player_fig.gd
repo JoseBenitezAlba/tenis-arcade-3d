@@ -939,8 +939,11 @@ var _run_dir_age:float=9.0
 var _pending_gait:String=""
 var _pending_age:float=0.0
 var _pending_best:float=9.0
+const GAIT_SWEEP:float=0.24
 var _gait_from:Array=[]
 var _gait_age:float=9.0
+var _gait_k:float=1.0
+var _gait_feet:Dictionary={}
 # Desajuste de apoyos al cambiar de clip: distancia entre los tobillos de la
 # pose visual actual y los del clip nuevo en su fase equivalente, ambos en
 # espacio del hueso Body. Cambiar en un momento de bajo desajuste evita el
@@ -1021,12 +1024,11 @@ func _select_run_clip(gv:Vector3,dt:float)->String:
 	elif _run_dir=="Run_Left" and theta>=30.0 and theta<=150.0:cand="Run_Left"
 	elif _run_dir=="Run_Right" and theta<=-30.0 and theta>=-150.0:cand="Run_Right"
 	return cand
-func _blend_gait_change(dt:float)->void:
-	if _gait_from.is_empty() or _gait_age>=0.12:return
-	_gait_age+=dt
-	var k:float=smoothstep(0.0,0.12,_gait_age)
-	var target:Array=[]
-	for bi in skel.get_bone_count():target.append(_current_global_pose(bi))
+# Escribe la mezcla _gait_from->target con k y devuelve el peor barrido del
+# tobillo respecto al frame anterior. Con commit=false solo mide y restaura.
+func _gait_apply(k:float,target:Array,commit:bool)->float:
+	var saved:Dictionary={}
+	if not commit:saved=_pose_overrides.duplicate()
 	_pose_overrides.clear()
 	for bi in skel.get_bone_count():
 		var parent:int=skel.get_bone_parent(bi)
@@ -1038,8 +1040,52 @@ func _blend_gait_change(dt:float)->void:
 		if lower and parent>=0 and not bn in ["Root","Body"] and old.origin.length()>0.001 and goal.origin.length()>0.001:
 			local.origin=local.origin.normalized()*lerpf(old.origin.length(),goal.origin.length(),k)
 		_pose_overrides[bi]=local if parent<0 else _pose_overrides[parent]*local
+	var worst:float=0.0
+	for side in ["L","R"]:
+		var leg:int=skel.find_bone(_bone_name(skel,"LowerLeg."+side))
+		var foot:int=skel.find_bone(_bone_name(skel,"Foot."+side))
+		if leg<0 or foot<0:continue
+		var link:Transform3D=_skin_bind[leg].affine_inverse()*_skin_bind[foot]
+		var ankle:Vector3=(_pose_overrides[leg]*link).origin
+		if _gait_feet.has(side):worst=maxf(worst,(_gait_feet[side] as Vector3).distance_to(ankle))
+	if not commit:_pose_overrides=saved
+	return worst
+
+func _blend_gait_change(dt:float)->void:
+	if _gait_from.is_empty() or _gait_k>=1.0:return
+	_gait_age+=dt
+	var k_des:float=smoothstep(0.0,0.12,_gait_age)
+	if _gait_age>0.4:k_des=1.0
+	var target:Array=[]
+	for bi in skel.get_bone_count():target.append(_current_global_pose(bi))
+	if _gait_feet.is_empty():
+		for side0 in ["L","R"]:
+			var leg0:int=skel.find_bone(_bone_name(skel,"LowerLeg."+side0))
+			var foot0:int=skel.find_bone(_bone_name(skel,"Foot."+side0))
+			if leg0>=0 and foot0>=0:_gait_feet[side0]=(_gait_from[leg0]*(_skin_bind[leg0].affine_inverse()*_skin_bind[foot0])).origin
+	# Regulador de barrido: ningun tobillo puede moverse dentro del esqueleto
+	# mas rapido que GAIT_SWEEP por frame durante la mezcla; si hace falta, k
+	# avanza mas despacio que el reloj y la reversa resbala en vez de fustigar.
+	var k:float=k_des
+	if _gait_apply(k_des,target,false)>GAIT_SWEEP:
+		var lo:float=_gait_k
+		var hi:float=k_des
+		for it in 10:
+			var mid:float=(lo+hi)*0.5
+			if _gait_apply(mid,target,false)<=GAIT_SWEEP:lo=mid
+			else:hi=mid
+		k=lo
+	_gait_apply(k,target,true)
 	for bi in _pose_overrides:skel.set_bone_global_pose_override(bi,_pose_overrides[bi],1.0,true)
+	_gait_k=k
+	if _gait_k>=0.999:_gait_k=1.0
+	for side1 in ["L","R"]:
+		var leg1:int=skel.find_bone(_bone_name(skel,"LowerLeg."+side1))
+		var foot1:int=skel.find_bone(_bone_name(skel,"Foot."+side1))
+		if leg1>=0 and foot1>=0:_gait_feet[side1]=(_pose_overrides[leg1]*(_skin_bind[leg1].affine_inverse()*_skin_bind[foot1])).origin
 	skel.force_update_all_bone_transforms()
+
+
 func update_from_sim(e, dt: float) -> void:
 	var gait_before:String=state
 	var gait_pose:Array=[]
@@ -1062,8 +1108,7 @@ func update_from_sim(e, dt: float) -> void:
 	var previous_visual:Dictionary=capture_visual_pose() if was_serve_follow else {}
 	_update_pose(e, dt)
 	if state in GAIT_CLIPS and gait_before in GAIT_CLIPS:
-		if state!=gait_before:_gait_from=gait_pose;_gait_age=0.0
-		_blend_gait_change(dt)
+		if state!=gait_before:_gait_from=gait_pose;_gait_age=0.0;_gait_k=0.0;_gait_feet.clear()
 	else:_gait_from.clear();_gait_age=9.0
 	if was_serve_follow and serve_follow_t<=0.0 and e.swing<=0.0:
 		_reset_pose=previous_visual;_reset_age=0.0
@@ -1079,6 +1124,19 @@ func update_from_sim(e, dt: float) -> void:
 	_fit_serve_contact(e,dt)
 	_blend_serve_reset(dt)
 	_blend_ground_miss(dt)
+	# El fundido de gait va el ultimo: mezcla la pose final del frame anterior
+	# con la final de este (clip + preparacion + apoyos), no con el clip crudo.
+	if state in GAIT_CLIPS and gait_before in GAIT_CLIPS:
+		if e.swing>0.0 or has_visual_contact:
+			# El ajuste de contacto es dueño del frame (la bola esta donde
+			# esta); mezclarlo desplazaria cuerpo y manos. Terminar el fundido.
+			_gait_k=1.0
+		else:
+			_blend_gait_change(dt)
+			# Reatar los pies a las espinillas mezcladas y reasentar al suelo
+			# con la misma regla de altura que el pase principal.
+			_sync_mocap_feet()
+			_ground_final_pose(eff_sp < 0.4 or state.begins_with("mocap/"))
 	_guard_preparation_racket(e)
 	_update_left_bridge()
 	if not _closed_left.visible:
@@ -2169,7 +2227,18 @@ var approach_time: float = 9.0
 var approach_active: bool = false
 var approach_velocity: Vector3 = Vector3.ZERO
 var approach_contact:Vector3=Vector3.ZERO
+# Lo fija match_view con la misma regla que do_hit (smash vs volea): si la
+# preparacion no sigue la regla del golpe real, la pose cambia de familia al
+# empezar el swing (pop).
+var approach_overhead: bool = false
+var approach_has_contact: bool = false
+var approach_bounces: int = 0
+var side_arrival_x: float = 0.0
+var side_arrival_y: float = 0.0
 var _approach_blend: float = 0.0
+var _pin_fit: Basis = Basis.IDENTITY
+var _pin_valid: bool = false
+var _reach_shift: Vector3 = Vector3.ZERO
 var _prep_pose_age:float=0.0
 var _prep_side_set:bool=false
 var _prep_previous_target:Array[Transform3D]=[]
@@ -2193,6 +2262,8 @@ func _articulated_ground(e, dt: float) -> void:
 	var prep: float = float(e.get("prep_k")) if e.get("prep_k") != null else 0.0
 	if e.swing>_full_stroke_previous:
 		_full_stroke_age=0.0
+		_pin_valid=false
+		_reach_shift=Vector3.ZERO
 		_full_stroke_back=e.hit_side=="back" if has_visual_contact else not ((look_target.x < e.x) == e.near)
 	else:
 		_full_stroke_age+=dt
@@ -2201,31 +2272,39 @@ func _articulated_ground(e, dt: float) -> void:
 	var approaching: float = 1.0-smoothstep(0.05,0.65,approach_time) if approach_active else 0.0
 	# Horizontal arrival is not a hit opportunity while a lob is metres
 	# above any reachable contact. Keep ready locomotion until it descends.
-	approaching*=1.0-smoothstep(3.25,4.0,approach_contact.y)
+	approaching*=1.0-smoothstep(3.25,4.0,side_arrival_y if approach_active else approach_contact.y)
 	_approach_blend=move_toward(_approach_blend,approaching,dt*6.0)
 	prep=maxf(prep,_approach_blend)
 	if not approach_active:_prep_progress=0.0;_prep_target_set=false
 	elif not stroke:
 		_prep_progress=maxf(_prep_progress,prep);prep=_prep_progress
 		if not _prep_target_set:_prep_target=approach_contact;_prep_target_set=true
-		else:_prep_target=_prep_target.lerp(approach_contact,1.0-exp(-dt*14.0))
+		else:
+			# Con la prevision ya exacta, cerca del contacto el objetivo debe
+			# seguirla sin retraso: si no, la pose llega desplazada y salta al
+			# fijarse el contacto real (pop en voleas).
+			var _prep_rate: float = 30.0 if approach_time < 0.18 else 14.0
+			_prep_target=_prep_target.lerp(approach_contact,1.0-exp(-dt*_prep_rate))
 	var weight: float = smoothstep(0.1,0.7,prep) if not stroke else 1.0-smoothstep(0.40,0.65,_full_stroke_age)
 	if weight <= 0.001: return
 	tennis_contact_weight=weight
-	var arrival_x:float=approach_contact.x
+	var arrival_x:float=side_arrival_x if approach_active else approach_contact.x
 	var actor_x:float=e.x
 	if not approach_active:_prep_side_set=false
 	if approach_active and not _prep_side_set and prep>0.7:
-		_prep_side_back=not ((arrival_x < actor_x) == e.near);_prep_overhead=approach_contact.y>2.15;_prep_side_set=true
+		_prep_side_back=not ((arrival_x < actor_x) == e.near);_prep_overhead=approach_overhead;_prep_side_set=true
 	if approach_active and not stroke and _prep_side_set:
 		var anticipated:bool=not ((arrival_x<actor_x)==e.near)
-		if anticipated!=_prep_side_back:_prep_candidate_age+=dt
+		# La familia (smash/volea) tambien puede cambiar cuando la prevision se
+		# estabiliza (p.ej. globo que al principio parecia llegar tras bote y
+		# acaba en volea directa): mismo cambio candidato con fundido que el lado.
+		if anticipated!=_prep_side_back or approach_overhead!=_prep_overhead:_prep_candidate_age+=dt
 		else:_prep_candidate_age=0.0
 		if _prep_candidate_age>=0.05:
-			_prep_side_back=anticipated;_prep_candidate_age=0.0
+			_prep_side_back=anticipated;_prep_overhead=approach_overhead;_prep_candidate_age=0.0
 			_prep_switch_source=_prep_previous_target.duplicate();_prep_switch_age=0.0;_prep_switch_duration=clampf(approach_time-0.02,0.10,0.16)
 	var back: bool = _full_stroke_back if stroke else (_prep_side_back if _prep_side_set else not ((arrival_x < actor_x) == e.near))
-	var overhead_preparing:bool=not stroke and approach_active and (_prep_overhead if _prep_side_set else approach_contact.y>2.15)
+	var overhead_preparing:bool=not stroke and approach_active and (_prep_overhead if _prep_side_set else approach_overhead)
 	if overhead_preparing:weight*=smoothstep(0.1,0.7,_approach_blend)
 	if not stroke:
 		if _prep_side_set:_prep_pose_age+=dt
@@ -2293,7 +2372,10 @@ func _articulated_ground(e, dt: float) -> void:
 		var upper: int = skel.find_bone(_bone_name(skel,"UpperArm.R"))
 		var elbow: int = skel.find_bone(_bone_name(skel,"LowerArm.R"))
 		var max_reach: float = _skin_bind[upper].origin.distance_to(_skin_bind[elbow].origin)+_skin_bind[elbow].origin.distance_to(_skin_bind[racket_hand_idx].origin)+0.57/CHAR_SCALE
-		if contact_preview:
+		if contact_preview and not approach_has_contact:
+			# Sin contacto previsto (bola aun lejos o inalcanzable) el preview no
+			# estira el brazo por encima de la cabeza; el arco completo solo
+			# entra cuando el punto ya es el contacto real previsto.
 			var preview_delta:Vector3=contact-shoulder
 			if preview_delta.length()>max_reach-0.06:
 				contact=shoulder+preview_delta.normalized()*(max_reach-0.06)
@@ -2333,19 +2415,49 @@ func _articulated_ground(e, dt: float) -> void:
 		var rp: Transform3D = _current_global_pose(racket_hand_idx)
 		var current_head: Vector3=rp*(_fist_center_hand+grip_basis.y*0.57/CHAR_SCALE)
 		var fit:Basis=_fit_twohand(current_head,rp.basis,source_wrist)
+		var shift_vec:Vector3=Vector3.ZERO
+		var feet:Dictionary={}
 		if (stroke and has_visual_contact and elapsed<0.16) or contact_preview:
 			var release:float=1.0-smoothstep(0.04,0.16,elapsed) if stroke else (1.0-smoothstep(0.0,0.25,approach_time))*weight
 			var requested_world:Vector3=visual_contact if stroke else _prep_target
 			var requested:Vector3=current_head.lerp(skel.global_transform.affine_inverse()*requested_world,release)
 			fit=_fit_twohand(requested,rp.basis,source_wrist)
+			if stroke:
+				# Mientras el contacto esta clavado, la empuñadura no debe seguir
+				# la muneca del clip (gira en el follow-through): congelar el ajuste
+				# del contacto y soltarlo con el mismo fundido que la posicion.
+				if not _pin_valid:_pin_fit=fit;_pin_valid=true
+				fit=_pin_fit.slerp(fit,1.0-release).orthonormalized()
+			current_head=requested
 			var fit_goal:Vector3=requested-fit*(_fist_center_hand+grip_basis.y*0.57/CHAR_SCALE)
 			var rs:Vector3=_current_global_pose(skel.find_bone("UpperArm_R")).origin
 			var arm_limit:float=_skin_bind[skel.find_bone("UpperArm_R")].origin.distance_to(_skin_bind[skel.find_bone("LowerArm_R")].origin)+_skin_bind[skel.find_bone("LowerArm_R")].origin.distance_to(_skin_bind[racket_hand_idx].origin)-0.012
-			var feet:Dictionary={}
 			for side in ["L","R"]:
 				var foot:int=skel.find_bone("Foot_"+side);feet[side]=_current_global_pose(foot)
 			var moved:float=0.0
-			var reach_budget:float=0.20
+			var reach_budget:float=0.48 if stroke else 0.20
+			# Arco del tronco desde el abdomen: gira los hombros hacia el objetivo
+			# sin mover los pies; la traslacion de abajo cubre el resto.
+			var abdomen_arc:int=skel.find_bone("Abdomen")
+			for _arc_pass in 5:
+				var rs_a:Vector3=_current_global_pose(skel.find_bone("UpperArm_R")).origin
+				var fg_a:Vector3=requested-fit*(_fist_center_hand+grip_basis.y*0.57/CHAR_SCALE)
+				var shaft_a:Vector3=(fit*grip_basis.y).normalized()
+				var lc_a:Vector3=requested-shaft_a*0.475/CHAR_SCALE
+				var lg_a:Vector3=lc_a+_twohand_left_basis(shaft_a,lc_a)*Vector3(0.065,0,-0.012)/CHAR_SCALE
+				var ls_a:Vector3=_current_global_pose(skel.find_bone("UpperArm_L")).origin
+				var d_r:float=maxf(0.0,rs_a.distance_to(fg_a)-arm_limit)
+				var d_l:float=maxf(0.0,ls_a.distance_to(lg_a)-arm_limit)
+				var d_max:float=maxf(d_r,d_l)
+				if d_max<=0.001:break
+				var sh_w:Vector3=ls_a if d_l>d_r else rs_a
+				var g_w:Vector3=lg_a if d_l>d_r else fg_a
+				var apose:Transform3D=_current_global_pose(abdomen_arc)
+				var rvec:Vector3=sh_w-apose.origin
+				var aaxis:Vector3=rvec.cross((g_w-sh_w).normalized())
+				if aaxis.length()<0.01:break
+				var dth:float=clampf(d_max/maxf(0.1,rvec.length()),0.0,0.55)
+				_contact_set_branch(abdomen_arc,Transform3D(Basis(aaxis.normalized(),dth)*apose.basis,apose.origin))
 			if contact_preview and not _prep_switch_source.is_empty():reach_budget*=smoothstep(0.0,_prep_switch_duration,_prep_switch_age)
 			for _reach_pass in 3:
 				rs=_current_global_pose(skel.find_bone("UpperArm_R")).origin
@@ -2361,15 +2473,30 @@ func _articulated_ground(e, dt: float) -> void:
 					deficit=left_deficit;shift_direction=(left_goal-left_shoulder).normalized()
 				var amount:float=minf(maxf(0.0,reach_budget-moved),deficit+0.004)*(1.0-smoothstep(0.04,0.16,elapsed))
 				if deficit<=0.001 or amount<=0.0001:break
+				# Las piernas (extension + puntillas) limitan cuanto puede moverse
+				# el cuerpo sin despegar las suelas: recortar el desplazamiento.
+				var feas:float=1.0
+				for side in ["L","R"]:
+					var hip_c:int=skel.find_bone("UpperLeg_"+side)
+					var knee_c:int=skel.find_bone("LowerLeg_"+side)
+					var foot_c:int=skel.find_bone("Foot_"+side)
+					var lmax:float=_skin_bind[hip_c].origin.distance_to(_skin_bind[knee_c].origin)+_skin_bind[knee_c].origin.distance_to(_skin_bind[foot_c].origin)-0.008+0.13
+					var hp:Vector3=_current_global_pose(hip_c).origin
+					if (hp+shift_direction*amount).distance_to(feet[side].origin)>lmax:
+						var lo_f:float=0.0
+						var hi_f:float=feas
+						for _it in 8:
+							var mid_f:float=(lo_f+hi_f)*0.5
+							if (hp+shift_direction*amount*mid_f).distance_to(feet[side].origin)<=lmax:lo_f=mid_f
+							else:hi_f=mid_f
+						feas=lo_f
+				amount*=feas
+				if amount<=0.0001:break
 				moved+=amount
 				var shift:Vector3=shift_direction*amount
 				_contact_shift_branch(skel.find_bone("Body"),shift)
-				for side in ["L","R"]:
-					var hip:int=skel.find_bone("UpperLeg_"+side)
-					var knee:int=skel.find_bone("LowerLeg_"+side)
-					var foot:int=skel.find_bone("Foot_"+side)
-					_contact_limb(hip,knee,foot,feet[side].origin,_current_global_pose(knee).origin)
-					_pose_overrides[foot].basis=feet[side].basis
+				shift_vec+=shift
+				_replant_feet(feet)
 				current_head=requested
 				fit=_fit_twohand(current_head,rp.basis,source_wrist)
 		if stroke and elapsed>0.10:
@@ -2382,6 +2509,20 @@ func _articulated_ground(e, dt: float) -> void:
 				var correction:Vector3=_head_clearance_shift(current_head,fit)
 				if correction.length()<0.0001:break
 				current_head+=correction
+		# El desplazamiento del cuerpo entra al instante (el contacto manda) pero
+		# se retira a ritmo corporal: limitar solo la retirada, nunca la entrada.
+		var desired:Vector3=shift_vec
+		var delta_s:Vector3=shift_vec-_reach_shift
+		if shift_vec.length()<_reach_shift.length() and delta_s.length()>dt*2.0:
+			desired=_reach_shift+delta_s*(dt*2.0/delta_s.length())
+		var corr:Vector3=desired-shift_vec
+		if corr.length()>0.0001:
+			if feet.is_empty():
+				for side in ["L","R"]:
+					var foot_u:int=skel.find_bone("Foot_"+side);feet[side]=_current_global_pose(foot_u)
+			_contact_shift_branch(skel.find_bone("Body"),corr)
+			_replant_feet(feet)
+		_reach_shift=desired
 		var right_goal:Vector3=current_head-fit*(_fist_center_hand+grip_basis.y*0.57/CHAR_SCALE)
 		_contact_arm("R",right_goal,_current_global_pose(skel.find_bone("LowerArm_R")).origin,1.0)
 		rp=_current_global_pose(racket_hand_idx)
@@ -2411,6 +2552,46 @@ func _articulated_ground(e, dt: float) -> void:
 	for bi in _pose_overrides: skel.set_bone_global_pose_override(bi,_pose_overrides[bi],1.0,true)
 	skel.force_update_all_bone_transforms()
 	_place_racket(dt)
+
+func _replant_feet(feet: Dictionary) -> void:
+	for side in ["L","R"]:
+		var hip:int=skel.find_bone("UpperLeg_"+side)
+		var knee:int=skel.find_bone("LowerLeg_"+side)
+		var foot:int=skel.find_bone("Foot_"+side)
+		var ankle_goal:Vector3=feet[side].origin
+		var fbasis:Basis=feet[side].basis
+		# Puntillas: si la pierna se agota, pivotar el pie sobre la punta
+		# (biseccion) en vez de dejar la suela flotando.
+		var hip_pos:Vector3=_current_global_pose(hip).origin
+		var leg_max:float=_skin_bind[hip].origin.distance_to(_skin_bind[knee].origin)+_skin_bind[knee].origin.distance_to(_skin_bind[foot].origin)-0.008
+		if hip_pos.distance_to(ankle_goal)>leg_max and _foot_points.has(foot) and not _foot_points[foot].is_empty():
+			var min_y:float=INF
+			for pt in _foot_points[foot]:min_y=minf(min_y,pt.y)
+			var toe_local:Vector3=Vector3.ZERO
+			var toe_d:float=-1.0
+			for pt in _foot_points[foot]:
+				if pt.y>min_y+0.02:continue
+				var dd:float=Vector2(pt.x,pt.z).length()
+				if dd>toe_d:toe_d=dd;toe_local=pt
+			var toe:Vector3=feet[side]*toe_local
+			var v:Vector3=ankle_goal-toe
+			var axis:Vector3=fbasis.x.normalized()
+			var sg:float=1.0
+			if hip_pos.distance_to(toe+Basis(axis,-0.1)*v)<hip_pos.distance_to(toe+Basis(axis,0.1)*v):sg=-1.0
+			var theta:float=0.9
+			if hip_pos.distance_to(toe+Basis(axis,sg*0.9)*v)<=leg_max:
+				var lo:float=0.0
+				var hi:float=0.9
+				for _it in 8:
+					var mid:float=(lo+hi)*0.5
+					if hip_pos.distance_to(toe+Basis(axis,sg*mid)*v)<=leg_max:hi=mid
+					else:lo=mid
+				theta=hi
+			var rot:Basis=Basis(axis,sg*theta)
+			ankle_goal=toe+rot*v
+			fbasis=rot*fbasis
+		_contact_limb(hip,knee,foot,ankle_goal,_current_global_pose(knee).origin)
+		_pose_overrides[foot].basis=fbasis
 
 func _twohand_left_basis(shaft:Vector3,center:Vector3)->Basis:
 	var sh:Vector3=_current_global_pose(skel.find_bone("UpperArm_L")).origin
