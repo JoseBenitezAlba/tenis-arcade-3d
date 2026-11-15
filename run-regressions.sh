@@ -20,7 +20,12 @@ run() {
   fi
   tail -n 8 "$log"
 }
-run point_release_regression
+# The unchanged point_release_regression.gd is a historical seed/frame replay.
+# Its 1800..1875 point-state precondition depends on the old lob trajectory.
+# Keep its visual contract via real point events plus a strict 76-frame fixture.
+run point_release_dynamic_regression
+run point_release_fixture_regression
+run lob_trajectory_regression
 run gait_transition_regression
 run arrival_turn_regression
 run contact_arrival_body_regression
@@ -34,4 +39,8 @@ run serve_rules_regression
 run visual_replay_test
 run overhead_readiness_regression
 run preparation_side_regression
+run serve_cooldown_regression
+run support_stability_metrics
+run input_and_cpu
+run miss_transition_metrics
 printf 'Finished. Read all logs, known preparation residual and exit-resource warnings in continuity note.\n'
