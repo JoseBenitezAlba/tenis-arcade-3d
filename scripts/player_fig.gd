@@ -2227,6 +2227,10 @@ var approach_time: float = 9.0
 var approach_active: bool = false
 var approach_velocity: Vector3 = Vector3.ZERO
 var approach_contact:Vector3=Vector3.ZERO
+# Lo fija match_view con la misma regla que do_hit (smash vs volea): si la
+# preparacion no sigue la regla del golpe real, la pose cambia de familia al
+# empezar el swing (pop).
+var approach_overhead: bool = false
 var _approach_blend: float = 0.0
 var _prep_pose_age:float=0.0
 var _prep_side_set:bool=false
@@ -2266,7 +2270,12 @@ func _articulated_ground(e, dt: float) -> void:
 	elif not stroke:
 		_prep_progress=maxf(_prep_progress,prep);prep=_prep_progress
 		if not _prep_target_set:_prep_target=approach_contact;_prep_target_set=true
-		else:_prep_target=_prep_target.lerp(approach_contact,1.0-exp(-dt*14.0))
+		else:
+			# Con la prevision ya exacta, cerca del contacto el objetivo debe
+			# seguirla sin retraso: si no, la pose llega desplazada y salta al
+			# fijarse el contacto real (pop en voleas).
+			var _prep_rate: float = 30.0 if approach_time < 0.18 else 14.0
+			_prep_target=_prep_target.lerp(approach_contact,1.0-exp(-dt*_prep_rate))
 	var weight: float = smoothstep(0.1,0.7,prep) if not stroke else 1.0-smoothstep(0.40,0.65,_full_stroke_age)
 	if weight <= 0.001: return
 	tennis_contact_weight=weight
@@ -2274,7 +2283,7 @@ func _articulated_ground(e, dt: float) -> void:
 	var actor_x:float=e.x
 	if not approach_active:_prep_side_set=false
 	if approach_active and not _prep_side_set and prep>0.7:
-		_prep_side_back=not ((arrival_x < actor_x) == e.near);_prep_overhead=approach_contact.y>2.15;_prep_side_set=true
+		_prep_side_back=not ((arrival_x < actor_x) == e.near);_prep_overhead=approach_overhead;_prep_side_set=true
 	if approach_active and not stroke and _prep_side_set:
 		var anticipated:bool=not ((arrival_x<actor_x)==e.near)
 		if anticipated!=_prep_side_back:_prep_candidate_age+=dt
@@ -2283,7 +2292,7 @@ func _articulated_ground(e, dt: float) -> void:
 			_prep_side_back=anticipated;_prep_candidate_age=0.0
 			_prep_switch_source=_prep_previous_target.duplicate();_prep_switch_age=0.0;_prep_switch_duration=clampf(approach_time-0.02,0.10,0.16)
 	var back: bool = _full_stroke_back if stroke else (_prep_side_back if _prep_side_set else not ((arrival_x < actor_x) == e.near))
-	var overhead_preparing:bool=not stroke and approach_active and (_prep_overhead if _prep_side_set else approach_contact.y>2.15)
+	var overhead_preparing:bool=not stroke and approach_active and (_prep_overhead if _prep_side_set else approach_overhead)
 	if overhead_preparing:weight*=smoothstep(0.1,0.7,_approach_blend)
 	if not stroke:
 		if _prep_side_set:_prep_pose_age+=dt
@@ -2351,10 +2360,6 @@ func _articulated_ground(e, dt: float) -> void:
 		var upper: int = skel.find_bone(_bone_name(skel,"UpperArm.R"))
 		var elbow: int = skel.find_bone(_bone_name(skel,"LowerArm.R"))
 		var max_reach: float = _skin_bind[upper].origin.distance_to(_skin_bind[elbow].origin)+_skin_bind[elbow].origin.distance_to(_skin_bind[racket_hand_idx].origin)+0.57/CHAR_SCALE
-		if contact_preview:
-			var preview_delta:Vector3=contact-shoulder
-			if preview_delta.length()>max_reach-0.06:
-				contact=shoulder+preview_delta.normalized()*(max_reach-0.06)
 		var deficit: float = maxf(0.0,shoulder.distance_to(contact)-max_reach+0.012)
 		var bend: Vector3 = contact-shoulder
 		bend.y=0.0

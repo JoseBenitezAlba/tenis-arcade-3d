@@ -800,16 +800,52 @@ func _physics_process(dt: float) -> void :
 		rigs[i].approach_contact=Vector3(sim.ball.x,sim.ball.y,sim.ball.z)
 		if rigs[i].approach_active:
 			var predictive_velocity:Vector3=rigs[i].approach_velocity
-			var remaining:float=minf(0.65,rigs[i].approach_time)
+			# Apuntar al contacto real: integra la bola prevista hasta que entra
+			# en la misma ventana que usa ai_control para golpear. Con el
+			# horizonte antiguo (tiempo de llegada a 1.2 m) la prevision se
+			# colapsaba a la posicion actual justo antes del contacto y la
+			# pose saltaba al fijarse el objetivo real (pop de ~0.37 m).
+			var _pe = sim.pl[i]
+			var _srv_ret2: bool = sim.serve_unreturned and sim.M.server != i
+			var _pgx: float = (1.6 if _srv_ret2 else 1.35)
+			var _pgz: float = (1.5 if _srv_ret2 else 1.25)
+			if _pe.appr_t > 0.0 and sim.ball.bounces == 0: _pgx *= 1.45; _pgz *= 1.35
+			if _pe.dive_t > 0.0: _pgx *= 1.8; _pgz *= 1.8
+			var remaining:float=0.65
+			var _pac0:Vector3=rigs[i].approach_contact
+			var _pymax0: float = 2.35 if absf(_pac0.z - sim.NZ) < 3.2 else 1.8
+			if _pac0.y > 2.15 and not _srv_ret2: _pymax0 = 2.7
+			if sim._physical_contact_ok(_pe,_pac0.x,_pac0.y,_pac0.z) and absf(_pac0.x-_pe.x)<_pgx and absf(_pac0.z-_pe.z)<_pgz and _pac0.y<_pymax0 and _pac0.y>0.15:
+				remaining=0.0
 			while remaining>0.00001:
-				var step:float=minf(0.01,remaining)
+				# Mismo paso que el sim (dt del frame): las posiciones previstas
+				# son las futuras reales y el primer punto en ventana ES el
+				# contacto que fijara el sim, sin oscilacion por muestreo.
+				var step:float=minf(1.0/60.0,remaining)
 				predictive_velocity.y-=sim.g_eff(sim.ball.spin)*step
+				# Misma fisica que el paso real de la bola (Magnus + arrastre +
+				# curva): sin esto la prediccion erra ~0.37 m en golpes con
+				# efecto y la pose de contacto salta al cambiar de objetivo.
+				if sim.MAGNUS and sim.ball.spin>0.3 and sim.ball.in_play and not sim.ball.serving:
+					var _phsp:float=Vector2(predictive_velocity.x,predictive_velocity.z).length()
+					predictive_velocity.y+=minf(sim.MAG_LIFT*sim.ball.spin*_phsp,0.45*sim.G)*step
+					predictive_velocity.x*=1.0-sim.MAG_DRAG*step
+					predictive_velocity.z*=1.0-sim.MAG_DRAG*step
+				if sim.ball.curve!=0.0 and sim.ball.bounces==0:predictive_velocity.x+=sim.ball.curve*step
 				rigs[i].approach_contact+=predictive_velocity*step
 				if rigs[i].approach_contact.y<=sim.BR and predictive_velocity.y<0.0:
 					rigs[i].approach_contact.y=sim.BR
 					var bounce:Array=sim._bounce_factors(sim.ball.spin)
 					predictive_velocity.y*=-bounce[0];predictive_velocity.x*=bounce[1];predictive_velocity.z*=bounce[1]
 				remaining-=step
+				var _pac:Vector3=rigs[i].approach_contact
+				var _pymax: float = 2.35 if absf(_pac.z - sim.NZ) < 3.2 else 1.8
+				if _pac.y > 2.15 and not _srv_ret2: _pymax = 2.7
+				if sim._physical_contact_ok(_pe,_pac.x,_pac.y,_pac.z) and absf(_pac.x-_pe.x)<_pgx and absf(_pac.z-_pe.z)<_pgz and _pac.y<_pymax and _pac.y>0.15:
+					break
+				if (_pac.z-_pe.z)*sim.ball.vz>0.0:
+					break
+			rigs[i].approach_overhead = rigs[i].approach_contact.y > 2.15 and not (sim.ball.bounces == 0 and absf(_pe.z - sim.NZ) < 6.2 and rigs[i].approach_contact.y > 0.8 and not sim.serve_unreturned)
 		rigs[i].serve_ready = sim.state == "serve" and sim.M.server == i and sim.serve_stage == "ready"
 		rigs[i].serve_ball_held = rigs[i].serve_ready and sim.ball.held and sim.rut_t >= 1.45
 		rigs[i].serve_ball_blend = smoothstep(1.45, 1.65, sim.rut_t)
