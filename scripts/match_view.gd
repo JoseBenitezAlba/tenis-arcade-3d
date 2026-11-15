@@ -177,6 +177,8 @@ var pause_layer: CanvasLayer
 var over_sent: = false
 var shake: = 0.0
 var hitstop_t: = 0.0
+# Desfase visual del hit-stop: aparca la bola en el contacto sin tocar la fisica
+var _hs_off: = Vector3.ZERO
 var ball_squash: = 0.0
 var _point_winner: = -1
 var _closeup_ok: = false
@@ -729,6 +731,10 @@ func _physics_process(dt: float) -> void :
 		hitstop_t -= dt
 	else:
 		sim.update(dt)
+		if _hs_off != Vector3.ZERO:
+			_hs_off *= exp(-dt / 0.07)
+			if _hs_off.length() < 0.008:
+				_hs_off = Vector3.ZERO
 	_brake_cool = maxf(0.0, _brake_cool - dt)
 	var p0 = sim.pl[0]
 	if _prev_p0_spd > 4.2 and p0.speed < 1.6 and _brake_cool <= 0.0 and sim.state in ["play", "serve"]:
@@ -891,7 +897,7 @@ func _physics_process(dt: float) -> void :
 					_pb_vel.z = move_toward(_pb_vel.z, 0.0, dt * 2.8)
 			ball_mesh.position = _pb_pos
 	if not _pb_active:
-		ball_mesh.position = Vector3(sim.ball.x, sim.ball.y, sim.ball.z)
+		ball_mesh.position = Vector3(sim.ball.x, sim.ball.y, sim.ball.z) + _hs_off
 		# Entregar la bola de la mano al lanzamiento sin cambiar la trayectoria
 		# fisica: el desfase visual desaparece durante los primeros 180 ms.
 		if sim.state == "serve" and sim.ball.toss:
@@ -948,7 +954,7 @@ func _physics_process(dt: float) -> void :
 		var w: float = spin_rate(sim.ball.spin, hsp)
 		var axis: = spin_axis(sim.ball.vx, sim.ball.vz)
 		ball_seam.rotate(axis, w * dt)
-	var shadow_ball: Vector3 = _pb_pos if _pb_active else Vector3(sim.ball.x, sim.ball.y, sim.ball.z)
+	var shadow_ball: Vector3 = (_pb_pos if _pb_active else Vector3(sim.ball.x, sim.ball.y, sim.ball.z)) + _hs_off
 	ball_shadow.position.x = shadow_ball.x
 	ball_shadow.position.z = shadow_ball.z
 	var sh_scale: float = clampf(1.0 + shadow_ball.y * 0.09, 1.0, 1.8)
@@ -1639,6 +1645,8 @@ func drain_events() -> void :
 
 				if ev.kind == "smash" or ev.get("stretch", 0.0) >= 1.3 or charged >= 1.3:
 					sfx.play("grunt", 0.55 if ev.id == 0 else 0.35, randf_range(0.9, 1.12))
+				if hitstop_t > 0.0:
+					_hs_off = Vector3(ev.x, ev.y, ev.z) - Vector3(sim.ball.x, sim.ball.y, sim.ball.z)
 			"serve":
 				rigs[ev.id].register_serve_contact(Vector3(ev.x,ev.y,ev.z))
 				_srv_bounce_ok = false
@@ -1658,6 +1666,7 @@ func drain_events() -> void :
 					serve_speed_hold = 0.95
 				if ev.get("q", 0.0) >= 0.88:
 					hitstop_t = 0.05
+					_hs_off = Vector3(ev.x, ev.y, ev.z) - Vector3(sim.ball.x, sim.ball.y, sim.ball.z)
 				var _skmh: float = float(skmh)
 				var _spitch: float = clampf(0.90 + _skmh / 200.0 * 0.16, 0.90, 1.12)
 				sfx.play("hit_big" if _skmh >= 175.0 else "hit", 1.2, _spitch)
