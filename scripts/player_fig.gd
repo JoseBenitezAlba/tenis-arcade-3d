@@ -1731,8 +1731,12 @@ func _celebration_grip() -> void :
 	if racket_node == null:
 		return
 	_raise_arm(-0.55, "UpperArm.R")
-	# cabeza de la raqueta hacia abajo para que no cruce la cara en el primer plano
-	_align_hand_axis(global_transform.basis * Vector3(0.12, - 1.0, 0.08), 1.0)
+	# En los punos, abrir la raqueta al costado evita cruzar el pantalon.
+	# Los demas gestos conservan su orientacion hacia abajo.
+	var racket_dir: Vector3 = Vector3(0.12, -1.0, 0.08)
+	if state in ["Punch_Left", "Punch_Right"]:
+		racket_dir = Vector3(-0.8, -0.7, 0.08)
+	_align_hand_axis(global_transform.basis * racket_dir, 1.0)
 
 
 # Mano y raqueta comparten el BoneAttachment3D de la muneca.
