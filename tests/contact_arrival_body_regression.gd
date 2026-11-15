@@ -10,10 +10,14 @@ func _initialize():call_deferred("run")
 #  B) 8853 actor1: primer contacto (dejada, llegada lenta). La llegada rapida
 #     que esta semilla cubria antes del swap ya no existe en el nuevo rally.
 #  C) 42117 actor0: replay determinista de llegada rapida (contacto en f1133,
-#     drive, pre_mean>=0.10) que repone la cobertura de alta velocidad. El
-#     primer contacto rapido del rally (f280) frena de 11 m/s a 0 en 9 frames
-#     y el torso llega a 0.25 m/frame por la propia zancada de frenado:
-#     locomocion, no salto de pose; este test no es de suavidad general.
+#     drive, pre_mean>=0.10) que repone la cobertura de alta velocidad.
+#  D) 42117 actor0 f280: replay separado del frenazo (el primer contacto
+#     rapido del rally, descartado de la ventana generica en 667f2aa porque su
+#     zancada de frenado llegaba a 0.25 m/frame: locomocion, no salto de
+#     pose). Contrato propio: onset<0.12, post-contacto<0.20, y pico de
+#     frenada pre entre 0.15 y 0.26 (0.25 medido en 667f2aa; 0.193 tras las
+#     correcciones de continuidad) - si el frenazo desaparece o se dispara,
+#     la fixture ha dejado de cubrir el escenario y hay que redocumentar.
 const PRE:=13
 const POST:=18
 func run():
@@ -45,9 +49,30 @@ func run():
  ok=_check_event(data[8853],1,-1,"B 8853 actor1 (dejada, llegada lenta)",null) and ok
  # C) replay llegada rapida 42117 actor0 f1133
  ok=_check_event(data[42117],0,1133,"C replay llegada rapida 42117 actor0",0.10) and ok
+ # D) replay separado del frenazo f280: cobertura del escenario problematico
+ ok=_check_brake_replay(data[42117],0,280) and ok
  assert(ok)
  print("PASS contact arrival body onset: eventos detectados + replay rapido, umbrales originales (onset<0.12, ventana<0.20)")
  host.free();quit()
+func _check_brake_replay(d:Dictionary,actor:int,frame:int)->bool:
+ var events:Array=d.events
+ var ev:Dictionary={}
+ for ev0 in events:
+  if ev0.actor==actor and absi(ev0.frame-frame)<=1:ev=ev0;break
+ if ev.is_empty():print("FAIL D frenazo f280: evento no detectado");return false
+ if ev.pre_mean<0.10:print("FAIL D frenazo f280: llegada lenta pre_mean=",ev.pre_mean);return false
+ var c:int=ev.frame
+ var steps:Array=d.steps[actor]
+ var onset:float=steps[c] if c+1>steps.size()-1 else (d.pos[actor][c+1]-d.pos[actor][c]).length()
+ var brake:float=0.0
+ for i in range(maxi(1,c-PRE),c):brake=maxf(brake,steps[i])
+ var post:float=0.0
+ for i in range(c+1,mini(steps.size(),c+POST+1)):post=maxf(post,steps[i])
+ print("EVENT D frenazo frame=",c," kind=",ev.kind," onset=",onset," pre_mean=",ev.pre_mean," brake_peak=",brake," post_max=",post)
+ if onset>=0.12 or post>=0.20:print("FAIL D frenazo: contacto o post-contacto fuera de umbral");return false
+ if brake<0.15 or brake>=0.26:print("FAIL D frenazo: pico de frenada fuera de lo documentado [0.15,0.26)");return false
+ print("PASS D frenazo f280 onset=",onset," brake_peak=",brake," post_max=",post)
+ return true
 func _check_event(d:Dictionary,actor:int,frame:int,label:String,min_pre)->bool:
  var events:Array=d.events
  var ev:Dictionary={}
