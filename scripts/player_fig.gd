@@ -2231,6 +2231,8 @@ var approach_contact:Vector3=Vector3.ZERO
 # preparacion no sigue la regla del golpe real, la pose cambia de familia al
 # empezar el swing (pop).
 var approach_overhead: bool = false
+var approach_has_contact: bool = false
+var approach_bounces: int = 0
 var side_arrival_x: float = 0.0
 var side_arrival_y: float = 0.0
 var _approach_blend: float = 0.0
@@ -2288,10 +2290,13 @@ func _articulated_ground(e, dt: float) -> void:
 		_prep_side_back=not ((arrival_x < actor_x) == e.near);_prep_overhead=approach_overhead;_prep_side_set=true
 	if approach_active and not stroke and _prep_side_set:
 		var anticipated:bool=not ((arrival_x<actor_x)==e.near)
-		if anticipated!=_prep_side_back:_prep_candidate_age+=dt
+		# La familia (smash/volea) tambien puede cambiar cuando la prevision se
+		# estabiliza (p.ej. globo que al principio parecia llegar tras bote y
+		# acaba en volea directa): mismo cambio candidato con fundido que el lado.
+		if anticipated!=_prep_side_back or approach_overhead!=_prep_overhead:_prep_candidate_age+=dt
 		else:_prep_candidate_age=0.0
 		if _prep_candidate_age>=0.05:
-			_prep_side_back=anticipated;_prep_candidate_age=0.0
+			_prep_side_back=anticipated;_prep_overhead=approach_overhead;_prep_candidate_age=0.0
 			_prep_switch_source=_prep_previous_target.duplicate();_prep_switch_age=0.0;_prep_switch_duration=clampf(approach_time-0.02,0.10,0.16)
 	var back: bool = _full_stroke_back if stroke else (_prep_side_back if _prep_side_set else not ((arrival_x < actor_x) == e.near))
 	var overhead_preparing:bool=not stroke and approach_active and (_prep_overhead if _prep_side_set else approach_overhead)
@@ -2362,6 +2367,13 @@ func _articulated_ground(e, dt: float) -> void:
 		var upper: int = skel.find_bone(_bone_name(skel,"UpperArm.R"))
 		var elbow: int = skel.find_bone(_bone_name(skel,"LowerArm.R"))
 		var max_reach: float = _skin_bind[upper].origin.distance_to(_skin_bind[elbow].origin)+_skin_bind[elbow].origin.distance_to(_skin_bind[racket_hand_idx].origin)+0.57/CHAR_SCALE
+		if contact_preview and not approach_has_contact:
+			# Sin contacto previsto (bola aun lejos o inalcanzable) el preview no
+			# estira el brazo por encima de la cabeza; el arco completo solo
+			# entra cuando el punto ya es el contacto real previsto.
+			var preview_delta:Vector3=contact-shoulder
+			if preview_delta.length()>max_reach-0.06:
+				contact=shoulder+preview_delta.normalized()*(max_reach-0.06)
 		var deficit: float = maxf(0.0,shoulder.distance_to(contact)-max_reach+0.012)
 		var bend: Vector3 = contact-shoulder
 		bend.y=0.0

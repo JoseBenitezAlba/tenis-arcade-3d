@@ -819,6 +819,7 @@ func _physics_process(dt: float) -> void :
 			if _pac0.y > 2.15 and not _srv_ret2: _pymax0 = 2.7
 			if sim._physical_contact_ok(_pe,_pac0.x,_pac0.y,_pac0.z) and absf(_pac0.x-_pe.x)<_pgx and absf(_pac0.z-_pe.z)<_pgz and _pac0.y<_pymax0 and _pac0.y>0.15 and (sim.state != "serve" or _pbounces >= 1):
 				remaining=0.0
+				rigs[i].approach_has_contact = true
 			while remaining>0.00001:
 				# Mismo paso que el sim (dt del frame): las posiciones previstas
 				# son las futuras reales y el primer punto en ventana ES el
@@ -848,6 +849,8 @@ func _physics_process(dt: float) -> void :
 				# golpear hasta que bote; parar antes adelantaria el contacto.
 				if sim._physical_contact_ok(_pe,_pac.x,_pac.y,_pac.z) and absf(_pac.x-_pe.x)<_pgx and absf(_pac.z-_pe.z)<_pgz and _pac.y<_pymax and _pac.y>0.15 and (sim.state != "serve" or _pbounces >= 1):
 					_eta = 0.65-remaining
+					rigs[i].approach_has_contact = true
+					rigs[i].approach_bounces = _pbounces
 					break
 				if (_pac.z-_pe.z)*sim.ball.vz>0.0:
 					_eta = 0.65-remaining
@@ -870,7 +873,12 @@ func _physics_process(dt: float) -> void :
 				_rem -= _st
 			rigs[i].side_arrival_x = _sc.x
 			rigs[i].side_arrival_y = _sc.y
-			rigs[i].approach_overhead = rigs[i].approach_contact.y > 2.15 and not (sim.ball.bounces == 0 and absf(_pe.z - sim.NZ) < 6.2 and rigs[i].approach_contact.y > 0.8 and not sim.serve_unreturned)
+			if not rigs[i].approach_active:
+				rigs[i].approach_has_contact = false
+			# Regla de do_hit evaluada EN el contacto previsto (botes incluidos):
+			# un globo que botara no es volea aunque ahora vuele sin botar.
+			var _bnc_contact: int = rigs[i].approach_bounces if rigs[i].approach_has_contact else sim.ball.bounces
+			rigs[i].approach_overhead = rigs[i].approach_contact.y > 2.15 and not (_bnc_contact == 0 and absf(_pe.z - sim.NZ) < 6.2 and rigs[i].approach_contact.y > 0.8 and not sim.serve_unreturned)
 		rigs[i].serve_ready = sim.state == "serve" and sim.M.server == i and sim.serve_stage == "ready"
 		rigs[i].serve_ball_held = rigs[i].serve_ready and sim.ball.held and sim.rut_t >= 1.45
 		rigs[i].serve_ball_blend = smoothstep(1.45, 1.65, sim.rut_t)
