@@ -1026,6 +1026,8 @@ func _physics_process(dt: float) -> void :
 
 	_closeup_delay = maxf(0.0, _closeup_delay - dt)
 	var closeup: bool = (sim.state == "point" or sim.state == "over") and _point_winner >= 0 and _point_winner <= 1 and (_closeup_ok or sim.state == "over") and _closeup_delay <= 0.0
+	for ri in rigs.size():
+		rigs[ri].closeup_hold = closeup and ri == _point_winner
 	var goal_pos: Vector3
 	var goal_fov: float
 	var goal_look: Vector3
