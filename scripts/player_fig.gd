@@ -939,8 +939,11 @@ var _run_dir_age:float=9.0
 var _pending_gait:String=""
 var _pending_age:float=0.0
 var _pending_best:float=9.0
+const GAIT_SWEEP:float=0.24
 var _gait_from:Array=[]
 var _gait_age:float=9.0
+var _gait_k:float=1.0
+var _gait_feet:Dictionary={}
 # Desajuste de apoyos al cambiar de clip: distancia entre los tobillos de la
 # pose visual actual y los del clip nuevo en su fase equivalente, ambos en
 # espacio del hueso Body. Cambiar en un momento de bajo desajuste evita el
@@ -1021,12 +1024,11 @@ func _select_run_clip(gv:Vector3,dt:float)->String:
 	elif _run_dir=="Run_Left" and theta>=30.0 and theta<=150.0:cand="Run_Left"
 	elif _run_dir=="Run_Right" and theta<=-30.0 and theta>=-150.0:cand="Run_Right"
 	return cand
-func _blend_gait_change(dt:float)->void:
-	if _gait_from.is_empty() or _gait_age>=0.12:return
-	_gait_age+=dt
-	var k:float=smoothstep(0.0,0.12,_gait_age)
-	var target:Array=[]
-	for bi in skel.get_bone_count():target.append(_current_global_pose(bi))
+# Escribe la mezcla _gait_from->target con k y devuelve el peor barrido del
+# tobillo respecto al frame anterior. Con commit=false solo mide y restaura.
+func _gait_apply(k:float,target:Array,commit:bool)->float:
+	var saved:Dictionary={}
+	if not commit:saved=_pose_overrides.duplicate()
 	_pose_overrides.clear()
 	for bi in skel.get_bone_count():
 		var parent:int=skel.get_bone_parent(bi)
@@ -1038,8 +1040,52 @@ func _blend_gait_change(dt:float)->void:
 		if lower and parent>=0 and not bn in ["Root","Body"] and old.origin.length()>0.001 and goal.origin.length()>0.001:
 			local.origin=local.origin.normalized()*lerpf(old.origin.length(),goal.origin.length(),k)
 		_pose_overrides[bi]=local if parent<0 else _pose_overrides[parent]*local
+	var worst:float=0.0
+	for side in ["L","R"]:
+		var leg:int=skel.find_bone(_bone_name(skel,"LowerLeg."+side))
+		var foot:int=skel.find_bone(_bone_name(skel,"Foot."+side))
+		if leg<0 or foot<0:continue
+		var link:Transform3D=_skin_bind[leg].affine_inverse()*_skin_bind[foot]
+		var ankle:Vector3=(_pose_overrides[leg]*link).origin
+		if _gait_feet.has(side):worst=maxf(worst,(_gait_feet[side] as Vector3).distance_to(ankle))
+	if not commit:_pose_overrides=saved
+	return worst
+
+func _blend_gait_change(dt:float)->void:
+	if _gait_from.is_empty() or _gait_k>=1.0:return
+	_gait_age+=dt
+	var k_des:float=smoothstep(0.0,0.12,_gait_age)
+	if _gait_age>0.4:k_des=1.0
+	var target:Array=[]
+	for bi in skel.get_bone_count():target.append(_current_global_pose(bi))
+	if _gait_feet.is_empty():
+		for side0 in ["L","R"]:
+			var leg0:int=skel.find_bone(_bone_name(skel,"LowerLeg."+side0))
+			var foot0:int=skel.find_bone(_bone_name(skel,"Foot."+side0))
+			if leg0>=0 and foot0>=0:_gait_feet[side0]=(_gait_from[leg0]*(_skin_bind[leg0].affine_inverse()*_skin_bind[foot0])).origin
+	# Regulador de barrido: ningun tobillo puede moverse dentro del esqueleto
+	# mas rapido que GAIT_SWEEP por frame durante la mezcla; si hace falta, k
+	# avanza mas despacio que el reloj y la reversa resbala en vez de fustigar.
+	var k:float=k_des
+	if _gait_apply(k_des,target,false)>GAIT_SWEEP:
+		var lo:float=_gait_k
+		var hi:float=k_des
+		for it in 10:
+			var mid:float=(lo+hi)*0.5
+			if _gait_apply(mid,target,false)<=GAIT_SWEEP:lo=mid
+			else:hi=mid
+		k=lo
+	_gait_apply(k,target,true)
 	for bi in _pose_overrides:skel.set_bone_global_pose_override(bi,_pose_overrides[bi],1.0,true)
+	_gait_k=k
+	if _gait_k>=0.999:_gait_k=1.0
+	for side1 in ["L","R"]:
+		var leg1:int=skel.find_bone(_bone_name(skel,"LowerLeg."+side1))
+		var foot1:int=skel.find_bone(_bone_name(skel,"Foot."+side1))
+		if leg1>=0 and foot1>=0:_gait_feet[side1]=(_pose_overrides[leg1]*(_skin_bind[leg1].affine_inverse()*_skin_bind[foot1])).origin
 	skel.force_update_all_bone_transforms()
+
+
 func update_from_sim(e, dt: float) -> void:
 	var gait_before:String=state
 	var gait_pose:Array=[]
@@ -1062,8 +1108,7 @@ func update_from_sim(e, dt: float) -> void:
 	var previous_visual:Dictionary=capture_visual_pose() if was_serve_follow else {}
 	_update_pose(e, dt)
 	if state in GAIT_CLIPS and gait_before in GAIT_CLIPS:
-		if state!=gait_before:_gait_from=gait_pose;_gait_age=0.0
-		_blend_gait_change(dt)
+		if state!=gait_before:_gait_from=gait_pose;_gait_age=0.0;_gait_k=0.0;_gait_feet.clear()
 	else:_gait_from.clear();_gait_age=9.0
 	if was_serve_follow and serve_follow_t<=0.0 and e.swing<=0.0:
 		_reset_pose=previous_visual;_reset_age=0.0
@@ -1079,6 +1124,19 @@ func update_from_sim(e, dt: float) -> void:
 	_fit_serve_contact(e,dt)
 	_blend_serve_reset(dt)
 	_blend_ground_miss(dt)
+	# El fundido de gait va el ultimo: mezcla la pose final del frame anterior
+	# con la final de este (clip + preparacion + apoyos), no con el clip crudo.
+	if state in GAIT_CLIPS and gait_before in GAIT_CLIPS:
+		if e.swing>0.0 or has_visual_contact:
+			# El ajuste de contacto es dueño del frame (la bola esta donde
+			# esta); mezclarlo desplazaria cuerpo y manos. Terminar el fundido.
+			_gait_k=1.0
+		else:
+			_blend_gait_change(dt)
+			# Reatar los pies a las espinillas mezcladas y reasentar al suelo
+			# con la misma regla de altura que el pase principal.
+			_sync_mocap_feet()
+			_ground_final_pose(eff_sp < 0.4 or state.begins_with("mocap/"))
 	_guard_preparation_racket(e)
 	_update_left_bridge()
 	if not _closed_left.visible:
