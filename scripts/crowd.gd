@@ -151,13 +151,13 @@ func build() -> void :
 	var body_mesh: = CapsuleMesh.new()
 	body_mesh.radius = 0.15
 	body_mesh.height = 0.46
-	body_mesh.radial_segments = 10
-	body_mesh.rings = 4
+	body_mesh.radial_segments = 6
+	body_mesh.rings = 2
 	var head_mesh: = SphereMesh.new()
 	head_mesh.radius = 0.105
 	head_mesh.height = 0.21
-	head_mesh.radial_segments = 10
-	head_mesh.rings = 5
+	head_mesh.radial_segments = 6
+	head_mesh.rings = 2
 	var legs_mesh: = BoxMesh.new()
 	legs_mesh.size = Vector3(0.32, 0.28, 0.18)
 
@@ -200,7 +200,7 @@ func build() -> void :
 	cap_mesh.top_radius = 0.128
 	cap_mesh.bottom_radius = 0.13
 	cap_mesh.height = 0.1
-	cap_mesh.radial_segments = 10
+	cap_mesh.radial_segments = 6
 	var mmc: = MultiMesh.new()
 	mmc.transform_format = MultiMesh.TRANSFORM_3D
 	mmc.use_colors = true

@@ -28,6 +28,7 @@ run point_release_fixture_regression
 run lob_trajectory_regression
 run drop_trajectory_regression
 run drop_action_regression
+run crowd_mesh_regression
 run gait_transition_regression
 run arrival_turn_regression
 run contact_arrival_body_regression
