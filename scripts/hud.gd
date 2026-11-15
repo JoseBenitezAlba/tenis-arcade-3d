@@ -47,9 +47,34 @@ var point_card_t: = 0.0
 var timing_label: Label
 var timing_panel: PanelContainer
 var timing_t := 0.0
+var perf_panel: PanelContainer = null
+var perf_label: Label = null
+var _perf_mode := 0
+var _perf_acc := 0.0
+var _perf_frames := 0
+var _perf_idle := 0.0
+var _perf_phys := 0.0
 
 func _ready() -> void :
 	layer = 10
+	var fps_q: = OS.get_environment("FPS")
+	if fps_q == "" and OS.has_feature("web"):
+		var q = JavaScriptBridge.eval("new URLSearchParams(location.search).get('fps')", true)
+		fps_q = String(q) if q != null else ""
+	_perf_mode = int(fps_q) if fps_q.is_valid_int() else 0
+	if _perf_mode > 0:
+		perf_panel = PanelContainer.new()
+		perf_panel.position = Vector2(12, 12)
+		var psb: = StyleBoxFlat.new()
+		psb.bg_color = Color(0.05, 0.07, 0.05, 0.72)
+		psb.set_corner_radius_all(6)
+		psb.set_content_margin_all(6)
+		perf_panel.add_theme_stylebox_override("panel", psb)
+		perf_label = Label.new()
+		perf_label.add_theme_font_size_override("font_size", 13)
+		perf_label.add_theme_color_override("font_color", Color(0.85, 0.95, 0.85, 0.95))
+		perf_panel.add_child(perf_label)
+		add_child(perf_panel)
 	var ver: = Label.new()
 	ver.text = GameMenus.VERSION
 	ver.position = Vector2(1060, 8)
@@ -630,6 +655,20 @@ func set_score_glow(level: int) -> void :
 		_ensure_vignette()
 
 func _process(dt: float) -> void :
+	if _perf_mode > 0:
+		_perf_acc += dt
+		_perf_frames += 1
+		_perf_idle += Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0
+		_perf_phys += Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0
+		if _perf_acc >= 0.5:
+			if _perf_mode >= 2:
+				perf_label.text = "%d fps · %.1f ms · proc %.1f · fís %.1f" % [int(_perf_frames / _perf_acc + 0.5), _perf_acc / _perf_frames * 1000.0, _perf_idle / _perf_frames, _perf_phys / _perf_frames]
+			else:
+				perf_label.text = "%d fps · %.1f ms" % [int(_perf_frames / _perf_acc + 0.5), _perf_acc / _perf_frames * 1000.0]
+			_perf_acc = 0.0
+			_perf_frames = 0
+			_perf_idle = 0.0
+			_perf_phys = 0.0
 	if timing_t > 0.0:
 		timing_t = maxf(0.0, timing_t - dt)
 		timing_panel.modulate.a = minf(1.0, timing_t / 0.2)
