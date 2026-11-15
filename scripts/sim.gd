@@ -434,6 +434,7 @@ func fault(why: String) -> void :
 		state_t = 0.0
 	if state != "serve" or not serve_fault_armed:
 		return
+	state_t = 0.0
 	if (why == "Saque no golpeado" or why == "SIN CONTACTO") and serve_stage != "toss":
 		return
 	if ball.serve_token < 0 or ball.serve_token == last_fault_token:
