@@ -78,6 +78,9 @@ class Player extends RefCounted:
 	var charge_pow: = 1.0
 	var aim_lx: = 0.0  # latch de dirección de golpe (29-oct): última dir. no nula desde carga/disparo hasta contacto
 	var buffered_hit_t: = 0.0
+	var buffered_lob_t: = 0.0
+	var buffered_lob_y: = 0.0
+	var buffered_drop_t: = 0.0
 
 	var hit_side: = "fore"
 
@@ -454,6 +457,8 @@ func fault(why: String) -> void :
 		_p.charging = false
 		_p.charge = 0.0
 		_p.buffered_hit_t = 0.0
+		_p.buffered_lob_t = 0.0
+		_p.buffered_drop_t = 0.0
 		_p.want_t = 0.0
 
 	prep_serve()
@@ -2157,6 +2162,8 @@ func _in_hit_win(e: Player, bx: float, by: float, bz: float, gx: float, gz: floa
 func human_control(e: Player, dt: float) -> void :
 	if state != "play":
 		e.buffered_hit_t = 0.0
+		e.buffered_lob_t = 0.0
+		e.buffered_drop_t = 0.0
 	var smv: float = _surface_mv()
 	e.tvx = inp.x * PS.speed * smv
 	e.tvz = inp.y * PS.speed * smv
@@ -2215,16 +2222,42 @@ func human_control(e: Player, dt: float) -> void :
 	# Preserve a normal-shot press made just before recovery ends.
 	# It cannot hit during getup and does not change the legal contact window.
 	e.buffered_hit_t = maxf(0.0, e.buffered_hit_t - dt)
+	e.buffered_lob_t = maxf(0.0, e.buffered_lob_t - dt)
+	e.buffered_drop_t = maxf(0.0, e.buffered_drop_t - dt)
 	if inp.lob or inp.drop:
 		e.buffered_hit_t = 0.0
+	# El último tap explícito manda también contra el buffer: un GOLPE posterior
+	# anula globo/dejada bufferizados.
+	if inp.hit:
+		e.buffered_lob_t = 0.0
+		e.buffered_drop_t = 0.0
+	# Buffer de pulsación para globo/dejada: un tap que llega durante el swing
+	# o la recuperación (getup) se conserva 0.35 s y se ejecuta al desbloquearse.
+	# La dirección (lob/toplob) se fija en el momento del tap, no en la ejecución.
+	# El último tap explícito manda: lob y dejada se anulan mutuamente.
+	if inp.lob:
+		e.buffered_drop_t = 0.0
+		if state == "play" and ball.in_play and (e.swing > 0.0 or e.getup_t > 0.0):
+			e.buffered_lob_t = 0.35
+			e.buffered_lob_y = inp.y
+	if inp.drop:
+		e.buffered_lob_t = 0.0
+		if state == "play" and ball.in_play and (e.swing > 0.0 or e.getup_t > 0.0):
+			e.buffered_drop_t = 0.35
 	if inp.hit and e.getup_t > 0.0 and e.getup_t <= 0.15 and state == "play":
 		e.buffered_hit_t = 0.2
 	var want_hit: bool = inp.hit
 	if e.buffered_hit_t > 0.0 and e.getup_t <= 0.0 and state == "play":
 		want_hit = true
 		e.buffered_hit_t = 0.0
+	var lob_dir_y: float = inp.y
 	var want_lob: bool = inp.lob
 	var want_drop: bool = inp.drop
+	if e.buffered_lob_t > 0.0 and e.swing <= 0.0 and e.getup_t <= 0.0 and state == "play" and ball.in_play and ball.last != 0:
+		want_lob = true
+		lob_dir_y = e.buffered_lob_y
+	if e.buffered_drop_t > 0.0 and e.swing <= 0.0 and e.getup_t <= 0.0 and state == "play" and ball.in_play and ball.last != 0:
+		want_drop = true
 	var rel_hit: bool = inp.hit_rel
 	inp.hit = false
 	# Latch de dirección (opción b, 29-oct): captura la última dirección lateral
@@ -2276,10 +2309,12 @@ func human_control(e: Player, dt: float) -> void :
 			e.swing = 0.3
 			e.aim_lx = inp.x
 			var _dk1: = "drop" if absf(e.z - NZ) < 7.0 and e.speed < 2.0 else "slice"
-			var _lb1: = "toplob" if inp.y > 0.4 else "lob"
+			var _lb1: = "toplob" if lob_dir_y > 0.4 else "lob"
 			e.kind = _lb1 if want_lob else (_dk1 if want_drop else "drive")
 			e.want = e.kind
 			e.want_t = 0.6
+			e.buffered_lob_t = 0.0
+			e.buffered_drop_t = 0.0
 	if e.charging and ((state != "play" and state != "serve") or not ball.in_play):
 		e.charging = false
 		e.charge = 0.0

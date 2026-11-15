@@ -696,6 +696,11 @@ func _on_pause_input(event: InputEvent) -> void :
 				_end_replay()
 			paused_game = true
 			get_tree().paused = true
+			# La pausa congela la física: sin limpiar, un tap bufferizado justo antes
+			# de pausar se ejecutaría nada más reanudar (golpe fantasma).
+			sim.pl[0].buffered_hit_t = 0.0
+			sim.pl[0].buffered_lob_t = 0.0
+			sim.pl[0].buffered_drop_t = 0.0
 			pause_layer.visible = true
 			hud.hide_banner()
 			banner_t = 0.0
