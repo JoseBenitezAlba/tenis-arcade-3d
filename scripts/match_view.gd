@@ -1489,8 +1489,13 @@ func _check_score_fallback() -> void :
 		banner_t = 1.2
 	_last_sf = sim.serve_fault
 
+static func rally_display_count(s: TennisSim) -> int:
+	# Accepted serves/hits each advance hit_id once. Keep legacy rally_hits
+	# untouched: it still drives AI, reactions and match statistics.
+	return maxi(0, s.ball.hit_id - s.rally_start_hit + 1) if s.rally_hits > 0 else 0
+
 func _update_rally_label(dt: float) -> void :
-	var live: int = sim.rally_hits if (sim.state == "play" and serve_speed_hold <= 0.0) else 0
+	var live: int = rally_display_count(sim) if (sim.state == "play" and serve_speed_hold <= 0.0) else 0
 	_last_rally_live = live
 	if live >= 2:
 		rally_shown = live
@@ -1863,11 +1868,12 @@ func drain_events() -> void :
 					sfx.play("crowd_ooh", 0.6)
 				if sim.rally_hits >= 8 and ev.txt == "PUNTO":
 					sfx.play("applause", clampf(0.5 + sim.rally_hits * 0.03, 0.5, 0.95))
-				if sim.rally_hits > rally_best:
-					rally_best = sim.rally_hits
+				var displayed_hits: int = rally_display_count(sim)
+				if displayed_hits > rally_best:
+					rally_best = displayed_hits
 				if sim.rally_hits >= 3 and not _closeup_ok:
 					rally_change_t = 1.4
-				var rct: String = rally_count_txt(sim.rally_hits)
+				var rct: String = rally_count_txt(displayed_hits)
 				if rct != "" and ev.txt == "PUNTO" and not _closeup_ok:
 					hud.popup_side(rct, Color("#9ad4ff"))
 
