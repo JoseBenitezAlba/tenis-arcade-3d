@@ -667,7 +667,7 @@ func do_hit(e: Player, kind: String, ai: bool) -> void :
 	var stretch: = maxf(0.0, dx - 0.8) + maxf(0.0, dz - 0.8)
 
 
-	if ball.y > 2.15 and kind != "lob" and kind != "toplob" and not serve_unreturned:
+	if ball.y > 2.15 and kind not in ["lob", "toplob"] and not serve_unreturned and not (kind == "drop" and not ai and e.id == 0):
 		kind = "smash"
 
 
@@ -950,8 +950,6 @@ func do_hit(e: Player, kind: String, ai: bool) -> void :
 			_hi = 40.0
 			_tmin = 0.12
 		_clamp_launch_speed(tx, tz, T, launch_y, nc_floor, _vcap, _lo, _hi, _tmin, 2.2)
-	if not ai and e.id == 0 and kind == "drop":
-		_clamp_launch_speed(tx, tz, T, launch_y, nc_floor, _vcap, 29.17, 34.0, 0.08, 2.2)
 	if kind == "slice":
 		_clamp_launch_speed(tx, tz, T, launch_y, nc_floor, _vcap, 30.0, 34.5, 0.12, 2.2)
 	if kind in ["drive", "slice", "volley", "smash"]:
@@ -2303,7 +2301,7 @@ func human_control(e: Player, dt: float) -> void :
 		if e.swing <= 0.0 and strike_ok and ball.in_play and e.getup_t <= 0.0:
 			e.swing = 0.3
 			e.aim_lx = inp.x
-			var _dk1: = "drop" if absf(e.z - NZ) < 7.0 and e.speed < 2.0 else "slice"
+			var _dk1: = "drop" # An explicit DEJADA press must keep its shot identity.
 			var _lb1: = "toplob" if lob_dir_y > 0.4 else "lob"
 			e.kind = _lb1 if want_lob else (_dk1 if want_drop else "drive")
 			e.want = e.kind
