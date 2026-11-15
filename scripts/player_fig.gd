@@ -1573,7 +1573,7 @@ func _update_pose(e, dt: float) -> void:
 
 	if _fatk > 0.55:
 		_bend_torso(0.5 * clampf((_fatk - 0.55) / 0.45, 0.0, 1.0))
-	var _stance_on: bool = state == "Idle_Sword" and eff_sp < 0.5 and e.swing <= 0.0 and celeb_t <= 0.0 and (e.get("split_t") == null or e.split_t <= 0.0) and (e.get("dive_t") == null or e.dive_t <= 0.0)
+	var _stance_on: bool = state == "Idle_Sword" and eff_sp < 0.5 and e.swing <= 0.0 and celeb_t <= 0.0 and not closeup_hold and (e.get("split_t") == null or e.split_t <= 0.0) and (e.get("dive_t") == null or e.dive_t <= 0.0)
 	if _stance_on:
 		_feet_follow_legs = true
 		_ready_stance()
@@ -1584,7 +1584,7 @@ func _update_pose(e, dt: float) -> void:
 		_receive_ready_arm(carry_k)
 	_apply_gaze()
 	_rk_rest(dt)
-	if state in CELEB_ANIMS:
+	if state in CELEB_ANIMS or (closeup_hold and e.swing <= 0.0 and serve_toss < 0.0):
 		_celebration_grip()
 	# La raqueta se coloca AL FINAL, leyendo la pose definitiva de la mano tras
 	# todas las poses procedurales: la culata no se despega del puno.
@@ -1598,6 +1598,7 @@ func _update_pose(e, dt: float) -> void:
 # Solo rotaciones locales: las articulaciones conservan sus longitudes.
 var upper_stroke_weight: float = 0.0
 var upper_stroke_clip: String = ""
+var closeup_hold: bool = false
 
 func _layer_moving_stroke(e, k: float) -> void:
 	var sc: Array = _swing_clip(e.kind, e.hit_side if "hit_side" in e else "fore")
