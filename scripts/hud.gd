@@ -45,6 +45,7 @@ var point_card_pts: Label
 var point_card_reason: Label
 var point_card_t: = 0.0
 var timing_label: Label
+var timing_panel: PanelContainer
 var timing_t := 0.0
 
 func _ready() -> void :
@@ -435,8 +436,8 @@ func hide_replay() -> void :
 		replay_tag.visible = false
 
 func show_banner(txt: String, sub: String, color: Color, big: = false) -> void :
-	if timing_label != null:
-		timing_label.visible = false
+	if timing_panel != null:
+		timing_panel.visible = false
 		timing_t = 0.0
 	banner.text = txt
 	banner.add_theme_color_override("font_color", color)
@@ -467,20 +468,33 @@ func use_touch_layout() -> void:
 	hint.add_theme_font_size_override("font_size", 20)
 
 func show_timing(txt: String) -> void:
-	if timing_label == null:
+	if timing_panel == null:
+		timing_panel = PanelContainer.new()
+		timing_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var tsb: = StyleBoxFlat.new()
+		tsb.bg_color = Color(0.10, 0.13, 0.07, 0.82)
+		tsb.border_color = Color(1, 1, 1, 0.85)
+		tsb.set_border_width_all(2)
+		tsb.set_corner_radius_all(8)
+		tsb.content_margin_left = 14
+		tsb.content_margin_right = 14
+		tsb.content_margin_top = 5
+		tsb.content_margin_bottom = 6
+		timing_panel.add_theme_stylebox_override("panel", tsb)
 		timing_label = Label.new()
 		timing_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		timing_label.position = Vector2(420, 135)
-		timing_label.size = Vector2(440, 40)
 		timing_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		timing_label.add_theme_font_size_override("font_size", 23)
 		timing_label.add_theme_color_override("font_color", Color("#ffce98"))
 		timing_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
 		timing_label.add_theme_constant_override("outline_size", 6)
-		add_child(timing_label)
+		timing_panel.add_child(timing_label)
+		add_child(timing_panel)
 	timing_label.text = txt
-	timing_label.visible = true
-	timing_label.modulate.a = 1.0
+	timing_panel.reset_size()
+	timing_panel.position = Vector2(640.0 - timing_panel.get_combined_minimum_size().x * 0.5, 135)
+	timing_panel.visible = true
+	timing_panel.modulate.a = 1.0
 	timing_t = 0.85
 
 func popup_side(txt: String, color: Color) -> void :
@@ -618,8 +632,8 @@ func set_score_glow(level: int) -> void :
 func _process(dt: float) -> void :
 	if timing_t > 0.0:
 		timing_t = maxf(0.0, timing_t - dt)
-		timing_label.modulate.a = minf(1.0, timing_t / 0.2)
-		timing_label.visible = timing_t > 0.0
+		timing_panel.modulate.a = minf(1.0, timing_t / 0.2)
+		timing_panel.visible = timing_t > 0.0
 
 	_glow_t += dt
 	if vignette != null:
