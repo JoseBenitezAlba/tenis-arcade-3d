@@ -420,7 +420,7 @@ func _on_match_finished(win: bool) -> void :
 	if in_career_match:
 		res = career.on_career_end(win)
 	var mstats: Array = match_view.sim.stats
-	var rally_max: int = match_view.sim.rally_max
+	var rally_max: int = match_view.rally_best
 	match_view.visible = false
 	match_view.queue_free()
 	match_view = null
