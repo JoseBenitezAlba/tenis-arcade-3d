@@ -669,6 +669,11 @@ func spawn_dust(pos: Vector3, n: int, col: Color, sc: float = 1.0) -> void :
 func _unhandled_input(event: InputEvent) -> void :
 	if event.is_action_pressed("camera") and not demo:
 		cam_mode = (cam_mode + 1) % CAM_MODES.size()
+		# Corte directo al nuevo modo: el vuelo interpolado cruzaba la grada.
+		var ncc: Dictionary = CAM_MODES[cam_mode]
+		cam.position = ncc["pos"]
+		cam.fov = ncc["fov"]
+		cam_look = Vector3(sim.ball.x * (0.025 if cam_mode == 1 else 0.2), ncc["look_y"], NZ)
 		return
 	if replaying:
 		if (event is InputEventKey and event.pressed and not event.echo) or (event is InputEventJoypadButton and event.pressed):
