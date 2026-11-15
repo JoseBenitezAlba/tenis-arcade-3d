@@ -18,7 +18,7 @@ func run():
   var s=TennisSim.new(false,D,{"speed":7.0,"T":1.0,"err":1.0},"CPU",1)
   s.M.server=0 if near else 1;s.prep_serve();s.toss_ball()
   s.ball.last=s.M.server;s.ball.in_play=true;s.ball.serving=true;s.ball.serve_net=true
-  s.ball.x=-1.0 if near else 1.0;s.ball.z=TennisSim.NZ+(3.0 if near else -3.0)
+  s.ball.x=1.0 if near else -1.0;s.ball.z=TennisSim.NZ+(3.0 if near else -3.0)
   s.judge_landing()
   assert(s.serve_fault==0 and s.serve_stage=="ready" and s.state=="serve")
   var found:bool=false

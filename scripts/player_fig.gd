@@ -2338,6 +2338,7 @@ func _articulated_ground(e, dt: float) -> void:
 			var requested_world:Vector3=visual_contact if stroke else _prep_target
 			var requested:Vector3=current_head.lerp(skel.global_transform.affine_inverse()*requested_world,release)
 			fit=_fit_twohand(requested,rp.basis,source_wrist)
+			current_head=requested
 			var fit_goal:Vector3=requested-fit*(_fist_center_hand+grip_basis.y*0.57/CHAR_SCALE)
 			var rs:Vector3=_current_global_pose(skel.find_bone("UpperArm_R")).origin
 			var arm_limit:float=_skin_bind[skel.find_bone("UpperArm_R")].origin.distance_to(_skin_bind[skel.find_bone("LowerArm_R")].origin)+_skin_bind[skel.find_bone("LowerArm_R")].origin.distance_to(_skin_bind[racket_hand_idx].origin)-0.012
@@ -2345,7 +2346,29 @@ func _articulated_ground(e, dt: float) -> void:
 			for side in ["L","R"]:
 				var foot:int=skel.find_bone("Foot_"+side);feet[side]=_current_global_pose(foot)
 			var moved:float=0.0
-			var reach_budget:float=0.20
+			var reach_budget:float=0.48 if stroke else 0.20
+			# Arco del tronco desde el abdomen: gira los hombros hacia el objetivo
+			# sin mover los pies; la traslacion de abajo cubre el resto.
+			var abdomen_arc:int=skel.find_bone("Abdomen")
+			for _arc_pass in 5:
+				var rs_a:Vector3=_current_global_pose(skel.find_bone("UpperArm_R")).origin
+				var fg_a:Vector3=requested-fit*(_fist_center_hand+grip_basis.y*0.57/CHAR_SCALE)
+				var shaft_a:Vector3=(fit*grip_basis.y).normalized()
+				var lc_a:Vector3=requested-shaft_a*0.475/CHAR_SCALE
+				var lg_a:Vector3=lc_a+_twohand_left_basis(shaft_a,lc_a)*Vector3(0.065,0,-0.012)/CHAR_SCALE
+				var ls_a:Vector3=_current_global_pose(skel.find_bone("UpperArm_L")).origin
+				var d_r:float=maxf(0.0,rs_a.distance_to(fg_a)-arm_limit)
+				var d_l:float=maxf(0.0,ls_a.distance_to(lg_a)-arm_limit)
+				var d_max:float=maxf(d_r,d_l)
+				if d_max<=0.001:break
+				var sh_w:Vector3=ls_a if d_l>d_r else rs_a
+				var g_w:Vector3=lg_a if d_l>d_r else fg_a
+				var apose:Transform3D=_current_global_pose(abdomen_arc)
+				var rvec:Vector3=sh_w-apose.origin
+				var aaxis:Vector3=rvec.cross((g_w-sh_w).normalized())
+				if aaxis.length()<0.01:break
+				var dth:float=clampf(d_max/maxf(0.1,rvec.length()),0.0,0.55)
+				_contact_set_branch(abdomen_arc,Transform3D(Basis(aaxis.normalized(),dth)*apose.basis,apose.origin))
 			if contact_preview and not _prep_switch_source.is_empty():reach_budget*=smoothstep(0.0,_prep_switch_duration,_prep_switch_age)
 			for _reach_pass in 3:
 				rs=_current_global_pose(skel.find_bone("UpperArm_R")).origin
@@ -2361,6 +2384,25 @@ func _articulated_ground(e, dt: float) -> void:
 					deficit=left_deficit;shift_direction=(left_goal-left_shoulder).normalized()
 				var amount:float=minf(maxf(0.0,reach_budget-moved),deficit+0.004)*(1.0-smoothstep(0.04,0.16,elapsed))
 				if deficit<=0.001 or amount<=0.0001:break
+				# Las piernas (extension + puntillas) limitan cuanto puede moverse
+				# el cuerpo sin despegar las suelas: recortar el desplazamiento.
+				var feas:float=1.0
+				for side in ["L","R"]:
+					var hip_c:int=skel.find_bone("UpperLeg_"+side)
+					var knee_c:int=skel.find_bone("LowerLeg_"+side)
+					var foot_c:int=skel.find_bone("Foot_"+side)
+					var lmax:float=_skin_bind[hip_c].origin.distance_to(_skin_bind[knee_c].origin)+_skin_bind[knee_c].origin.distance_to(_skin_bind[foot_c].origin)-0.008+0.13
+					var hp:Vector3=_current_global_pose(hip_c).origin
+					if (hp+shift_direction*amount).distance_to(feet[side].origin)>lmax:
+						var lo_f:float=0.0
+						var hi_f:float=feas
+						for _it in 8:
+							var mid_f:float=(lo_f+hi_f)*0.5
+							if (hp+shift_direction*amount*mid_f).distance_to(feet[side].origin)<=lmax:lo_f=mid_f
+							else:hi_f=mid_f
+						feas=lo_f
+				amount*=feas
+				if amount<=0.0001:break
 				moved+=amount
 				var shift:Vector3=shift_direction*amount
 				_contact_shift_branch(skel.find_bone("Body"),shift)
@@ -2368,8 +2410,40 @@ func _articulated_ground(e, dt: float) -> void:
 					var hip:int=skel.find_bone("UpperLeg_"+side)
 					var knee:int=skel.find_bone("LowerLeg_"+side)
 					var foot:int=skel.find_bone("Foot_"+side)
-					_contact_limb(hip,knee,foot,feet[side].origin,_current_global_pose(knee).origin)
-					_pose_overrides[foot].basis=feet[side].basis
+					var ankle_goal:Vector3=feet[side].origin
+					var fbasis:Basis=feet[side].basis
+					# Puntillas: si la pierna se agota, pivotar el pie sobre la punta
+					# (biseccion) en vez de dejar la suela flotando.
+					var hip_pos:Vector3=_current_global_pose(hip).origin
+					var leg_max:float=_skin_bind[hip].origin.distance_to(_skin_bind[knee].origin)+_skin_bind[knee].origin.distance_to(_skin_bind[foot].origin)-0.008
+					if hip_pos.distance_to(ankle_goal)>leg_max and _foot_points.has(foot) and not _foot_points[foot].is_empty():
+						var min_y:float=INF
+						for pt in _foot_points[foot]:min_y=minf(min_y,pt.y)
+						var toe_local:Vector3=Vector3.ZERO
+						var toe_d:float=-1.0
+						for pt in _foot_points[foot]:
+							if pt.y>min_y+0.02:continue
+							var dd:float=Vector2(pt.x,pt.z).length()
+							if dd>toe_d:toe_d=dd;toe_local=pt
+						var toe:Vector3=feet[side]*toe_local
+						var v:Vector3=ankle_goal-toe
+						var axis:Vector3=fbasis.x.normalized()
+						var sg:float=1.0
+						if hip_pos.distance_to(toe+Basis(axis,-0.1)*v)<hip_pos.distance_to(toe+Basis(axis,0.1)*v):sg=-1.0
+						var theta:float=0.9
+						if hip_pos.distance_to(toe+Basis(axis,sg*0.9)*v)<=leg_max:
+							var lo:float=0.0
+							var hi:float=0.9
+							for _it in 8:
+								var mid:float=(lo+hi)*0.5
+								if hip_pos.distance_to(toe+Basis(axis,sg*mid)*v)<=leg_max:hi=mid
+								else:lo=mid
+							theta=hi
+						var rot:Basis=Basis(axis,sg*theta)
+						ankle_goal=toe+rot*v
+						fbasis=rot*fbasis
+					_contact_limb(hip,knee,foot,ankle_goal,_current_global_pose(knee).origin)
+					_pose_overrides[foot].basis=fbasis
 				current_head=requested
 				fit=_fit_twohand(current_head,rp.basis,source_wrist)
 		if stroke and elapsed>0.10:

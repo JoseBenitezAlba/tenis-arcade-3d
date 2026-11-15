@@ -272,7 +272,7 @@ func prep_serve() -> void :
 	ball.departing_hitter = -1
 	var srv = pl[M.server]
 	var rec = pl[1 - M.server]
-	var sgn: = 1.0 if ((M.tb_total if M.tb else M.pts[0] + M.pts[1]) % 2) == 0 else -1.0
+	var sgn: = -1.0 if ((M.tb_total if M.tb else M.pts[0] + M.pts[1]) % 2) == 0 else 1.0
 	var near: bool = srv.near
 	srv.x = 1.4 * sgn if near else -1.4 * sgn
 	srv.z = -0.9 if near else L + 0.9
@@ -303,7 +303,7 @@ func prep_serve() -> void :
 
 
 func break_pos(e) -> Vector2:
-	var sgn: = 1.0 if ((M.tb_total if M.tb else M.pts[0] + M.pts[1]) % 2) == 0 else -1.0
+	var sgn: = -1.0 if ((M.tb_total if M.tb else M.pts[0] + M.pts[1]) % 2) == 0 else 1.0
 	var snear: bool = pl[M.server].near
 	var sx: float = 1.4 * sgn if snear else -1.4 * sgn
 	if M.server == e.id:
@@ -2360,7 +2360,7 @@ func human_control(e: Player, dt: float) -> void :
 
 func update_player(e: Player, dt: float) -> void :
 	if state == "serve" and M.server == e.id and serve_stage in ["ready", "toss"]:
-		var _sgn: float = 1.0 if ((M.tb_total if M.tb else M.pts[0] + M.pts[1]) % 2) == 0 else -1.0
+		var _sgn: float = -1.0 if ((M.tb_total if M.tb else M.pts[0] + M.pts[1]) % 2) == 0 else 1.0
 		var _sx: float = 1.4 * _sgn if e.near else -1.4 * _sgn
 		var _sz: float = -0.9 if e.near else L + 0.9
 		e.x = lerpf(e.x, _sx, minf(1.0, dt * 10.0))
@@ -2551,7 +2551,7 @@ func update_player(e: Player, dt: float) -> void :
 	if state == "serve" and M.server == e.id and not (serve_stage == "hit" and AIP.style == "sv" and e.appr_t > 0.0 and (demo or e.id == 1)):
 
 
-		var _sgn: = 1.0 if ((M.tb_total if M.tb else M.pts[0] + M.pts[1]) % 2) == 0 else -1.0
+		var _sgn: = -1.0 if ((M.tb_total if M.tb else M.pts[0] + M.pts[1]) % 2) == 0 else 1.0
 		var _sside: float = signf((1.4 * _sgn) if e.near else (-1.4 * _sgn))
 		e.x = clampf(e.x, 0.25, 4.1) if _sside > 0.0 else clampf(e.x, -4.1, -0.25)
 		e.z = clamp(e.z, -2.2, -0.3) if e.near else clamp(e.z, L + 0.3, L + 2.2)
