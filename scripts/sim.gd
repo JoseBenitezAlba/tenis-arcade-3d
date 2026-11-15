@@ -960,6 +960,13 @@ func do_hit(e: Player, kind: String, ai: bool) -> void :
 			ball.vx *= _ff
 			ball.vy *= _ff
 			ball.vz *= _ff
+	# Give a human receiver time to get into position on ordinary CPU drives.
+	# Preserve the chosen target and explicit net risks, not the post-solve speed floor.
+	if ai and not demo and e.id == 1 and kind == "drive" and not explicit_skim_risk and ball.vz != 0.0:
+		var _flight_t: float = absf((tz - ball.z) / ball.vz)
+		if _flight_t < 1.0:
+			var _solve_t: float = 1.0 / clampf(1.0 - 0.06 * ball.spin, 0.88, 1.12)
+			_launch_any(tx, tz, _solve_t, launch_y, nc_floor, _vcap)
 	# Lobs keep launch()'s target and flight-time solution. Scaling all velocity
 	# components here to impose a speed floor sends legal targets beyond baseline.
 	var spd: = Vector3(ball.vx, ball.vy, ball.vz).length()
@@ -2150,7 +2157,10 @@ func _in_hit_win(e: Player, bx: float, by: float, bz: float, gx: float, gz: floa
 	var bh_side: float = 1.0 if e.near else -1.0
 	if (bx - e.x) * bh_side > 0.0:
 		lat += 0.45
-	return absf(bx - e.x) < lat and absf(bz - e.z) < gz and by < ymax and not h_behind
+	# Do not let the broad timing window trigger a remote human contact.
+	# The same reach envelope already guides the visible racket approach.
+	var within_reach: bool = demo or e.id != 0 or _physical_contact_ok(e, bx, by, bz)
+	return absf(bx - e.x) < lat and absf(bz - e.z) < gz and by < ymax and not h_behind and within_reach
 
 func human_control(e: Player, dt: float) -> void :
 	if state != "play":
