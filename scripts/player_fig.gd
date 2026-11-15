@@ -2231,6 +2231,8 @@ var approach_contact:Vector3=Vector3.ZERO
 # preparacion no sigue la regla del golpe real, la pose cambia de familia al
 # empezar el swing (pop).
 var approach_overhead: bool = false
+var side_arrival_x: float = 0.0
+var side_arrival_y: float = 0.0
 var _approach_blend: float = 0.0
 var _prep_pose_age:float=0.0
 var _prep_side_set:bool=false
@@ -2263,7 +2265,7 @@ func _articulated_ground(e, dt: float) -> void:
 	var approaching: float = 1.0-smoothstep(0.05,0.65,approach_time) if approach_active else 0.0
 	# Horizontal arrival is not a hit opportunity while a lob is metres
 	# above any reachable contact. Keep ready locomotion until it descends.
-	approaching*=1.0-smoothstep(3.25,4.0,approach_contact.y)
+	approaching*=1.0-smoothstep(3.25,4.0,side_arrival_y if approach_active else approach_contact.y)
 	_approach_blend=move_toward(_approach_blend,approaching,dt*6.0)
 	prep=maxf(prep,_approach_blend)
 	if not approach_active:_prep_progress=0.0;_prep_target_set=false
@@ -2279,7 +2281,7 @@ func _articulated_ground(e, dt: float) -> void:
 	var weight: float = smoothstep(0.1,0.7,prep) if not stroke else 1.0-smoothstep(0.40,0.65,_full_stroke_age)
 	if weight <= 0.001: return
 	tennis_contact_weight=weight
-	var arrival_x:float=approach_contact.x
+	var arrival_x:float=side_arrival_x if approach_active else approach_contact.x
 	var actor_x:float=e.x
 	if not approach_active:_prep_side_set=false
 	if approach_active and not _prep_side_set and prep>0.7:
