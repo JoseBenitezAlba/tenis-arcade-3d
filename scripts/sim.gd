@@ -962,13 +962,8 @@ func do_hit(e: Player, kind: String, ai: bool) -> void :
 			ball.vx *= _ff
 			ball.vy *= _ff
 			ball.vz *= _ff
-	elif kind in ["lob", "toplob"]:
-		var _lob_sp: float = Vector3(ball.vx, ball.vy, ball.vz).length()
-		if _lob_sp < 26.4:
-			var _lf: float = 26.4 / maxf(_lob_sp, 0.01)
-			ball.vx *= _lf
-			ball.vy *= _lf
-			ball.vz *= _lf
+	# Lobs keep launch()'s target and flight-time solution. Scaling all velocity
+	# components here to impose a speed floor sends legal targets beyond baseline.
 	var spd: = Vector3(ball.vx, ball.vy, ball.vz).length()
 	ball.hot = clampf((spd - 24.0) / 20.0, 0.0, 1.0)
 	events.append({"t": "hit", "id": e.id, "kind": kind, "x": ball.x, "y": ball.y, "z": ball.z, "rise": on_rise, "perfect": perfect, "tper": aim.get("tper", false), "spd": spd, "charge": shot_charge, "tq": tq, "jam": srv_ret_hit and ball.serve_jam, "stretch": snappedf(stretch, 0.01)})
