@@ -10,6 +10,9 @@ var mm_legs: MultiMeshInstance3D
 var base_pos: Array[Vector3] = []
 var face_rot: Array[Basis] = []
 var head_yaw: Array[float] = []
+var body_seated_basis: Array[Basis] = []
+var body_standing_basis: Array[Basis] = []
+var leg_basis: Array[Basis] = []
 var ball_pos: = Vector3(0, 1.0, 11.885)
 var phases: Array[float] = []
 var jitters: Array[float] = []
@@ -213,6 +216,10 @@ func build() -> void :
 	mm_cap.multimesh = mmc
 	mm_cap.material_override = _mat()
 	add_child(mm_cap)
+	for i in n:
+		body_seated_basis.append(face_rot[i].scaled(Vector3(1.18 * builds[i].x, 0.9 * builds[i].y, 1.05 * builds[i].x)))
+		body_standing_basis.append(face_rot[i].scaled(Vector3(1.18 * builds[i].x, 1.14 * builds[i].y, 1.05 * builds[i].x)))
+		leg_basis.append(face_rot[i].scaled(Vector3(1.0, 0.9, 0.9)))
 	var zero_t: = Transform3D(Basis.IDENTITY.scaled(Vector3.ZERO), Vector3.ZERO)
 	for i in n:
 		if empty[i]:
@@ -337,6 +344,10 @@ func update(dt: float, rally_exc: float) -> void :
 		sil_t -= dt
 	var ova: = force_ovation or ova_t > 0.0
 	var frozen: = sil_t > 0.0 and not ova
+	var bodies: MultiMesh = mm_body.multimesh
+	var legs: MultiMesh = mm_legs.multimesh
+	var heads: MultiMesh = mm_head.multimesh
+	var caps: MultiMesh = mm_cap.multimesh
 	for i in n:
 		if empty[i]:
 			continue
@@ -355,12 +366,10 @@ func update(dt: float, rally_exc: float) -> void :
 			var frq: float = 1.3 + 4.5 * exc
 			y = sin(time * frq * jitters[i] + ph) * amp
 
-		var body_sy: = 0.9 * builds[i].y
-		if ova and stand_up[i]:
-			body_sy = 1.14 * builds[i].y
-		var t: = Transform3D(face_rot[i].scaled(Vector3(1.18 * builds[i].x, body_sy, 1.05 * builds[i].x)), p + Vector3(0, y + 0.42, 0))
-		mm_body.multimesh.set_instance_transform(i, t)
-		mm_legs.multimesh.set_instance_transform(i, Transform3D(face_rot[i].scaled(Vector3(1.0, 0.9, 0.9)), p + Vector3(0, y + 0.16, 0)))
+		var body_basis: Basis = body_standing_basis[i] if ova and stand_up[i] else body_seated_basis[i]
+		var t: = Transform3D(body_basis, p + Vector3(0, y + 0.42, 0))
+		bodies.set_instance_transform(i, t)
+		legs.set_instance_transform(i, Transform3D(leg_basis[i], p + Vector3(0, y + 0.16, 0)))
 
 		var ty: float = atan2(p.x - ball_pos.x, p.z - ball_pos.z) + PI
 		head_yaw[i] = lerp_angle(head_yaw[i], ty, minf(1.0, dt * 3.5))
@@ -372,7 +381,7 @@ func update(dt: float, rally_exc: float) -> void :
 		if ova and stand_up[i]:
 			head_base += 0.16
 		t = Transform3D(Basis(Vector3.UP, head_yaw[i]).scaled(Vector3(1.05, sy * 1.05, 1.05)), p + Vector3(0, head_base, 0))
-		mm_head.multimesh.set_instance_transform(i, t)
+		heads.set_instance_transform(i, t)
 
 		if cap_ok[i]:
-			mm_cap.multimesh.set_instance_transform(i, Transform3D(Basis.IDENTITY, p + Vector3(0, head_base + 0.14, 0)))
+			caps.set_instance_transform(i, Transform3D(Basis.IDENTITY, p + Vector3(0, head_base + 0.14, 0)))
