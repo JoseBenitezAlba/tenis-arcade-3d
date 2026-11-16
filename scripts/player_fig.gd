@@ -28,6 +28,7 @@ var state: = ""
 var blend: = 0.14
 var _skin_bind: Dictionary = {}
 var _pose_overrides: Dictionary = {}
+var _bone_branches: Array[PackedInt32Array] = []
 
 static func _mat(color: Color) -> StandardMaterial3D:
 	var m: = StandardMaterial3D.new()
@@ -106,6 +107,7 @@ func _init(look: int, is_player0: bool) -> void :
 	inst.scale = Vector3.ONE * CHAR_SCALE
 	add_child(inst)
 	skel = inst.find_child("Skeleton3D", true, false)
+	_cache_bone_branches()
 	ap = inst.find_child("AnimationPlayer", true, false)
 
 
@@ -747,16 +749,26 @@ const SERVE_ARM: = -0.8
 # Los overrides globales no actualizan de forma fiable la pose consultada de
 # los descendientes. Se aplica la misma delta a toda la rama, capturada antes
 # de escribir, para que codo, muneca, piel y agarre compartan la misma cadena.
+# La jerarquia del modelo no cambia despues de instanciarlo.
+# Conservar el orden ascendente de huesos del recorrido original.
+func _cache_bone_branches() -> void:
+	_bone_branches.clear()
+	for bone in skel.get_bone_count():
+		var branch: PackedInt32Array = []
+		for bi in skel.get_bone_count():
+			var ancestor: int = bi
+			while ancestor >= 0 and ancestor != bone:
+				ancestor = skel.get_bone_parent(ancestor)
+			if ancestor == bone:
+				branch.append(bi)
+		_bone_branches.append(branch)
+
 func _override_branch(bone: int, target: Transform3D, _amount: float = 1.0, _persistent: bool = true) -> void:
 	var old: Transform3D = skel.get_bone_global_pose(bone)
 	var delta: Transform3D = target * old.affine_inverse()
 	var poses: Dictionary = {}
-	for bi in skel.get_bone_count():
-		var ancestor: int = bi
-		while ancestor >= 0 and ancestor != bone:
-			ancestor = skel.get_bone_parent(ancestor)
-		if ancestor == bone:
-			poses[bi] = delta * skel.get_bone_global_pose(bi)
+	for bi in _bone_branches[bone]:
+		poses[bi] = delta * skel.get_bone_global_pose(bi)
 	for bi in poses:
 		skel.set_bone_global_pose_override(bi, poses[bi], 1.0, true)
 		_pose_overrides[bi] = poses[bi]
