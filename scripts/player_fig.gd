@@ -903,15 +903,15 @@ static func _swing_clip(kind: String, hit_side: String) -> Array:
 
 
 	match kind:
-		"drop": return ["mocap/Reves" if hit_side == "back" else "mocap/Derecha", 1.0, 1.38]
+		"drop": return ["mocap/Reves" if hit_side == "back" else "mocap/Derecha", 1.55, 1.90, 1.81]
 
-		"volley": return ["mocap/Reves" if hit_side == "back" else "mocap/Derecha", 1.0, 1.45]
+		"volley": return ["mocap/Reves" if hit_side == "back" else "mocap/Derecha", 1.50, 1.92, 1.81]
 
 
 
 
 		"smash": return ["articulated/Servicio", 1.30, 1.70]
-		"slice": return ["Sword_Slash", 0.92, 1.12]
+		"slice": return ["mocap/Reves" if hit_side == "back" else "mocap/Derecha", 1.20, 2.00, 1.81]
 		_: return ["mocap/Reves" if hit_side == "back" else "mocap/Derecha", 1.0, 1.95]
 
 
@@ -1460,13 +1460,19 @@ func _update_pose(e, dt: float) -> void:
 			ap.seek(0.0, true)
 		return
 	if repositioning and e.swing <= 0.0:
+		# Cambio de clip conservando la fase de zancada (_play reiniciaba a
+		# tau=0 y teleportaba los pies) e histeresis de velocidad Walk/Run
+		# (el umbral unico de 2.8 oscilaba entre frames al frenar el lerp).
 		var v: Vector3 = _reposition_velocity
-		var clip: String = "Run" if eff_sp > 2.8 else "Walk"
-		if absf(v.x) > absf(v.z) * 1.15:
-			clip = "Run_Left" if (v.x > 0.0) == e.near else "Run_Right"
-		elif (v.z < 0.0) == e.near:
-			clip = "Run_Back"
-		_play(clip, clampf(eff_sp / (1.45 if clip == "Walk" else 3.34), 0.15, 2.5))
+		var run_sp: bool = eff_sp > 2.8 or (eff_sp > 2.2 and state in ["Run", "Run_Left", "Run_Right", "Run_Back"])
+		var clip: String = "Walk"
+		if run_sp:
+			clip = "Run"
+			if absf(v.x) > absf(v.z) * 1.15:
+				clip = "Run_Left" if (v.x > 0.0) == e.near else "Run_Right"
+			elif (v.z < 0.0) == e.near:
+				clip = "Run_Back"
+		_play_gait(clip, clampf(eff_sp / (1.45 if clip == "Walk" else (3.38 if clip == "Run_Back" else 3.34)), 0.15, 2.5))
 		_place_racket(dt)
 		return
 	if serve_ready and e.swing <= 0.0:
@@ -1532,7 +1538,9 @@ func _update_pose(e, dt: float) -> void:
 			tau = _serve_tau(kk)
 		else:
 			var span: float = sc[2] - sc[1]
-			var e0: float = _ease_out_cubic(CONTACT_K)
+			# Ancla de contacto: sc[3] opcional fija el tau de contacto del clip;
+			# sin el se conserva el reparto historico (ease_out_cubic(CONTACT_K)).
+			var e0: float = (float(sc[3]) - sc[1]) / span if sc.size() > 3 else _ease_out_cubic(CONTACT_K)
 			if kk <= CONTACT_K:
 				var x: float = kk / CONTACT_K
 				tau = sc[1] + span * e0 * pow(x, 1.6)
@@ -1618,7 +1626,11 @@ func _update_pose(e, dt: float) -> void:
 			elif state == "Run_Right": axis = Vector3(-1, 0, 0)
 			var off: float = absf(rad_to_deg(atan2(axis.cross(gait_velocity).y, axis.dot(gait_velocity))))
 			var cap: float = lerpf(0.12, 0.45, clampf(1.0 - (off - 25.0) / 55.0, 0.0, 1.0))
-			if mism <= maxf(0.22, _pending_best * 1.15) and _pending_age >= 0.12 or _pending_age >= cap:
+			# Patinar es peor que un cambio algo brusco: si el clip actual ya no
+			# alcanza la velocidad de avance (pies arrastrando), cambiar ya.
+			var stride_now: float = (1.45 if state == "Walk" else (3.38 if state == "Run_Back" else 3.34)) * absf(ap.speed_scale)
+			var slide: float = eff_sp - stride_now
+			if (mism <= maxf(0.22, _pending_best * 1.15) and _pending_age >= 0.12 or _pending_age >= cap) or slide > 1.2:
 				_play_gait(rc, rspd)
 				_pending_gait = ""
 			else:
@@ -1652,6 +1664,15 @@ func _update_pose(e, dt: float) -> void:
 	# fundido con carry_k para que suba con el inicio del saque sin salto.
 	if e.wait_serve and e.swing <= 0.0 and carry_k > 0.01:
 		_receive_ready_arm(carry_k)
+	# Split step: el salto vertical ya se aplica arriba sobre position.y; aqui
+	# las piernas cargan antes del salto y absorben al caer, con el tronco
+	# acompanando. Antes el cuerpo subia y bajaba rigido, en plan ascensor.
+	if e.get("split_t") != null and e.split_t > 0.0 and e.swing <= 0.0 and e.get("dive_t") <= 0.0 and (e.get("getup_t") == null or e.getup_t <= 0.0):
+		var sph: float = 1.0 - e.split_t / 0.32
+		var load: float = exp(-pow((sph - 0.16) / 0.13, 2.0)) * 0.55
+		var land: float = exp(-pow((sph - 0.86) / 0.11, 2.0)) * 0.85
+		_serve_knees(load + land)
+		_bend_torso(0.05 * load + 0.10 * land)
 	_apply_gaze()
 	_rk_rest(dt)
 	if state in CELEB_ANIMS or (closeup_hold and e.swing <= 0.0 and serve_toss < 0.0):
@@ -1676,7 +1697,7 @@ func _layer_moving_stroke(e, k: float) -> void:
 	if sc[0] == "articulated/Servicio":
 		tau = _serve_tau(clampf(k, 0.0, 1.0))
 	else:
-		var split: float = _ease_out_cubic(CONTACT_K)
+		var split: float = (float(sc[3]) - sc[1]) / (sc[2] - sc[1]) if sc.size() > 3 else _ease_out_cubic(CONTACT_K)
 		var phase: float
 		if k <= CONTACT_K:
 			phase = split * pow(clampf(k / CONTACT_K, 0.0, 1.0), 1.6)
