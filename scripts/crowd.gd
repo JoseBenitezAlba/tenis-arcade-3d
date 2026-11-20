@@ -42,8 +42,8 @@ const PANTS: = ["#1c2230", "#222a3a", "#2b3345", "#3a4250", "#141a24", "#d9d4c8"
 func _mat() -> StandardMaterial3D:
 	var m: = StandardMaterial3D.new()
 	m.vertex_color_use_as_albedo = true
-	m.albedo_color = Color(0.52, 0.51, 0.5)
-	m.roughness = 0.9
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.albedo_color = Color(0.62, 0.6, 0.58)
 	return m
 
 func build() -> void :
@@ -52,11 +52,11 @@ func build() -> void :
 
 	var stands: Array = []
 
-	stands.append([Vector3(-21.0, 1.7, 29.4), Vector3(1, 0, 0), Vector3(0, 0.7, 0.5), 43, 12, Basis(Vector3.UP, PI), Vector3(0, 0, 1), [13, 26]])
+	stands.append([Vector3(-21.0, 1.45, 29.4), Vector3(1, 0, 0), Vector3(0, 0.56, 0.42), 43, 12, Basis(Vector3.UP, PI), Vector3(0, 0, 1), [13, 26]])
 
-	stands.append([Vector3(14.3, 1.7, -2.0), Vector3(0, 0, 1), Vector3(0.5, 0.7, 0), 31, 12, Basis(Vector3.UP, - PI * 0.5), Vector3(1, 0, 0), [14]])
-	stands.append([Vector3(-14.3, 1.7, -2.0), Vector3(0, 0, 1), Vector3(-0.5, 0.7, 0), 31, 12, Basis(Vector3.UP, PI * 0.5), Vector3(-1, 0, 0), [14]])
-	stands.append([Vector3(-21.0, 1.7, -10.0), Vector3(1, 0, 0), Vector3(0, 0.7, -0.5), 43, 5, Basis(), Vector3(0, 0, -1), [13, 26]])
+	stands.append([Vector3(14.3, 1.45, -2.0), Vector3(0, 0, 1), Vector3(0.42, 0.56, 0), 31, 12, Basis(Vector3.UP, - PI * 0.5), Vector3(1, 0, 0), [14]])
+	stands.append([Vector3(-14.3, 1.45, -2.0), Vector3(0, 0, 1), Vector3(-0.42, 0.56, 0), 31, 12, Basis(Vector3.UP, PI * 0.5), Vector3(-1, 0, 0), [14]])
+	stands.append([Vector3(-21.0, 1.45, -10.0), Vector3(1, 0, 0), Vector3(0, 0.56, -0.42), 43, 5, Basis(), Vector3(0, 0, -1), [13, 26]])
 
 	var step_mat: = StandardMaterial3D.new()
 	step_mat.albedo_color = Color("#232a3a")
@@ -252,11 +252,11 @@ func _add_person(p0: Vector3, rot: Basis, r: int, c: int, org: Vector3, rng: Ran
 		col = Color(SHIRTS[prng.randi_range(0, SHIRTS.size() - 1)])
 	elif prng.randf() < 0.12:
 		col = Color(MUTED[prng.randi_range(0, MUTED.size() - 1)])
-	col = col.lerp(Color(0.24, 0.22, 0.21), prng.randf_range(0.55, 0.75))
+	col = col.lerp(Color(0.24, 0.22, 0.21), prng.randf_range(0.36, 0.56))
 	shirt_cols.append(col)
 	skin_cols.append(Color(SKINS[prng.randi_range(0, SKINS.size() - 1)]))
 	pants_cols.append(Color(PANTS[prng.randi_range(0, PANTS.size() - 1)]).lerp(Color(0.18, 0.18, 0.22), prng.randf_range(0.0, 0.2)))
-	empty.append(r == 6 or prng.randf() < 0.18)
+	empty.append(r == 6 or prng.randf() < 0.09)
 	var CAPS: = ["#e8e4da", "#d94f3d", "#3f7fd9", "#2f3644", "#e8b53a"]
 	cap_ok.append(prng.randf() < 0.32 and not empty[empty.size() - 1])
 	cap_cols.append(Color(CAPS[prng.randi_range(0, CAPS.size() - 1)]))
@@ -362,8 +362,8 @@ func update(dt: float, rally_exc: float) -> void :
 			var boost: = 2.0 if stand_up[i] else 1.0
 			y = absf(sin(time * 7.5 * jitters[i] - (p.x + p.z) * 0.35 + ph)) * 0.22 * boost
 		else:
-			var amp: float = 0.03 + 0.11 * exc
-			var frq: float = 1.3 + 4.5 * exc
+			var amp: float = 0.055 + 0.12 * exc
+			var frq: float = 1.9 + 4.5 * exc
 			y = sin(time * frq * jitters[i] + ph) * amp
 
 		var body_basis: Basis = body_standing_basis[i] if ova and stand_up[i] else body_seated_basis[i]
@@ -372,7 +372,7 @@ func update(dt: float, rally_exc: float) -> void :
 		legs.set_instance_transform(i, Transform3D(leg_basis[i], p + Vector3(0, y + 0.16, 0)))
 
 		var ty: float = atan2(p.x - ball_pos.x, p.z - ball_pos.z) + PI
-		head_yaw[i] = lerp_angle(head_yaw[i], ty, minf(1.0, dt * 3.5))
+		head_yaw[i] = lerp_angle(head_yaw[i], ty, minf(1.0, dt * 4.5))
 		var sy: = 1.0
 		var bt: float = fmod(time * 0.31 * jitters[i] + phases[i] * 3.0, 6.5)
 		if bt < 0.1:
