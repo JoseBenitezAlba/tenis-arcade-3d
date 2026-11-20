@@ -42,8 +42,8 @@ const PANTS: = ["#1c2230", "#222a3a", "#2b3345", "#3a4250", "#141a24", "#d9d4c8"
 func _mat() -> StandardMaterial3D:
 	var m: = StandardMaterial3D.new()
 	m.vertex_color_use_as_albedo = true
-	m.albedo_color = Color(0.74, 0.72, 0.7)
-	m.roughness = 0.9
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.albedo_color = Color(0.62, 0.6, 0.58)
 	return m
 
 func build() -> void :
