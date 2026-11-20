@@ -19,15 +19,17 @@ func _ready() -> void :
 	streams["bounce_grass"] = _mix([{"n": 0.02, "vol": 0.32, "atk": 0.001}], [{"f": 230.0, "d": 0.02, "vol": 0.1, "slide": -120.0, "w": "tri"}, {"f": 120.0, "d": 0.04, "vol": 0.08, "slide": -35.0}], 0.06)
 	streams["skid_grass"] = _mix([{"n": 0.07, "vol": 0.2}], [{"f": 340.0, "d": 0.07, "vol": 0.06, "slide": -160.0, "w": "tri"}], 0.08)
 
+	streams["bounce_hard"] = _mix([{"n": 0.016, "vol": 0.5, "atk": 0.001}], [{"f": 520.0, "d": 0.016, "vol": 0.16, "slide": -260.0, "w": "tri"}, {"f": 150.0, "d": 0.05, "vol": 0.16, "slide": -45.0}], 0.07)
+
 
 	streams["step"] = _mix([{"n": 0.03, "vol": 0.18}], [{"f": 180.0, "d": 0.03, "vol": 0.06, "slide": -60.0, "w": "tri"}], 0.045)
 	streams["step_clay"] = _mix([{"n": 0.05, "vol": 0.13, "atk": 0.01}], [{"f": 140.0, "d": 0.04, "vol": 0.05, "slide": -40.0, "w": "tri"}], 0.06)
 	streams["step_grass"] = _mix([{"n": 0.025, "vol": 0.1}], [{"f": 200.0, "d": 0.02, "vol": 0.04, "slide": -50.0, "w": "tri"}], 0.035)
 	streams["hit_weak"] = _mix([{"n": 0.02, "vol": 0.55, "atk": 0.001}], [{"f": 430.0, "d": 0.02, "vol": 0.2, "slide": -280.0, "w": "tri"}, {"f": 150.0, "d": 0.06, "vol": 0.2, "slide": -50.0}, {"f": 82.0, "d": 0.07, "vol": 0.22, "slide": -15.0}], 0.1)
-	streams["hit"] = _mix([{"n": 0.026, "vol": 0.82, "atk": 0.001}], [{"f": 760.0, "d": 0.026, "vol": 0.34, "slide": -520.0, "w": "tri"}, {"f": 190.0, "d": 0.07, "vol": 0.3, "slide": -90.0}, {"f": 86.0, "d": 0.1, "vol": 0.34, "slide": -18.0}], 0.13)
+	streams["hit"] = _mix([{"n": 0.026, "vol": 0.82, "atk": 0.001}], [{"f": 1180.0, "d": 0.018, "vol": 0.14, "slide": -760.0, "w": "tri"}, {"f": 760.0, "d": 0.026, "vol": 0.34, "slide": -520.0, "w": "tri"}, {"f": 190.0, "d": 0.07, "vol": 0.3, "slide": -90.0}, {"f": 86.0, "d": 0.1, "vol": 0.34, "slide": -18.0}], 0.13)
 
-	streams["hit_charge"] = _mix([{"n": 0.032, "vol": 1.0, "atk": 0.001}], [{"f": 900.0, "d": 0.03, "vol": 0.42, "slide": -620.0, "w": "tri"}, {"f": 210.0, "d": 0.08, "vol": 0.38, "slide": -100.0}, {"f": 92.0, "d": 0.11, "vol": 0.45, "slide": -24.0}], 0.14)
-	streams["hit_big"] = _mix([{"n": 0.038, "vol": 1.0, "atk": 0.001}], [{"f": 830.0, "d": 0.034, "vol": 0.46, "slide": -580.0, "w": "tri"}, {"f": 195.0, "d": 0.1, "vol": 0.38, "slide": -105.0}, {"f": 76.0, "d": 0.16, "vol": 0.52, "slide": -16.0}], 0.17)
+	streams["hit_charge"] = _mix([{"n": 0.032, "vol": 1.0, "atk": 0.001}], [{"f": 1250.0, "d": 0.02, "vol": 0.16, "slide": -820.0, "w": "tri"}, {"f": 900.0, "d": 0.03, "vol": 0.42, "slide": -620.0, "w": "tri"}, {"f": 210.0, "d": 0.08, "vol": 0.38, "slide": -100.0}, {"f": 92.0, "d": 0.11, "vol": 0.45, "slide": -24.0}], 0.14)
+	streams["hit_big"] = _mix([{"n": 0.038, "vol": 1.0, "atk": 0.001}], [{"f": 1220.0, "d": 0.022, "vol": 0.18, "slide": -800.0, "w": "tri"}, {"f": 830.0, "d": 0.034, "vol": 0.46, "slide": -580.0, "w": "tri"}, {"f": 195.0, "d": 0.1, "vol": 0.38, "slide": -105.0}, {"f": 76.0, "d": 0.16, "vol": 0.52, "slide": -16.0}], 0.17)
 	streams["bounce"] = _mix([{"n": 0.018, "vol": 0.5, "atk": 0.001}], [{"f": 640.0, "d": 0.018, "vol": 0.16, "slide": -360.0, "w": "tri"}, {"f": 150.0, "d": 0.055, "vol": 0.14, "slide": -40.0}], 0.08)
 	streams["net"] = _mix([{"n": 0.15, "vol": 0.55, "atk": 0.002}], [{"f": 430.0, "d": 0.03, "vol": 0.18, "slide": -280.0, "w": "tri"}, {"f": 95.0, "d": 0.16, "vol": 0.22, "slide": -40.0}], 0.2)
 	streams["serve"] = _mix([{"n": 0.22, "vol": 0.09, "atk": 0.05}], [{"f": 520.0, "d": 0.2, "vol": 0.02, "slide": -300.0, "w": "tri"}], 0.22)
@@ -44,7 +46,7 @@ func _ready() -> void :
 	streams["dive"] = _mix([{"n": 0.24, "vol": 0.3, "atk": 0.05}], [{"f": 300.0, "d": 0.2, "vol": 0.1, "slide": -180.0, "w": "tri"}], 0.24)
 
 
-	streams["hit_perfect"] = _mix([{"n": 0.03, "vol": 1.0, "atk": 0.001}], [{"f": 980.0, "d": 0.03, "vol": 0.5, "slide": -720.0, "w": "tri"}, {"f": 220.0, "d": 0.08, "vol": 0.42, "slide": -130.0}, {"f": 90.0, "d": 0.14, "vol": 0.55, "slide": -18.0}], 0.16)
+	streams["hit_perfect"] = _mix([{"n": 0.03, "vol": 1.0, "atk": 0.001}], [{"f": 1350.0, "d": 0.022, "vol": 0.2, "slide": -900.0, "w": "tri"}, {"f": 980.0, "d": 0.03, "vol": 0.5, "slide": -720.0, "w": "tri"}, {"f": 220.0, "d": 0.08, "vol": 0.42, "slide": -130.0}, {"f": 90.0, "d": 0.14, "vol": 0.55, "slide": -18.0}], 0.16)
 
 	streams["hit_drop"] = _mix([{"n": 0.05, "vol": 0.22}], [{"f": 150.0, "d": 0.06, "vol": 0.14, "slide": -40.0, "w": "tri"}])
 
@@ -77,37 +79,6 @@ func _ready() -> void :
 
 	streams["grunt"] = _mix([{"n": 0.1, "vol": 0.2, "atk": 0.01}], [{"f": 130.0, "d": 0.15, "vol": 0.5, "slide": -45.0, "w": "saw"}, {"f": 262.0, "d": 0.11, "vol": 0.22, "slide": -70.0, "w": "tri"}], 0.17)
 
-	_load_samples()
-
-func _load_samples() -> void :
-	var files: = {
-		"hit_01": "res://assets/audio/tennis_hit_01.mp3",
-		"hit_02": "res://assets/audio/tennis_hit_02.mp3",
-		"bounce": "res://assets/audio/tennis_bounce.mp3",
-		"net": "res://assets/audio/tennis_net.mp3",
-	}
-	var smp: = {}
-	for k in files:
-		if ResourceLoader.exists(files[k]):
-			smp[k] = load(files[k])
-	if smp.is_empty():
-		return
-	var h1 = smp.get("hit_01")
-	var h2 = smp.get("hit_02", h1)
-	if h1 != null:
-		streams["hit"] = h1
-		streams["hit_weak"] = h1
-		streams["hit_perfect"] = h1
-		streams["hit_slice"] = h1
-		streams["hit_volley"] = h1
-	if h2 != null:
-		streams["hit_big"] = h2
-		streams["hit_charge"] = h2
-	if smp.get("bounce") != null:
-		streams["bounce"] = smp["bounce"]
-	if smp.get("net") != null:
-		streams["net"] = smp["net"]
-		streams["tape"] = smp["net"]
 
 func _mix(noises: Array, tones: Array, dur: = 0.3) -> AudioStreamWAV:
 	var n: = int(RATE * dur)
@@ -292,8 +263,8 @@ func play(name: String, vol: float = 1.0, pitch: float = 1.0) -> void :
 	p.stream = streams[name]
 	p.volume_db = linear_to_db(max(vol, 0.01))
 	p.pitch_scale = pitch
-	if p.stream is AudioStreamMP3 and (name.begins_with("hit") or name == "bounce"):
-		p.pitch_scale *= rng.randf_range(0.94, 1.06)
+	if name.begins_with("hit") or name.begins_with("bounce"):
+		p.pitch_scale *= rng.randf_range(0.96, 1.04)
 	p.finished.connect(p.queue_free)
 	add_child(p)
 	p.play()
