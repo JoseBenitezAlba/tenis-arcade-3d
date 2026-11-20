@@ -611,12 +611,17 @@ static func build(surface: String, day_v = false) -> Node3D:
 		e.fog_light_energy = 0.45
 		e.fog_density = 0.0022
 		e.fog_sky_affect = 0.0
+	else:
+		e.adjustment_enabled = true
+		e.adjustment_brightness = 1.02
+		e.adjustment_contrast = 1.06
+		e.adjustment_saturation = 1.13
 	env.environment = e
 	root.add_child(env)
 
 	var sun: = DirectionalLight3D.new()
 	sun.rotation_degrees = (Vector3(-32, 315, 0) if surface == "clay" else Vector3(-52, 168, 0)) if tod != 2 else Vector3(-24, 148, 0)
-	sun.light_energy = 0.82 if tod == 0 else (1.25 if tod == 2 else 0.55)
+	sun.light_energy = 0.95 if tod == 0 else (1.25 if tod == 2 else 0.55)
 	sun.light_color = Color("#fff4e0") if tod == 0 else (Color("#ffc98a") if tod == 2 else Color("#c9d8ff"))
 	sun.shadow_enabled = tod != 1
 	sun.directional_shadow_max_distance = 65.0
