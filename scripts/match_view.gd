@@ -763,6 +763,7 @@ func _physics_process(dt: float) -> void :
 	var exc: float = clampf(sim.rally_hits / 10.0, 0.0, 1.0) if sim.state not in ["point", "over"] else 0.0
 	_update_rally_label(dt)
 	crowd.ball_pos = ball_mesh.position
+	crowd.cam_z = cam.position.z
 	crowd.update(dt, exc)
 
 	flash_t -= dt
@@ -1341,6 +1342,7 @@ func _replay_tick(dt: float) -> void :
 	shadows[1].position.x = f.p1.x
 	shadows[1].position.z = f.p1.z
 	crowd.ball_pos = Vector3(f.b.x, f.b.y, f.b.z)
+	crowd.cam_z = cam.position.z
 	crowd.update(dt, 0.4)
 
 func _end_replay() -> void :
