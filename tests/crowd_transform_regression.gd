@@ -20,7 +20,7 @@ func run():
    var y:float=0.0
    if c.sil_t>0 and not ova:y=-.05
    elif ova:y=absf(sin(c.time*7.5*c.jitters[i]-(p.x+p.z)*.35+c.phases[i]))*.22*(2.0 if c.stand_up[i] else 1.0)
-   else:y=sin(c.time*(1.3+4.5*c.exc)*c.jitters[i]+c.phases[i])*(.03+.11*c.exc)
+   else:y=sin(c.time*(1.9+4.5*c.exc)*c.jitters[i]+c.phases[i])*(.055+.12*c.exc)
    var body_sy:float=(1.14 if ova and c.stand_up[i] else .9)*c.builds[i].y
    var body:Transform3D=Transform3D(c.face_rot[i].scaled(Vector3(1.18*c.builds[i].x,body_sy,1.05*c.builds[i].x)),p+Vector3(0,y+.42,0))
    var legs:Transform3D=Transform3D(c.face_rot[i].scaled(Vector3(1,.9,.9)),p+Vector3(0,y+.16,0))

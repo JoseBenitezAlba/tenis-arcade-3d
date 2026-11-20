@@ -876,6 +876,8 @@ var repositioning: bool = false
 var _reposition_age: float = 0.0
 var _reposition_duration: float = 0.42
 var _reposition_from: Vector3
+var _reposition_arc: bool = false
+var _reposition_mid: Vector3
 var _reposition_velocity: Vector3
 const REPOSITION_TIME: float = 0.42
 
@@ -1316,6 +1318,15 @@ func _update_pose(e, dt: float) -> void:
 		_reposition_age = 0.0
 		_reposition_from = position
 		_reposition_duration = clampf(mvd / 7.0, REPOSITION_TIME, 1.2)
+		# En el cambio de lado el cruce es una caminata junto al poste, al
+		# ritmo del barrido de camara, no un desplazamiento cruzando la red.
+		_reposition_arc = mvd > 10.0
+		if _reposition_arc:
+			_reposition_duration = 2.6
+			var sx: float = signf(target_pos.x if absf(target_pos.x) > 0.3 else position.x)
+			if sx == 0.0:
+				sx = 1.0
+			_reposition_mid = Vector3(sx * 5.9, FOOT_LIFT, 11.885)
 	# Nunca retrasar un golpe ni mantener su figura lejos del contacto.
 	if e.swing > 0.0 or serve_toss >= 0.0:
 		repositioning = false
@@ -1323,7 +1334,13 @@ func _update_pose(e, dt: float) -> void:
 	if repositioning:
 		_reposition_age = minf(_reposition_duration, _reposition_age + dt)
 		var k: float = smoothstep(0.0, _reposition_duration, _reposition_age)
-		position = _reposition_from.lerp(target_pos, k)
+		if _reposition_arc:
+			if k < 0.5:
+				position = _reposition_from.lerp(_reposition_mid, k * 2.0)
+			else:
+				position = _reposition_mid.lerp(target_pos, (k - 0.5) * 2.0)
+		else:
+			position = _reposition_from.lerp(target_pos, k)
 		_reposition_velocity = (position - previous_position) / maxf(dt, 0.0001)
 		_reposition_velocity.y = 0.0
 		target_sp = _reposition_velocity.length()

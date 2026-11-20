@@ -215,6 +215,9 @@ static func rut_y(t: float) -> float:
 	var b: float = (t / 0.55) - floor(t / 0.55)
 	return 0.3 + 0.65 * (cos(b * TAU) * 0.5 + 0.5)
 var time: = 0.0
+var ends_swap_pending: = false
+# Pausa del saque tras un cambio de lado: nadie saca mientras los jugadores cruzan.
+var serve_hold: = 0.0
 var rally_hits: = 0
 var rally_start_hit: = 0
 var last_rally_hitter: = -1
@@ -262,6 +265,9 @@ func reset_match() -> void :
 	M.server = 0
 	match_over = false
 	over_sent = false
+	ends_swap_pending = false
+	pl[0].near = true
+	pl[1].near = false
 
 func start_point() -> void :
 	state = "serve"
@@ -271,6 +277,13 @@ func start_point() -> void :
 
 
 func prep_serve() -> void :
+	serve_hold = 0.0
+	if ends_swap_pending:
+		ends_swap_pending = false
+		pl[0].near = not pl[0].near
+		pl[1].near = not pl[1].near
+		# El cruce de lado dura 2,6 s (el barrido de camara): el saque espera.
+		serve_hold = 2.6
 	ball.dead_roll = false
 	ball.departing_hitter = -1
 	var srv = pl[M.server]
@@ -336,7 +349,7 @@ func reset_serve_ball() -> void :
 	rut_t = 0.0
 	rut_b = 0
 
-	cpu_serve_at = time + 1.85 + randf_range(0.0, 0.7) if (srv.id == 1 or demo) else 0.0
+	cpu_serve_at = time + 1.85 + serve_hold + randf_range(0.0, 0.7) if (srv.id == 1 or demo) else 0.0
 
 func award_point(w: int, why: String, sub: String) -> void :
 	if time < let_until:
@@ -375,6 +388,8 @@ func award_point(w: int, why: String, sub: String) -> void :
 
 		M.tb_pts[w] += 1
 		M.tb_total += 1
+		if M.tb_total % 6 == 0:
+			ends_swap_pending = true
 
 		var k: = M.tb_total
 		if k == 1:
@@ -404,6 +419,8 @@ func award_point(w: int, why: String, sub: String) -> void :
 		M.pts = [0, 0]
 		brk = M.server != w
 		M.server = 1 - M.server
+		if (M.games[0] + M.games[1]) % 2 == 1:
+			ends_swap_pending = true
 		if M.games[w] >= 4 and M.games[1 - w] <= 2:
 			M.sets[w] += 1
 			M.games = [0, 0]
@@ -2279,7 +2296,7 @@ func human_control(e: Player, dt: float) -> void :
 		if want_hit or want_lob:
 			# Pausa corta al entrar al saque: un toque de GOLPE para avanzar el punto
 			# no debe lanzar la bola al instante (dobles faltas accidentales en táctil).
-			if serve_stage == "ready" and state_t >= 0.4:
+			if serve_stage == "ready" and state_t >= 0.4 + serve_hold:
 				toss_ball()
 			elif serve_stage == "toss":
 

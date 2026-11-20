@@ -184,6 +184,8 @@ var _point_winner: = -1
 var _closeup_ok: = false
 var _closeup_delay: = 0.0
 var _was_closeup: = false
+var _cam_near: = true
+var _sweep_t: = 0.0
 var _tut_n: = 0
 var _idle_ball_t: = 0.0
 var _tut_seen: = false
@@ -726,6 +728,8 @@ func _physics_process(dt: float) -> void :
 	_perf_t0 = Time.get_ticks_usec()
 	if not demo:
 		var movement := movement_input(Vector2(Input.get_axis("move_left", "move_right"), Input.get_axis("move_down", "move_up")))
+		if not sim.pl[0].near:
+			movement = - movement
 		sim.inp.x = movement.x
 		sim.inp.y = movement.y
 		if Input.is_action_just_pressed("drop"):
@@ -1142,7 +1146,7 @@ func _physics_process(dt: float) -> void :
 
 		var cc: Dictionary = CAM_MODES[cam_mode]
 		var target_x: float = clampf(sim.ball.x * 0.06 + sim.pl[0].x * 0.04, -0.6, 0.6) if cam_mode == 1 else clampf(sim.ball.x * 0.35 + sim.pl[0].x * 0.15, -2.6, 2.6)
-		goal_pos = Vector3(target_x, cc["pos"].y, cc["pos"].z)
+		goal_pos = Vector3(target_x, cc["pos"].y, cc["pos"].z if sim.pl[0].near else 2.0 * NZ - cc["pos"].z)
 		goal_fov = cc["fov"]
 		goal_look = Vector3(sim.ball.x * (0.025 if cam_mode == 1 else 0.2), cc["look_y"], NZ)
 
@@ -1152,17 +1156,27 @@ func _physics_process(dt: float) -> void :
 		if push > 0.0 and cam_mode != 1:
 			goal_pos = goal_pos.lerp(Vector3(goal_pos.x, goal_pos.y - 0.18, NZ), 0.06 * push)
 			goal_fov -= 2.5 * push
+	# Al cambiar de lado la cámara cruza la red en un barrido alto, no un corte.
+	if _cam_near != sim.pl[0].near:
+		_cam_near = sim.pl[0].near
+		_sweep_t = 2.6
 	# Cut directly to the established celebration shot, never sweep through the court.
 	if closeup and not _was_closeup:
 		cam.position = goal_pos
 		cam.fov = goal_fov
 		cam_look = goal_look
-	elif not closeup and _was_closeup:
+		_sweep_t = 0.0
+	elif not closeup and _was_closeup and _sweep_t <= 0.0:
 		cam.position = goal_pos
 		cam.fov = goal_fov
 		cam_look = goal_look
 	_was_closeup = closeup
 	var cam_k: float = 3.2 if closeup else 2.2
+	if _sweep_t > 0.0:
+		_sweep_t = maxf(0.0, _sweep_t - dt)
+		cam_k = 1.35
+		goal_pos.y += 4.5 * clampf(_sweep_t / 2.6, 0.0, 1.0)
+		goal_fov += 5.0
 	cam.position = cam.position.lerp(goal_pos, minf(1.0, dt * cam_k))
 	cam.fov = lerpf(cam.fov, goal_fov, minf(1.0, dt * cam_k))
 	cam_look = cam_look.lerp(goal_look, minf(1.0, dt * cam_k))
@@ -1334,7 +1348,7 @@ func _end_replay() -> void :
 	rec.clear()
 	hud.hide_replay()
 	var cc: Dictionary = CAM_MODES[cam_mode]
-	cam.position = cc["pos"]
+	cam.position = Vector3(cc["pos"].x, cc["pos"].y, cc["pos"].z if sim.pl[0].near else 2.0 * NZ - cc["pos"].z)
 	cam.fov = cc["fov"]
 	cam.near = 16.0 if cam_mode == 1 else 0.05
 	cam.look_at(Vector3(0, cc["look_y"], NZ))
@@ -1930,6 +1944,8 @@ func drain_events() -> void :
 
 				if ev.txt == "JUEGO" and (sim.M.games[0] + sim.M.games[1]) % 2 == 1 and not balls_change(sim.M.games[0] + sim.M.games[1]):
 					hud.popup_side("CAMBIO DE LADOS", Color("#9ecfff"))
+				if ev.txt == "PUNTO" and sim.M.tb and sim.M.tb_total % 6 == 0:
+					hud.popup_side("CAMBIO DE LADOS", Color("#9ecfff"))
 				if ev.txt == "JUEGO" and balls_change(sim.M.games[0] + sim.M.games[1]):
 					clay_tint = 0.0
 					ball_mat.albedo_color = BALL_YEL
@@ -1954,12 +1970,15 @@ func drain_events() -> void :
 					hud.show_banner("PUNTO  " + pn, sub, bcol, false)
 					banner_dur = 1.5
 					banner_t = banner_dur
+				if (not demo or replay_test) and not sim.match_over and sim.rally_hits >= 6 and (point_hot >= 1 or sim.rally_hits >= 12):
+					replay_pending = true
 				if _closeup_ok:
 					hud.hide_play_feedback()
 
 
 
-				rec.clear()
+				if not replay_pending:
+					rec.clear()
 			"swing_miss":
 				if sim.state=="serve":rigs[sim.M.server].register_serve_miss()
 			"fault":

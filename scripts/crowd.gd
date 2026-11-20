@@ -98,12 +98,17 @@ func build() -> void :
 			for c in st[3]:
 				if c in aisles:
 					continue
+				# Primera fila de los fondos libre para no tapar al jugador cercano.
+				if r == 0 and dc.x != 0.0:
+					continue
 				_add_person(org + dc * c + dr * r, st[5], r, c, org, rng)
 	for st in stands:
 		var eorg: Vector3 = st[0]
 		var edc: Vector3 = st[1]
 		var edr: Vector3 = st[2]
 		for r in st[4]:
+			if r == 0 and edc.x != 0.0:
+				continue
 			for c in st[3] - 1:
 				_add_person(eorg + edc * (c + 0.5) + edr * r, st[5], r, c, eorg, rng, true)
 	n = base_pos.size()
