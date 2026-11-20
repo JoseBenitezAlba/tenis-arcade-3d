@@ -29,3 +29,9 @@ En la alternativa experimental de articulacion se vuelven a adaptar
 `data/adorozco_Reves_14seg.bvh` (1.7-4.1 s), usando el bind y la jerarquia
 del personaje actual. Las tres animaciones derivadas nuevas conservan
 CC BY-SA 3.0; no cambian la licencia de las tomas ni su atribucion.
+
+Las voleas usan tomas dedicadas del mismo dataset:
+`data/jduribe_VDerecha.bvh` (11.4-13.0 s) y `data/jduribe_VReves.bvh`
+(2.1-3.7 s), retargeteadas con la misma tecnica. Ambas animaciones
+derivadas conservan CC BY-SA 3.0; no cambian la licencia de las tomas
+ni su atribucion.

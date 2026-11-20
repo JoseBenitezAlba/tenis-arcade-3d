@@ -113,6 +113,8 @@ func _init(look: int, is_player0: bool) -> void :
 
 	ap.add_animation_library("newfore",load("res://models/actual_Derecha.tres"))
 	ap.add_animation_library("newback",load("res://models/actual_Reves.tres"))
+	ap.add_animation_library("newvolf",load("res://models/actual_VDerecha.tres"))
+	ap.add_animation_library("newvolb",load("res://models/actual_VReves.tres"))
 	ap.add_animation_library("articulated",load("res://models/serve_actual_experiment.tres"))
 	ap.callback_mode_process = AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_MANUAL
 
@@ -905,7 +907,7 @@ static func _swing_clip(kind: String, hit_side: String) -> Array:
 	match kind:
 		"drop": return ["mocap/Reves" if hit_side == "back" else "mocap/Derecha", 1.55, 1.90, 1.81]
 
-		"volley": return ["mocap/Reves" if hit_side == "back" else "mocap/Derecha", 1.50, 1.92, 1.81]
+		"volley": return ["newvolb/VReves", 0.43, 1.18, 0.79] if hit_side == "back" else ["newvolf/VDerecha", 0.45, 1.20, 0.81]
 
 
 
