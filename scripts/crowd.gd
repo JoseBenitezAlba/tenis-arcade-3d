@@ -20,6 +20,8 @@ var shirt_cols: Array[Color] = []
 var skin_cols: Array[Color] = []
 var pants_cols: Array[Color] = []
 var empty: Array[bool] = []
+var cam_z: = -8.3
+var cam_hidden: Array[bool] = []
 var mm_cap: MultiMeshInstance3D
 var cap_ok: Array[bool] = []
 var cap_cols: Array[Color] = []
@@ -112,6 +114,7 @@ func build() -> void :
 			for c in st[3] - 1:
 				_add_person(eorg + edc * (c + 0.5) + edr * r, st[5], r, c, eorg, rng, true)
 	n = base_pos.size()
+	cam_hidden.resize(n)
 
 
 	for st in stands:
@@ -334,6 +337,15 @@ func _update_flashes(dt: float) -> void :
 		var p: Vector3 = base_pos[flash_seats[k]] + Vector3(0, 1.0, 0)
 		flash_mm.multimesh.set_instance_transform(k, Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * on), p))
 
+func _hide_for_cam(pz: float) -> bool:
+	# Esconde el publico sentado entre la camara y la pista (banda cercana
+	# bajo la camara), para que no tape al jugador cercano en el fondo.
+	if cam_z > 14.885:
+		return pz > 24.5 and pz < cam_z + 0.6
+	if cam_z < 8.885:
+		return pz < -0.7 and pz > cam_z - 0.6
+	return false
+
 func update(dt: float, rally_exc: float) -> void :
 	time += dt
 	_update_flashes(dt)
@@ -353,8 +365,19 @@ func update(dt: float, rally_exc: float) -> void :
 	var legs: MultiMesh = mm_legs.multimesh
 	var heads: MultiMesh = mm_head.multimesh
 	var caps: MultiMesh = mm_cap.multimesh
+	var zero_t: = Transform3D(Basis.IDENTITY.scaled(Vector3.ZERO), Vector3.ZERO)
 	for i in n:
 		if empty[i]:
+			continue
+		var zh: = _hide_for_cam(base_pos[i].z)
+		if zh != cam_hidden[i]:
+			cam_hidden[i] = zh
+			if zh:
+				bodies.set_instance_transform(i, zero_t)
+				legs.set_instance_transform(i, zero_t)
+				heads.set_instance_transform(i, zero_t)
+				caps.set_instance_transform(i, zero_t)
+		if zh:
 			continue
 		var p: Vector3 = base_pos[i] + Vector3(0, 0.13, 0)
 		var ph: float = phases[i]
