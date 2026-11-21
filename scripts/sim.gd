@@ -972,7 +972,10 @@ func do_hit(e: Player, kind: String, ai: bool) -> void :
 	if kind in ["drive", "slice", "volley", "smash"]:
 		var _floor_sp: float = Vector3(ball.vx, ball.vy, ball.vz).length()
 		var _floor_min: float = 33.3 if ai else 31.94
-		if _floor_sp < _floor_min:
+		if _floor_sp < _floor_min and ai and kind == "volley" and e.id == 1 and e.appr_t > 0.0 and rally_hits <= 3:
+			# Keep the chosen target: re-solve with a shorter flight instead of scaling the velocity.
+			_clamp_launch_speed(tx, tz, T, launch_y, nc_floor, _vcap, _floor_min, 60.0, 0.08, 2.2)
+		elif _floor_sp < _floor_min:
 			var _ff: float = _floor_min / maxf(_floor_sp, 0.01)
 			ball.vx *= _ff
 			ball.vy *= _ff
@@ -1040,6 +1043,12 @@ func _ai_aim(e: Player, opp: Player, kind: String, stretch: float, move_q: float
 			tx += randn() * D.err * 0.4
 		else:
 			T *= 0.92
+		if e.appr_t > 0.0 and rally_hits <= 2 and e.id == 1:
+			# First approach volley of the CPU: land deep, near the receiver's baseline depth,
+			# instead of mid-court. Flight time scales with the longer distance (same ball speed).
+			var _hl: float = L / 2.0 - 2.2
+			T *= (2.2 + 0.86 * _hl) / (2.2 + maxf(d, 0.01) * _hl)
+			d = 0.86
 	elif kind == "smash":
 		d = 0.55
 		T = 0.52
