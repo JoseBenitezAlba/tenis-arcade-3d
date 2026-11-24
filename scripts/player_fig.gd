@@ -937,6 +937,7 @@ var _feet_follow_legs: bool = false
 
 var point_finished_visual:bool=false
 var _previous_approach:bool=false
+var _prev_swing_for_exit:float=0.0
 var _ground_miss_pose:Dictionary={}
 var _ground_miss_age:float=9.0
 const GAIT_CLIPS:Array[String]=["Walk","Run","Run_Back","Run_Left","Run_Right"]
@@ -1109,6 +1110,9 @@ func update_from_sim(e, dt: float) -> void:
 		for bi in skel.get_bone_count():gait_pose.append(_current_global_pose(bi))
 	if _previous_approach and not approach_active and e.swing<=0.0 and _full_stroke_age>0.65:
 		_ground_miss_pose=capture_visual_pose();_ground_miss_age=0.0
+	if _prev_swing_for_exit>0.0 and e.swing<=0.0 and e.kind!="serve" and e.kind!="smash" and e.dive_t<=0.0 and e.getup_t<=0.0 and celeb_t<=0.0:
+		_ground_miss_pose=capture_visual_pose();_ground_miss_age=0.0
+	_prev_swing_for_exit=e.swing
 	if approach_active and not _previous_approach:
 		_prep_side_set=false;_prep_progress=0.0;_prep_target_set=false;_prep_pose_age=0.0;_prep_previous_target.clear();_prep_switch_source.clear();_prep_switch_age=9.0;_prep_candidate_age=0.0
 	_previous_approach=approach_active
@@ -1412,7 +1416,7 @@ func _update_pose(e, dt: float) -> void:
 
 	var lean: = 0.0
 	if e.speed > 3.5 and absf(e.vx) > absf(e.vz):
-		lean = clampf( - e.vx, -7.0, 7.0) * 0.014
+		lean = clampf( - e.vx, -7.0, 7.0) * (0.026 if (e.swing <= 0.0 and not approach_active) else 0.014)
 
 	if e.get("stumble_t") != null and e.stumble_t > 0.0 and e.get("stumble_dir") != null and e.stumble_dir != 0.0:
 		lean = - e.stumble_dir * 0.28 * (e.stumble_t / 0.4)
@@ -1442,7 +1446,7 @@ func _update_pose(e, dt: float) -> void:
 		pitch += 0.16 * clampf(e.fatigue, 0.0, 1.0)
 	if eff_sp > 1.2 and e.swing <= 0.0 and (e.get("dive_t") == null or e.dive_t <= 0.0):
 		var fwd: float = e.vz * (1.0 if e.near else -1.0)
-		pitch += (0.055 if fwd > 0.0 else -0.02) * clampf(eff_sp / 6.5, 0.0, 1.0)
+		pitch += ((0.16 if fwd > 0.0 else -0.05) if not approach_active else (0.055 if fwd > 0.0 else -0.02)) * clampf(eff_sp / 6.5, 0.0, 1.0)
 	rotation.x = lerpf(rotation.x, pitch, minf(1.0, dt * 10.0))
 	rotation.z = lerpf(rotation.z, lean, minf(1.0, dt * 8.0))
 	var sp: float = clampf(e.speed / 6.0, 0.0, 1.0)
