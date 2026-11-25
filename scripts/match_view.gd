@@ -185,6 +185,8 @@ var _closeup_ok: = false
 var _closeup_delay: = 0.0
 var _was_closeup: = false
 var _cam_near: = true
+var _far_dressing: Array = []
+var _fd_hidden: = false
 var _sweep_t: = 0.0
 var _tut_n: = 0
 var _idle_ball_t: = 0.0
@@ -243,6 +245,18 @@ func _ready() -> void :
 	crowd = CrowdFX.new()
 	add_child(crowd)
 	crowd.build()
+	# Zocalo del fondo y primeras filas de la grada lejana (z 29.35-30.6). En la mitad
+	# lejana con camara de pista se ocultan: el plano cercano las rebanaba en arcos curvos
+	# visibles y la camara no llega a verlas. Muro y tablones (z <= 29.37) quedan visibles.
+	var stack: Array = [court, crowd]
+	while stack.size() > 0:
+		var nd: Node = stack.pop_back()
+		for ch in nd.get_children():
+			stack.append(ch)
+		if nd is MeshInstance3D:
+			var gz: float = nd.global_position.z
+			if gz > 29.35 and gz < 30.6:
+				_far_dressing.append(nd)
 
 	sfx = SoundKit.new()
 	add_child(sfx)
@@ -1186,8 +1200,15 @@ func _physics_process(dt: float) -> void :
 		cam.position.z = goal_pos.z + randf_range(-1.0, 1.0) * shake * 0.38
 	elif shake > 0.0:
 		shake = maxf(0.0, shake - dt)
-	# Recorta solo la grada proxima, nunca jugadores ni pelota.
-	cam.near = 16.0 if cam_mode == 1 and not closeup else 0.05
+	# Mitad lejana (modo pista): la posicion espejada queda empotrada en la grada del fondo
+	# (z~32); el plano cercano recorta esa grada, su zocalo y el muro/tablones de ese fondo
+	# (z 28.8-29.4, a 2.7-3.3m), que si no asoman como banda en el borde inferior.
+	cam.near = 0.05 if closeup else (16.0 if cam_mode == 1 else (4.0 if not sim.pl[0].near else 0.05))
+	var fd_hide: bool = cam_mode == 0 and not sim.pl[0].near and not closeup and not replaying
+	if fd_hide != _fd_hidden:
+		_fd_hidden = fd_hide
+		for m in _far_dressing:
+			m.visible = not fd_hide
 	cam.look_at(cam_look)
 	if fill_light != null:
 		var fgoal: float = (0.95 if closeup else 0.0) if night_mode else 0.0
