@@ -2281,6 +2281,7 @@ func _serve_spine_limit(e) -> void:
 	_place_racket(0.0)
 
 var _full_stroke_previous: float = 0.0
+var _leg_plant_w: float = 1.0
 var _full_stroke_age: float = 9.0
 var _full_stroke_back: bool = false
 var approach_time: float = 9.0
@@ -2396,10 +2397,20 @@ func _articulated_ground(e, dt: float) -> void:
 		if transition>=1.0:_prep_switch_source.clear()
 	_prep_previous_target=target.duplicate()
 	_pose_overrides.clear()
-	var plant:float=1.0
+	var plant_target:float=1.0
 	if not stroke:
 		var distance:float=Vector2(approach_contact.x-e.x,approach_contact.z-e.z).length()
-		plant=1.0-smoothstep(1.7,2.5,distance)
+		plant_target=1.0-smoothstep(1.7,2.5,distance)
+	elif eff_sp > 0.6 and e.kind != "drop" and e.kind != "volley":
+		# Golpe en movimiento: las piernas siguen el ciclo de carrera (el clip
+		# de gait ya compensa la velocidad del root). Plantar la pose mocap a
+		# estas velocidades arrastra ambos pies con el root: patinaje tras el
+		# golpe. El tren superior del golpe no cambia (weight sin plant).
+		plant_target=1.0-smoothstep(0.6,1.8,eff_sp)
+	# Suavizado del peso de piernas: sin el, plant cambia de golpe al entrar o
+	# salir del golpe y las piernas dan un salto >100 grados en un frame.
+	_leg_plant_w=lerpf(_leg_plant_w,plant_target,minf(1.0,dt*6.0))
+	var plant:float=_leg_plant_w
 	for bi in skel.get_bone_count():
 		var p: int = skel.get_bone_parent(bi)
 		var bn:String=skel.get_bone_name(bi)
