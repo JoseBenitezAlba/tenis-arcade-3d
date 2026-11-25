@@ -2280,7 +2280,26 @@ func _serve_spine_limit(e) -> void:
 	skel.force_update_all_bone_transforms()
 	_place_racket(0.0)
 
+static func _ik_leg(hip: Transform3D, foot_target: Vector3, pole_hint: Vector3, l1: float, l2: float, up_basis: Transform3D, low_basis: Transform3D) -> Array:
+	var H: Vector3 = hip.origin
+	var axis: Vector3 = foot_target - H
+	var dist: float = clampf(axis.length(), 0.05, (l1 + l2) * 0.999)
+	axis = axis.normalized()
+	var cos_a: float = clampf((l1*l1 + dist*dist - l2*l2) / (2.0*l1*dist), -1.0, 1.0)
+	var sin_a: float = sqrt(maxf(0.0, 1.0 - cos_a*cos_a))
+	var pole: Vector3 = pole_hint - H
+	pole -= axis * pole.dot(axis)
+	if pole.length() < 0.001: pole = up_basis.basis.y - axis * up_basis.basis.y.dot(axis)
+	pole = pole.normalized()
+	var K: Vector3 = H + axis * (l1 * cos_a) + pole * (l1 * sin_a)
+	var up_y: Vector3 = (K - H).normalized()
+	var low_y: Vector3 = (foot_target - K).normalized()
+	var up_b: Basis = Basis(Quaternion(up_basis.basis.y, up_y)) * up_basis.basis
+	var low_b: Basis = Basis(Quaternion(low_basis.basis.y, low_y)) * low_basis.basis
+	return [Transform3D(up_b.orthonormalized(), H), Transform3D(low_b.orthonormalized(), K)]
+
 var _full_stroke_previous: float = 0.0
+var _leg_plant_w: float = 1.0
 var _full_stroke_age: float = 9.0
 var _full_stroke_back: bool = false
 var approach_time: float = 9.0
@@ -2396,10 +2415,20 @@ func _articulated_ground(e, dt: float) -> void:
 		if transition>=1.0:_prep_switch_source.clear()
 	_prep_previous_target=target.duplicate()
 	_pose_overrides.clear()
-	var plant:float=1.0
+	var plant_target:float=1.0
 	if not stroke:
 		var distance:float=Vector2(approach_contact.x-e.x,approach_contact.z-e.z).length()
-		plant=1.0-smoothstep(1.7,2.5,distance)
+		plant_target=1.0-smoothstep(1.7,2.5,distance)
+	elif eff_sp > 0.6 and e.kind != "drop" and e.kind != "volley":
+		# Golpe en movimiento: las piernas siguen el ciclo de carrera (el clip
+		# de gait ya compensa la velocidad del root). Plantar la pose mocap a
+		# estas velocidades arrastra ambos pies con el root: patinaje tras el
+		# golpe. El tren superior del golpe no cambia (weight sin plant).
+		plant_target=1.0-smoothstep(0.6,1.8,eff_sp)
+	# Suavizado del peso de piernas: sin el, plant cambia de golpe al entrar o
+	# salir del golpe y las piernas dan un salto >100 grados en un frame.
+	_leg_plant_w=lerpf(_leg_plant_w,plant_target,minf(1.0,dt*6.0))
+	var plant:float=_leg_plant_w
 	for bi in skel.get_bone_count():
 		var p: int = skel.get_bone_parent(bi)
 		var bn:String=skel.get_bone_name(bi)
@@ -2414,6 +2443,23 @@ func _articulated_ground(e, dt: float) -> void:
 		var foot_pose: Transform3D = _pose_overrides[knee]*_skin_bind[knee].affine_inverse()*_skin_bind[foot]
 		foot_pose.basis = _pose_overrides[foot].basis
 		_pose_overrides[foot] = foot_pose
+		if stroke and plant < 0.999:
+			# Piernas en ciclo durante el golpe: mezclar huesos entre jerarquias
+			# rompe la cadena osea o arrastra el pie con la rodilla. En su lugar,
+			# IK de dos huesos con objetivo entre el pie del clip (que pisa en el
+			# suelo) y el pie reenclado segun plant: cadena rigida siempre.
+			var up: int = skel.find_bone(_bone_name(skel,"UpperLeg."+side))
+			var root_bi: int = skel.find_bone(_bone_name(skel,"Root"))
+			var clip_foot: Vector3 = (_pose_overrides[root_bi]*locals[foot]).origin
+			var target_foot: Vector3 = clip_foot.lerp(foot_pose.origin, plant)
+			var l1: float = _skin_bind[up].origin.distance_to(_skin_bind[knee].origin)
+			var l2: float = _skin_bind[knee].origin.distance_to(_skin_bind[foot].origin)
+			var ik: Array = _ik_leg(_pose_overrides[up], target_foot, _pose_overrides[knee].origin, l1, l2, _pose_overrides[up], _pose_overrides[knee])
+			_pose_overrides[up] = ik[0]
+			_pose_overrides[knee] = ik[1]
+			# Plantar el pie a distancia exacta de espinilla de la rodilla IK:
+			# si el objetivo queda fuera de alcance, la cadena sigue rigida.
+			_pose_overrides[foot].origin = ik[1].origin + (target_foot - ik[1].origin).normalized() * l2
 	for bi in _pose_overrides: skel.set_bone_global_pose_override(bi,_pose_overrides[bi],1.0,true)
 	skel.force_update_all_bone_transforms()
 	_pose_air *= 1.0-weight
