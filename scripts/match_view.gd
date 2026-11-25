@@ -18,6 +18,11 @@ var sim: TennisSim
 var court: Node3D
 var crowd: CrowdFX
 var rigs: = []
+var char_rim: DirectionalLight3D
+var fx_rng := RandomNumberGenerator.new()
+var hit_fx: Array = []
+var spark_fx: Array = []
+var cam_punch: = 0.0
 var ball_mesh: MeshInstance3D
 var ball_mat: StandardMaterial3D
 var seam_mat: StandardMaterial3D
@@ -65,6 +70,100 @@ func _make_ring_tex() -> ImageTexture:
 			var a: = clampf(1.0 - absf(r - 0.75) / 0.24, 0.0, 1.0)
 			img.set_pixel(x, y, Color(1, 1, 1, a))
 	return ImageTexture.create_from_image(img)
+
+func _char_layers(n: Node) -> void :
+	if n is VisualInstance3D:
+		n.layers = 3
+	for c in n.get_children():
+		_char_layers(c)
+
+func _build_hit_fx() -> void :
+	var glow: = TexGen.glow_texture()
+	for i in 4:
+		var m: = MeshInstance3D.new()
+		var q: = QuadMesh.new()
+		q.size = Vector2.ONE
+		var mat: = StandardMaterial3D.new()
+		mat.albedo_texture = glow
+		mat.albedo_color = Color(1, 1, 0.55, 0)
+		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+		mat.no_depth_test = true
+		mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+		q.material = mat
+		m.mesh = q
+		m.visible = false
+		add_child(m)
+		hit_fx.append({"m": m, "mat": mat, "life": 0.0, "max": 0.12, "base": 1.0})
+	for i in 28:
+		var s: = MeshInstance3D.new()
+		var sm: = SphereMesh.new()
+		sm.radius = 0.032
+		sm.height = 0.064
+		sm.radial_segments = 6
+		sm.rings = 3
+		var smat: = StandardMaterial3D.new()
+		smat.albedo_color = Color(1, 0.9, 0.4, 0)
+		smat.emission_enabled = true
+		smat.emission = Color(1, 0.85, 0.3)
+		smat.emission_energy_multiplier = 2.0
+		smat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		sm.material = smat
+		s.mesh = sm
+		s.visible = false
+		s.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(s)
+		spark_fx.append({"m": s, "mat": smat, "life": 0.0, "max": 0.22, "v": Vector3.ZERO})
+
+func spawn_hit_fx(pos: Vector3, spd: float, kind: String, charge: float = 1.0) -> void :
+	var p: float = clampf((spd - 27.0) / 22.0, 0.0, 1.0) * clampf(charge, 0.8, 1.5)
+	if p <= 0.0:
+		return
+	var col: = Color(1.0, 0.92, 0.55)
+	if kind == "smash":
+		col = Color(1.0, 0.55, 0.28)
+	elif kind == "serve":
+		col = Color(0.72, 0.95, 1.0)
+	for f in hit_fx:
+		if f.life <= 0.0:
+			f.life = f.max * lerpf(0.8, 1.15, clampf(p, 0.0, 1.0))
+			f.base = lerpf(0.55, 1.5, clampf(p, 0.0, 1.0))
+			f.m.position = pos
+			f.m.scale = Vector3.ONE * f.base
+			f.m.visible = true
+			f.mat.albedo_color = Color(col.r, col.g, col.b, 0.9)
+			break
+	var n: int = int(lerpf(4.0, 11.0, clampf(p, 0.0, 1.0)))
+	for i in n:
+		for s in spark_fx:
+			if s.life <= 0.0:
+				s.life = s.max * fx_rng.randf_range(0.55, 1.15)
+				s.m.position = pos
+				s.m.visible = true
+				var dir: = Vector3(fx_rng.randf_range(-1.0, 1.0), fx_rng.randf_range(0.05, 1.0), fx_rng.randf_range(-1.0, 1.0)).normalized()
+				s.v = dir * fx_rng.randf_range(1.6, 4.8) * lerpf(0.6, 1.3, clampf(p, 0.0, 1.0))
+				s.mat.albedo_color = Color(col.r, col.g, col.b, 1.0)
+				break
+
+func _tick_hit_fx(dt: float) -> void :
+	for f in hit_fx:
+		if f.life > 0.0:
+			f.life -= dt
+			var k: float = clampf(f.life / f.max, 0.0, 1.0)
+			f.mat.albedo_color.a = k * 0.9
+			f.m.scale = Vector3.ONE * f.base * (1.0 + (1.0 - k) * 0.8)
+			if f.life <= 0.0:
+				f.m.visible = false
+	for s in spark_fx:
+		if s.life > 0.0:
+			s.life -= dt
+			s.v.y -= 9.0 * dt
+			s.m.position += s.v * dt
+			s.mat.albedo_color.a = clampf(s.life / s.max, 0.0, 1.0)
+			if s.life <= 0.0:
+				s.m.visible = false
 
 func spawn_ring(pos: Vector3, spd: float) -> void :
 	if sim.state == "point" or sim.state == "over":
@@ -229,6 +328,7 @@ func setup(cfg: Dictionary) -> void :
 	process_mode = Node.PROCESS_MODE_PAUSABLE
 
 func _ready() -> void :
+	fx_rng.seed = 20261125
 	if sim == null:
 		sim = TennisSim.new(true)
 		sim.surface = get_meta("surface", "clay")
@@ -270,9 +370,19 @@ func _ready() -> void :
 
 	var cpu_look_meta = get_meta("cpu_look", 2)
 	var cpu_look_i: int = cpu_look_meta if typeof(cpu_look_meta) == TYPE_INT else 2
-	rigs = [PlayerFig.new(0, true), PlayerFig.new(cpu_look_i, false)]
+	var use_real: bool = PlayerFig.force_real or DisplayServer.get_name() != "headless"
+	rigs = [PlayerFig.new(0, true, use_real), PlayerFig.new(cpu_look_i, false, use_real)]
 	for r in rigs:
 		add_child(r)
+		_char_layers(r)
+	char_rim = DirectionalLight3D.new()
+	char_rim.light_color = Color("#9fd4ff")
+	char_rim.light_energy = 0.1
+	char_rim.shadow_enabled = false
+	char_rim.light_cull_mask = 2
+	char_rim.rotation_degrees = Vector3(-18, 200, 0)
+	add_child(char_rim)
+	_build_hit_fx()
 
 
 	ball_mesh = MeshInstance3D.new()
@@ -1091,6 +1201,7 @@ func _physics_process(dt: float) -> void :
 		else:
 			t.m.visible = false
 	_tick_rings(dt)
+	_tick_hit_fx(dt)
 	for d in dust_pool:
 		if d.life > 0.0:
 			d.life -= dt
@@ -1190,6 +1301,8 @@ func _physics_process(dt: float) -> void :
 		cam.fov = goal_fov
 		cam_look = goal_look
 	_was_closeup = closeup
+	cam_punch = move_toward(cam_punch, 0.0, dt * 24.0)
+	goal_fov -= cam_punch
 	var cam_k: float = 3.2 if closeup else 2.2
 	cam.position = cam.position.lerp(goal_pos, minf(1.0, dt * cam_k))
 	cam.fov = lerpf(cam.fov, goal_fov, minf(1.0, dt * cam_k))
@@ -1701,6 +1814,10 @@ func drain_events() -> void :
 					hud.show_timing("MUY PRONTO" if ev.tq == "early" else "TARDE")
 				var charged: float = ev.get("charge", 1.0)
 				spawn_ring(Vector3(ev.x, ev.y, ev.z), ev.get("spd", 20.0))
+				var spd_fx: float = ev.get("spd", 0.0)
+				if spd_fx >= 30.0:
+					spawn_hit_fx(Vector3(ev.x, ev.y, ev.z), spd_fx, ev.kind, ev.get("charge", 1.0))
+					cam_punch = maxf(cam_punch, clampf((spd_fx - 28.0) / 24.0, 0.0, 1.0) * 2.4)
 				rigs[ev.id].punch(ev.get("spd", 20.0))
 				if ev.kind == "smash":
 					rigs[ev.id].hop(0.3)

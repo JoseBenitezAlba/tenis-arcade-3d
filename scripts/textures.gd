@@ -235,6 +235,49 @@ static func surface_maps(surface: String) -> Array:
 	rimg.generate_mipmaps()
 	return [ImageTexture.create_from_image(nimg), ImageTexture.create_from_image(rimg)]
 
+static var _skin_tex: ImageTexture
+static var _fabric_nrm: ImageTexture
+
+static func skin_texture() -> ImageTexture:
+	if _skin_tex != null:
+		return _skin_tex
+	var s: = 128
+	var img: = Image.create(s, s, false, Image.FORMAT_RGB8)
+	for y in s:
+		for x in s:
+			var n: float = 0.5 * _vnoise(x * 0.09, y * 0.09) + 0.35 * _vnoise(x * 0.31 + 7.0, y * 0.31) + 0.15 * _vnoise(x * 0.9, y * 0.9 + 3.0)
+			var c: float = clampf(0.96 + (n - 0.5) * 0.09, 0.9, 1.0)
+			img.set_pixel(x, y, Color(c, c, c))
+	img.generate_mipmaps()
+	_skin_tex = ImageTexture.create_from_image(img)
+	return _skin_tex
+
+static func fabric_normal_texture() -> ImageTexture:
+	if _fabric_nrm != null:
+		return _fabric_nrm
+	var s: = 128
+	var h: = PackedFloat32Array()
+	h.resize(s * s)
+	for y in s:
+		for x in s:
+			var wx: float = sin(float(x) / s * TAU * 8.0)
+			var wy: float = sin(float(y) / s * TAU * 8.0)
+			h[y * s + x] = 0.5 + 0.22 * wx * wy + 0.12 * (_vnoise(x * 0.4, y * 0.4) - 0.5)
+	var img: = Image.create(s, s, false, Image.FORMAT_RGB8)
+	for y in s:
+		var yd: int = (y - 1 + s) % s
+		var yu: int = (y + 1) % s
+		for x in s:
+			var xl: int = (x - 1 + s) % s
+			var xr: int = (x + 1) % s
+			var nx: float = (h[y * s + xl] - h[y * s + xr]) * 2.2
+			var ny: float = (h[yu * s + x] - h[yd * s + x]) * 2.2
+			var n: = Vector3(nx, ny, 1.0).normalized()
+			img.set_pixel(x, y, Color(n.x * 0.5 + 0.5, n.y * 0.5 + 0.5, n.z * 0.5 + 0.5))
+	img.generate_mipmaps()
+	_fabric_nrm = ImageTexture.create_from_image(img)
+	return _fabric_nrm
+
 static func _hash2(x: int, y: int) -> float:
 	var n: int = x * 374761393 + y * 668265263
 	n = (n ^ (n >> 13)) * 1274126177

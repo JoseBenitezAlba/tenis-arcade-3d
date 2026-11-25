@@ -15,7 +15,7 @@ func head_bounds(f)->AABB:
    var n:int=bs.size()/vs.size()
    for vi in vs.size():
     for k in n:
-     if map[bs[vi*n+k]]==hi and ws[vi*n+k]>0.99:points.append(f._skin_bind[hi].affine_inverse()*vs[vi])
+     if map[bs[vi*n+k]]==hi and ws[vi*n+k]>0.5:points.append(f._skin_bind[hi].affine_inverse()*vs[vi])
  assert(points.size()>20)
  var box:AABB=AABB(points[0],Vector3.ZERO)
  for point in points:box=box.expand(point)

@@ -35,3 +35,11 @@ Las voleas usan tomas dedicadas del mismo dataset:
 (2.1-3.7 s), retargeteadas con la misma tecnica. Ambas animaciones
 derivadas conservan CC BY-SA 3.0; no cambian la licencia de las tomas
 ni su atribucion.
+
+## Cuerpos de los jugadores (MakeHuman)
+
+Los cuerpos 3D de los jugadores son modelos **MakeHuman** (mallas, ropa y
+texturas CC0), exportados por el proyecto **char-kit**
+(https://github.com/MMWilliams/char-kit) y adaptados al rig y a las
+animaciones de este juego. MakeHuman: https://static.makehumancommunity.org/
+(CC0). Los clips de animación propios de char-kit no se usan en el juego.
