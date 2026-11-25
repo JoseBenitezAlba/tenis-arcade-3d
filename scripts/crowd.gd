@@ -45,7 +45,7 @@ func _mat() -> StandardMaterial3D:
 	var m: = StandardMaterial3D.new()
 	m.vertex_color_use_as_albedo = true
 	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	m.albedo_color = Color(0.62, 0.6, 0.58)
+	m.albedo_color = Color(0.78, 0.76, 0.74)
 	return m
 
 func build() -> void :
@@ -61,10 +61,10 @@ func build() -> void :
 	stands.append([Vector3(-21.0, 1.45, -10.0), Vector3(1, 0, 0), Vector3(0, 0.56, -0.42), 43, 5, Basis(), Vector3(0, 0, -1), [13, 26]])
 
 	var step_mat: = StandardMaterial3D.new()
-	step_mat.albedo_color = Color("#232a3a")
+	step_mat.albedo_color = Color("#2e3749")
 	step_mat.roughness = 1.0
 	var aisle_mat: = StandardMaterial3D.new()
-	aisle_mat.albedo_color = Color("#2e3547")
+	aisle_mat.albedo_color = Color("#38425a")
 	aisle_mat.roughness = 1.0
 	for st in stands:
 		var org: Vector3 = st[0]
@@ -251,14 +251,14 @@ func _add_person(p0: Vector3, rot: Basis, r: int, c: int, org: Vector3, rng: Ran
 	var brng: = RandomNumberGenerator.new()
 	brng.seed = 991 + blk * 37 + int(org.x * 3.0) + int(org.z)
 	var block_col: = Color(MUTED[brng.randi_range(0, MUTED.size() - 1)])
-	if brng.randf() < 0.78:
+	if brng.randf() < 0.9:
 		block_col = Color(SHIRTS[brng.randi_range(0, SHIRTS.size() - 1)])
 	var prng: = RandomNumberGenerator.new()
 	prng.seed = 5003 + blk * 131 + c * 17 + r * 7 + (97 if extra else 0)
 	var col: = block_col
-	if prng.randf() < 0.3:
+	if prng.randf() < 0.18:
 		col = Color(SHIRTS[prng.randi_range(0, SHIRTS.size() - 1)])
-	elif prng.randf() < 0.12:
+	elif prng.randf() < 0.08:
 		col = Color(MUTED[prng.randi_range(0, MUTED.size() - 1)])
 	col = col.lerp(Color(0.24, 0.22, 0.21), prng.randf_range(0.36, 0.56))
 	shirt_cols.append(col)
