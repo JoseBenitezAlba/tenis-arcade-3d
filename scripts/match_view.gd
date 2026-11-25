@@ -185,6 +185,8 @@ var _closeup_ok: = false
 var _closeup_delay: = 0.0
 var _was_closeup: = false
 var _cam_near: = true
+var _far_dressing: Array = []
+var _fd_hidden: = false
 var _sweep_t: = 0.0
 var _tut_n: = 0
 var _idle_ball_t: = 0.0
@@ -243,6 +245,18 @@ func _ready() -> void :
 	crowd = CrowdFX.new()
 	add_child(crowd)
 	crowd.build()
+	# Zocalo del fondo y primeras filas de la grada lejana (z 29.35-30.6). En la mitad
+	# lejana con camara de pista se ocultan: el plano cercano las rebanaba en arcos curvos
+	# visibles y la camara no llega a verlas. Muro y tablones (z <= 29.37) quedan visibles.
+	var stack: Array = [court, crowd]
+	while stack.size() > 0:
+		var nd: Node = stack.pop_back()
+		for ch in nd.get_children():
+			stack.append(ch)
+		if nd is MeshInstance3D:
+			var gz: float = nd.global_position.z
+			if gz > 29.35 and gz < 30.6:
+				_far_dressing.append(nd)
 
 	sfx = SoundKit.new()
 	add_child(sfx)
@@ -1157,13 +1171,10 @@ func _physics_process(dt: float) -> void :
 		if push > 0.0 and cam_mode != 1:
 			goal_pos = goal_pos.lerp(Vector3(goal_pos.x, goal_pos.y - 0.18, NZ), 0.06 * push)
 			goal_fov -= 2.5 * push
-	# Al cambiar de lado, corte directo al nuevo extremo: el barrido interpolado
-	# atravesaba la grada y dejaba segundos de pantalla vacia (video de Jose 25-nov).
+	# Al cambiar de lado la cámara cruza la red en un barrido alto, no un corte.
 	if _cam_near != sim.pl[0].near:
 		_cam_near = sim.pl[0].near
-		cam.position = goal_pos
-		cam.fov = goal_fov
-		cam_look = goal_look
+		_sweep_t = 2.6
 	# Cut directly to the established celebration shot, never sweep through the court.
 	if closeup and not _was_closeup:
 		cam.position = goal_pos
@@ -1176,6 +1187,11 @@ func _physics_process(dt: float) -> void :
 		cam_look = goal_look
 	_was_closeup = closeup
 	var cam_k: float = 3.2 if closeup else 2.2
+	if _sweep_t > 0.0:
+		_sweep_t = maxf(0.0, _sweep_t - dt)
+		cam_k = 1.35
+		goal_pos.y += 4.5 * clampf(_sweep_t / 2.6, 0.0, 1.0)
+		goal_fov += 5.0
 	cam.position = cam.position.lerp(goal_pos, minf(1.0, dt * cam_k))
 	cam.fov = lerpf(cam.fov, goal_fov, minf(1.0, dt * cam_k))
 	cam_look = cam_look.lerp(goal_look, minf(1.0, dt * cam_k))
@@ -1186,8 +1202,14 @@ func _physics_process(dt: float) -> void :
 		cam.position.z = goal_pos.z + randf_range(-1.0, 1.0) * shake * 0.38
 	elif shake > 0.0:
 		shake = maxf(0.0, shake - dt)
-	# Recorta solo la grada proxima, nunca jugadores ni pelota.
-	cam.near = 16.0 if cam_mode == 1 and not closeup else 0.05
+	# Mitad lejana (modo pista): la posicion espejada queda empotrada en la grada del fondo;
+	# el plano cercano recorta solo esa grada. Muro, jugadores y bola quedan siempre visibles.
+	cam.near = 0.05 if closeup else (16.0 if cam_mode == 1 else (2.45 if not sim.pl[0].near else 0.05))
+	var fd_hide: bool = cam_mode == 0 and not sim.pl[0].near and not closeup and not replaying
+	if fd_hide != _fd_hidden:
+		_fd_hidden = fd_hide
+		for m in _far_dressing:
+			m.visible = not fd_hide
 	cam.look_at(cam_look)
 	if fill_light != null:
 		var fgoal: float = (0.95 if closeup else 0.0) if night_mode else 0.0
