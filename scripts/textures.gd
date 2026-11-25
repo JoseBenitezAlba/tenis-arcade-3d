@@ -6,9 +6,9 @@ const LINE_W_BASE: = 0.13
 const LINE_W_SIDE: = 0.085
 
 const THEMES: = {
-	"clay": {"court": Color("#805025"), "court2": Color("#79502a"), "surround": Color("#7c502a"), "out": Color("#76502b"), "out2": Color("#6b4729"), "line": Color("#f6f1e6")},
-	"hard": {"court": Color("#0d47a1"), "court2": Color("#0b3f91"), "surround": Color("#2e7d32"), "out": Color("#256b2a"), "out2": Color("#1e5a24"), "line": Color("#f4f6fa")},
-	"grass": {"court": Color("#3a6832"), "court2": Color("#355e2d"), "surround": Color("#1c341d"), "out": Color("#214022"), "out2": Color("#1a361c"), "line": Color("#f6f8f2")},
+	"clay": {"court": Color("#77431d"), "court2": Color("#6f3d1a"), "surround": Color("#5c3315"), "out": Color("#522e13"), "out2": Color("#422410"), "line": Color("#f6f1e6")},
+	"hard": {"court": Color("#0a3a85"), "court2": Color("#093478"), "surround": Color("#1c5424"), "out": Color("#184a20"), "out2": Color("#123a18"), "line": Color("#f4f6fa")},
+	"grass": {"court": Color("#2b4f22"), "court2": Color("#23421c"), "surround": Color("#152b17"), "out": Color("#183118"), "out2": Color("#11220f"), "line": Color("#f6f8f2")},
 }
 const NIGHT_THEMES: = {
 	"hard": {"court": Color("#173a5e"), "court2": Color("#143352"), "surround": Color("#2c5d32"), "out": Color("#28542d"), "out2": Color("#1f4325"), "line": Color("#f4f6fa")},
@@ -48,6 +48,21 @@ static func court_texture(surface: String, night: bool = false) -> ImageTexture:
 			z += 6.0
 			k += 1
 
+	if surface == "grass":
+		var gpatch: = Image.create(256, 512, false, Image.FORMAT_RGBA8)
+		for sy2 in 512:
+			var zz2: float = -4.0 + float(sy2) / 512.0 * 31.37
+			for sx2 in 256:
+				var xx2: float = -7.2 + float(sx2) / 256.0 * 14.4
+				var inside2: bool = absf(xx2) < 5.6 and zz2 > -0.15 and zz2 < L + 0.15
+				var bcol: Color = img.get_pixel(int(px_of.call(xx2)), int(py_of.call(zz2))) if inside2 else T.surround
+				var gn: float = 0.45 * _vnoise(xx2 * 4.2 + 30.0, zz2 * 4.2) + 0.55 * _vnoise(xx2 * 18.0, zz2 * 18.0 + 17.0)
+				var t2: Color = bcol.lerp(Color("#6a7a3a"), maxf(0.0, gn - 0.45) * 0.10)
+				t2 = t2.lerp(Color("#1e3818"), maxf(0.0, 0.48 - gn) * 0.09)
+				gpatch.set_pixel(sx2, sy2, t2)
+		gpatch.resize(w, h, Image.INTERPOLATE_BILINEAR)
+		img = gpatch
+
 	var rng: = RandomNumberGenerator.new()
 	rng.seed = 7
 	if surface == "clay":
@@ -60,17 +75,17 @@ static func court_texture(surface: String, night: bool = false) -> ImageTexture:
 				var inside: bool = absf(xx) < 5.6 and zz > -0.15 and zz < L + 0.15
 				var base: Color = T.court if inside else T.surround
 				var grain: float = 0.57 * _vnoise(xx * 1.2 + 12.0, zz * 1.2) + 0.28 * _vnoise(xx * 4.8, zz * 4.8) + 0.15 * _vnoise(xx * 15.0, zz * 15.0)
-				var tone: Color = base.lerp(Color("#bc8e55"), maxf(0.0, grain - 0.42) * 0.16)
-				tone = tone.lerp(Color("#4e321c"), maxf(0.0, 0.50 - grain) * 0.12)
+				var tone: Color = base.lerp(Color("#c08a4e"), maxf(0.0, grain - 0.42) * 0.20)
+				tone = tone.lerp(Color("#3c2410"), maxf(0.0, 0.50 - grain) * 0.15)
 				var baseline: float = exp(-pow(minf(absf(zz - 0.4), absf(zz - L + 0.4)), 2.0) / 1.4)
 				var lateral: float = 1.0 - smoothstep(2.4, 5.3, absf(xx))
-				tone = tone.lerp(Color("#9b703d"), baseline * lateral * grain * 0.10)
+				tone = tone.lerp(Color("#8a5c2c"), baseline * lateral * grain * 0.14)
 				soil.set_pixel(sx, sy, tone)
 		soil.resize(w, h, Image.INTERPOLATE_BILINEAR)
 		img = soil
 
 	elif surface == "grass":
-		var wear_c: = Color(0.33, 0.36, 0.20)
+		var wear_c: = Color(0.42, 0.40, 0.20)
 		for zc in [0.7, L - 0.7]:
 			var px0: int = int(px_of.call(-4.6))
 			var px1: int = int(px_of.call(4.6))
@@ -85,7 +100,7 @@ static func court_texture(surface: String, night: bool = false) -> ImageTexture:
 					if lat <= 0.0:
 						continue
 					var nse: float = 0.65 * _vnoise(wx * 1.7, zz * 1.7) + 0.35 * _vnoise(wx * 5.1 + 40.0, zz * 5.1)
-					var a: float = clampf(lat * dep * (0.30 + 0.70 * nse), 0.0, 1.0) * 0.14
+					var a: float = clampf(lat * dep * (0.30 + 0.70 * nse), 0.0, 1.0) * 0.30
 					if a > 0.004:
 						img.set_pixel(xx, yy, img.get_pixel(xx, yy).lerp(wear_c, a))
 	var _ss: float = 0.06 if surface == "clay" else 0.035
