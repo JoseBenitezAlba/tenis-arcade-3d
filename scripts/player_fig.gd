@@ -1683,6 +1683,15 @@ func _update_pose(e, dt: float) -> void:
 		_feet_follow_legs = true
 		_ready_stance()
 		position.y -= 0.045
+		# Vida continua en espera: traslado de peso y bote sutil de rodillas.
+		# Amplitudes pequenas para no romper apoyos ni metricas de suela.
+		_idle_t += dt
+		var sway: float = sin(_idle_t * 1.7)
+		var bounce: float = sin(_idle_t * 3.4)
+		rotation.z += 0.028 * sway
+		_serve_knees(0.05 * (0.5 + 0.5 * bounce))
+		position.y += 0.006 * bounce
+		_bend_torso(0.02 * sway)
 	# Espera de saque: brazo de raqueta relajado al costado (referencia Jose),
 	# fundido con carry_k para que suba con el inicio del saque sin salto.
 	if e.wait_serve and e.swing <= 0.0 and carry_k > 0.01:
