@@ -9,6 +9,21 @@ var rng: = RandomNumberGenerator.new()
 
 func _ready() -> void :
 	rng.seed = 5
+	# Red de seguridad: limitador en el bus master. El presupuesto de mezcla
+	# de play() mantiene las mezclas normales por debajo de su umbral; este
+	# solo actua ante solapes patologicos y garantiza techo de -0.3 dBFS.
+	# El bus es global: se instala una sola vez aunque se reinicie la escena.
+	var ya: = false
+	for i in AudioServer.get_bus_effect_count(0):
+		if AudioServer.get_bus_effect(0, i) is AudioEffectLimiter:
+			ya = true
+	if not ya:
+		var lim: = AudioEffectLimiter.new()
+		lim.threshold_db = 0.0
+		lim.ceiling_db = -0.3
+		lim.soft_clip_db = 2.0
+		lim.soft_clip_ratio = 10.0
+		AudioServer.add_bus_effect(0, lim)
 
 	streams["skid"] = _mix([{"n": 0.1, "vol": 0.35}], [{"f": 300.0, "d": 0.1, "vol": 0.1, "slide": -140.0, "w": "tri"}], 0.12)
 
@@ -255,10 +270,46 @@ func surf_name(base: String, surface: String) -> String:
 	var v: = base + "_" + surface
 	return v if streams.has(v) else base
 
+const MIX_SOLO: = 0.9
+const MIX_CEIL: = 1.3
+var _peaks: = {}
+var _active: = []
+
+
+func _peak_of(name: String) -> float:
+	if not _peaks.has(name):
+		var st: AudioStreamWAV = streams[name]
+		var pk: = 1
+		for i in st.data.size() / 2:
+			pk = maxi(pk, absi(st.data.decode_s16(i * 2)))
+		_peaks[name] = float(pk) / 32768.0
+	return _peaks[name]
+
+
 func play(name: String, vol: float = 1.0, pitch: float = 1.0) -> void :
 	if muted or not streams.has(name):
 		return
 	play_counts[name] = int(play_counts.get(name, 0)) + 1
+	# Techo de mezcla: ni un sfx solo ni la suma de simultaneos deben pasar
+	# de 0 dBFS (saturacion del publico en puntos calientes, video Jose 25-nov).
+	# MIX_SOLO limita cada capa; MIX_CEIL es presupuesto de suma de picos:
+	# las fuentes de ruido no correladas suman por debajo de ese tope
+	# (calibrado con tests/zz_audio.gd: la mezcla real queda ~ -1 dBFS).
+	# Si se supera, se reescalan la entrada y las capas activas por el mismo
+	# factor: se recorta el conjunto manteniendo el balance, no se apaga.
+	_active = _active.filter(func(a): return is_instance_valid(a["p"]) and a["p"].playing)
+	var pk: = _peak_of(name)
+	vol = minf(vol, MIX_SOLO / pk)
+	var sum: = vol * pk
+	for a in _active:
+		sum += a["prod"]
+	if sum > MIX_CEIL:
+		var s: = MIX_CEIL / sum
+		vol *= s
+		for a in _active:
+			a["vol"] *= s
+			a["prod"] = a["vol"] * a["pk"]
+			a["p"].volume_db = linear_to_db(maxf(a["vol"], 0.01))
 	var p: = AudioStreamPlayer.new()
 	p.stream = streams[name]
 	p.volume_db = linear_to_db(max(vol, 0.01))
@@ -268,3 +319,4 @@ func play(name: String, vol: float = 1.0, pitch: float = 1.0) -> void :
 	p.finished.connect(p.queue_free)
 	add_child(p)
 	p.play()
+	_active.append({"p": p, "pk": pk, "vol": vol, "prod": vol * pk})
