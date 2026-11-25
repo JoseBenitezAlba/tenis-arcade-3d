@@ -213,6 +213,7 @@ var replay_pending: = false
 var replay_i: = 0.0
 var replay_test: = false
 var replay_side: = 1.0
+var replay_anchor: = Vector3.ZERO
 const REC_MAX: = 2700
 
 func setup(cfg: Dictionary) -> void :
@@ -1322,15 +1323,21 @@ func _start_replay() -> void :
 
 
 
-	var side: = 1.0
-	if rec.size() > 0:
-		var fl: Dictionary = rec[rec.size() - 1]
-		side = -1.0 if fl.b.x < 0.0 else 1.0
-	replay_side = side
-	cam.position = Vector3(9.2 * side, 7.0, clampf(rec[0].b.z - NZ, -8.0, 8.0) * 0.55)
+	# Diagonal tipo VT: detras del ganador del punto (evento "point" -> _point_winner,
+	# fiable tambien en errores y dobles faltas), en el lado contrario a la silla
+	# del arbitro (x=-7), por delante de las gradas de fondo (z -10 / 29.4).
+	var w: int = _point_winner
+	if w < 0 or w > 1:
+		w = 0
+	var behind: = -1.0 if sim.pl[w].near else 1.0
+	replay_side = behind
+	replay_anchor = Vector3(4.2, 4.2, -5.0 if behind < 0.0 else L + 4.7)
+	# Asentamiento solo lateral/vertical: un desplazamiento en z hacia el fondo
+	# meteria el inicio del trayecto dentro de la grada (filas z 29.4+).
+	cam.position = replay_anchor + Vector3(1.4, 1.3, 0.0)
 	cam.fov = 42.0
 	cam.near = 0.05
-	cam.look_at(Vector3(rec[0].b.x * 0.7, 0.9, rec[0].b.z))
+	cam.look_at(Vector3(rec[0].b.x * 0.6, 0.8, rec[0].b.z))
 
 func _replay_tick(dt: float) -> void :
 	replay_i += dt * 36.0
@@ -1341,9 +1348,8 @@ func _replay_tick(dt: float) -> void :
 	var f: Dictionary = rec[idx]
 
 
-	var cam_target: = Vector3(8.6 * replay_side, 6.8, clampf(f.b.z - NZ, -6.5, 6.5) * 0.55)
-	cam.position = cam.position.lerp(cam_target, minf(1.0, dt * 2.6))
-	cam.look_at(Vector3(f.b.x * 0.75, 0.55, f.b.z))
+	cam.position = cam.position.lerp(replay_anchor, minf(1.0, dt * 2.6))
+	cam.look_at(Vector3(f.b.x * 0.6, 0.8, f.b.z))
 	if f.has("v0"):
 		rigs[0].restore_visual_pose(f.v0)
 		rigs[1].restore_visual_pose(f.v1)
