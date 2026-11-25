@@ -20,7 +20,7 @@ static func _box(sx: float, sy: float, sz: float, mat: Material) -> MeshInstance
 
 
 
-static func _fbx_figure(model: String, shirt: Color, pants: Color, skin: Color, anim: String, hair: = Color("#3a2a18"), head_scale: = 1.0) -> Node3D:
+static func _fbx_figure(model: String, shirt: Color, pants: Color, skin: Color, anim: String, hair: = Color("#3a2a18"), head_scale: = 1.0, seek_rng: = true) -> Node3D:
 	var ps: PackedScene = null
 	if ResourceLoader.exists(model):
 		ps = load(model) as PackedScene
@@ -75,7 +75,7 @@ static func _fbx_figure(model: String, shirt: Color, pants: Color, skin: Color, 
 				n.set_surface_override_material(i, mm)
 	ap.play(anim, 0.0)
 
-	ap.seek(randf() * 2.0, true)
+	ap.seek(randf() * 2.0 if seek_rng else 0.0, true)
 	if head_scale != 1.0:
 		var sk: = inst.find_child("Skeleton3D", true, false) as Skeleton3D
 		if sk:
@@ -160,6 +160,7 @@ static func build(surface: String, day_v = false) -> Node3D:
 	ground_mat.albedo_texture = TexGen.ground_texture(surface, tod == 1)
 	ground_mat.uv1_scale = Vector3(4, 4, 4)
 	ground_mat.roughness = 0.95
+	ground_mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	var ground: = MeshInstance3D.new()
 	var gp: = PlaneMesh.new()
 	gp.size = Vector2(56, 56)
@@ -172,12 +173,18 @@ static func build(surface: String, day_v = false) -> Node3D:
 	var court_len: = L + 7.6
 	var court_mat: = StandardMaterial3D.new()
 	court_mat.albedo_texture = TexGen.court_texture(surface, tod == 1)
-	court_mat.roughness = 0.94 if surface == "clay" else 0.62
-	court_mat.metallic_specular = 0.1
+	court_mat.roughness = 1.0
+	court_mat.metallic_specular = 0.06
+	var maps: = TexGen.surface_maps(surface)
+	court_mat.normal_enabled = true
+	court_mat.normal_texture = maps[0]
+	court_mat.normal_scale = 0.4 if surface == "clay" else (0.1 if surface == "hard" else 0.28)
+	court_mat.roughness_texture = maps[1]
+	court_mat.roughness_texture_channel = BaseMaterial3D.TEXTURE_CHANNEL_GRAYSCALE
+	court_mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	var court: = MeshInstance3D.new()
 	var cb: = PlaneMesh.new()
 	cb.size = Vector2(14.4, court_len)
-	court_mat.roughness = 0.94 if surface == "clay" else 0.62
 	cb.material = court_mat
 	court.mesh = cb
 	court.position = Vector3(0, 0.06, (L + 3.6 - 4.0) / 2.0)
@@ -240,23 +247,6 @@ static func build(surface: String, day_v = false) -> Node3D:
 	var strap: = _box(0.075, 0.92, 0.04, strap_mat)
 	strap.position = Vector3(0, 0.46, NZ)
 	root.add_child(strap)
-	var nsh_mat: = StandardMaterial3D.new()
-	nsh_mat.albedo_texture = TexGen.shadow_texture()
-	nsh_mat.albedo_color = Color(0, 0, 0, 0.38)
-	nsh_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	nsh_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	nsh_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-	var nsh: = MeshInstance3D.new()
-	var nshq: = QuadMesh.new()
-	nshq.size = Vector2(13.4, 0.9)
-	nshq.material = nsh_mat
-	nsh.mesh = nshq
-	nsh.rotation_degrees.x = -90.0
-	nsh.position = Vector3(0, 0.071, NZ + 0.15)
-	root.add_child(nsh)
-
-
-
 	var base_mat: = _mat(Color("#262c3a"))
 	for xp in [-6.4, 6.4]:
 		var pb: = MeshInstance3D.new()
@@ -510,9 +500,11 @@ static func build(surface: String, day_v = false) -> Node3D:
 		for tz in [-4.0, L + 4.0]:
 			var tower: = _box(0.45, 11.2, 0.45, tower_mat)
 			tower.position = Vector3(tx, 5.6, tz)
+			tower.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			root.add_child(tower)
 			var lamp: = _box(3.6, 2.3, 0.32, lamp_mat)
 			lamp.position = Vector3(tx, 11.0, tz)
+			lamp.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			root.add_child(lamp)
 
 
@@ -612,10 +604,15 @@ static func build(surface: String, day_v = false) -> Node3D:
 		e.fog_density = 0.0022
 		e.fog_sky_affect = 0.0
 	else:
+		e.glow_enabled = true
+		e.glow_intensity = 0.18
+		e.glow_bloom = 0.02
+		e.glow_blend_mode = Environment.GLOW_BLEND_MODE_ADDITIVE
+		e.glow_hdr_threshold = 1.15
 		e.adjustment_enabled = true
 		e.adjustment_brightness = 1.02
-		e.adjustment_contrast = 1.06
-		e.adjustment_saturation = 1.13
+		e.adjustment_contrast = 1.04
+		e.adjustment_saturation = 1.06
 	env.environment = e
 	root.add_child(env)
 
@@ -624,9 +621,14 @@ static func build(surface: String, day_v = false) -> Node3D:
 	sun.light_energy = 0.95 if tod == 0 else (1.25 if tod == 2 else 0.55)
 	sun.light_color = Color("#fff4e0") if tod == 0 else (Color("#ffc98a") if tod == 2 else Color("#c9d8ff"))
 	sun.shadow_enabled = tod != 1
-	sun.directional_shadow_max_distance = 65.0
-	sun.shadow_bias = 0.025
-	sun.shadow_normal_bias = 1.2
+	sun.shadow_opacity = 0.32
+	sun.shadow_blur = 1.15
+	sun.light_angular_distance = 1.0
+	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
+	sun.directional_shadow_blend_splits = true
+	sun.directional_shadow_max_distance = 60.0
+	sun.shadow_bias = 0.03
+	sun.shadow_normal_bias = 1.4
 	root.add_child(sun)
 
 
@@ -739,6 +741,17 @@ static func build(surface: String, day_v = false) -> Node3D:
 		jchair.add_child(judge)
 		_watchers.append({"fig": judge, "yaw": jchair.rotation.y, "body": 0.35})
 
+	var kid_skins: = [Color("#e8b98c"), Color("#c98d62"), Color("#9c6a42"), Color("#f0c9a0")]
+	var kid_i: = 0
+	for kx in [-7.0, 7.0]:
+		for kz in [NZ - 1.6, NZ + 1.6]:
+			var kid: = _fbx_figure("res://models/Casual_Hoodie.glb", Color("#2f6fb5"), Color("#eef2f6"), kid_skins[kid_i % kid_skins.size()], "tennis/Idle", Color("#2a2018"), 1.0, false)
+			kid.scale = Vector3.ONE * 0.84
+			kid.position = Vector3(kx, 0.0, kz)
+			kid.rotation.y = - signf(kx) * PI * 0.5
+			root.add_child(kid)
+			_watchers.append({"fig": kid, "yaw": kid.rotation.y, "body": 0.3})
+			kid_i += 1
 
 	for s in [-1, 1]:
 		var bench: = Node3D.new()

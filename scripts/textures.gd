@@ -2,8 +2,8 @@ class_name TexGen
 extends RefCounted
 
 
-const LINE_W_BASE: = 0.13
-const LINE_W_SIDE: = 0.085
+const LINE_W_BASE: = 0.095
+const LINE_W_SIDE: = 0.06
 
 const THEMES: = {
 	"clay": {"court": Color("#77431d"), "court2": Color("#6f3d1a"), "surround": Color("#5c3315"), "out": Color("#522e13"), "out2": Color("#422410"), "line": Color("#f6f1e6")},
@@ -84,6 +84,24 @@ static func court_texture(surface: String, night: bool = false) -> ImageTexture:
 		soil.resize(w, h, Image.INTERPOLATE_BILINEAR)
 		img = soil
 
+	elif surface == "hard":
+		var paint: = Image.create(256, 512, false, Image.FORMAT_RGBA8)
+		for sy3 in 512:
+			var zz3: float = -4.0 + float(sy3) / 512.0 * 31.37
+			for sx3 in 256:
+				var xx3: float = -7.2 + float(sx3) / 256.0 * 14.4
+				var inside3: bool = absf(xx3) < 5.6 and zz3 > -0.15 and zz3 < L + 0.15
+				var base3: Color = T.court if inside3 else T.surround
+				var grain3: float = 0.14 * _vnoise(xx3 * 6.0 + 5.0, zz3 * 6.0) + 0.30 * _vnoise(xx3 * 12.0, zz3 * 12.0 + 9.0) + 0.56 * _vnoise(xx3 * 30.0, zz3 * 30.0)
+				var tone3: Color = base3.lerp(Color("#2f6f9e"), maxf(0.0, grain3 - 0.50) * 0.10)
+				tone3 = tone3.lerp(Color("#06264f"), maxf(0.0, 0.50 - grain3) * 0.12)
+				var baseline3: float = exp(-pow(minf(absf(zz3 - 0.55), absf(zz3 - L + 0.55)), 2.0) / 2.6)
+				var lateral3: float = 1.0 - smoothstep(2.2, 5.2, absf(xx3))
+				tone3 = tone3.lerp(Color("#3a7196"), baseline3 * lateral3 * grain3 * 0.08)
+				paint.set_pixel(sx3, sy3, tone3)
+		paint.resize(w, h, Image.INTERPOLATE_BILINEAR)
+		img = paint
+
 	elif surface == "grass":
 		var wear_c: = Color(0.42, 0.40, 0.20)
 		for zc in [0.7, L - 0.7]:
@@ -103,12 +121,15 @@ static func court_texture(surface: String, night: bool = false) -> ImageTexture:
 					var a: float = clampf(lat * dep * (0.30 + 0.70 * nse), 0.0, 1.0) * 0.30
 					if a > 0.004:
 						img.set_pixel(xx, yy, img.get_pixel(xx, yy).lerp(wear_c, a))
-	var _ss: float = 0.06 if surface == "clay" else 0.035
-	for n in 14000:
-		var x: = rng.randi() % w
-		var y: = rng.randi() % h
+	var _ss: float = 0.075 if surface == "clay" else (0.045 if surface == "hard" else 0.03)
+	var speckles: int = 22000 if surface != "grass" else 13000
+	for n in speckles:
+		var x: = rng.randi() % (w - 2)
+		var y: = rng.randi() % (h - 2)
 		var c: = Color(1, 1, 1, rng.randf_range(_ss * 0.3, _ss)) if rng.randf() < 0.5 else Color(0, 0, 0, rng.randf_range(_ss * 0.3, _ss))
-		img.set_pixel(x, y, img.get_pixel(x, y).blend(c))
+		for dy in 2:
+			for dx in 2:
+				img.set_pixel(x + dx, y + dy, img.get_pixel(x + dx, y + dy).blend(c))
 
 	for n in 2400:
 		var zx: float = [0.6, L - 0.6, NZ - 1.2, NZ + 1.2][rng.randi() % 4]
@@ -157,8 +178,62 @@ static func court_texture(surface: String, night: bool = false) -> ImageTexture:
 	line.call(0, NZ - 6.4, 0, NZ + 6.4, LINE_W_SIDE)
 	line.call(0, 0, 0, 0.1, LINE_W_SIDE)
 	line.call(0, L, 0, L - 0.1, LINE_W_SIDE)
+	var wear_col: Color = T.court
+	for n in 1800:
+		var which: int = rng.randi() % 4
+		var lx: float = 0.0
+		var lz: float = 0.0
+		if which == 0:
+			lx = rng.randf_range(-5.485, 5.485)
+			lz = [0.0, L][rng.randi() % 2]
+		elif which == 1:
+			lx = [-4.115, 4.115, -5.485, 5.485][rng.randi() % 4]
+			lz = rng.randf_range(0.0, L)
+		elif which == 2:
+			lx = rng.randf_range(-4.115, 4.115)
+			lz = [NZ - 6.4, NZ + 6.4][rng.randi() % 2]
+		else:
+			lx = 0.0
+			lz = rng.randf_range(NZ - 6.4, NZ + 6.4)
+		var wx: int = int(px_of.call(lx + rng.randf_range(-0.06, 0.06)))
+		var wy: int = int(py_of.call(lz + rng.randf_range(-0.06, 0.06)))
+		if wx >= 0 and wx < w and wy >= 0 and wy < h:
+			img.set_pixel(wx, wy, img.get_pixel(wx, wy).lerp(wear_col, rng.randf_range(0.25, 0.6)))
 	img.generate_mipmaps()
 	return ImageTexture.create_from_image(img)
+
+static func surface_maps(surface: String) -> Array:
+	var w: = 128
+	var h: = 256
+	var heights: = PackedFloat32Array()
+	heights.resize(w * h)
+	var freq: float = 26.0 if surface == "grass" else (20.0 if surface == "clay" else 16.0)
+	for y in h:
+		var v: float = float(y) / h * 31.37 * 0.45
+		for x in w:
+			var u: float = float(x) / w * 14.4 * 0.45
+			heights[y * w + x] = 0.62 * _vnoise(u * freq, v * freq) + 0.38 * _vnoise(u * freq * 3.3 + 7.0, v * freq * 3.3)
+	var strength: float = 2.2 if surface == "clay" else (0.8 if surface == "hard" else 1.8)
+	var rough_base: float = 0.9 if surface == "clay" else (0.76 if surface == "hard" else 0.92)
+	var nimg: = Image.create(w, h, false, Image.FORMAT_RGB8)
+	var rimg: = Image.create(w, h, false, Image.FORMAT_RGB8)
+	for y in h:
+		var yd: int = (y - 1 + h) % h
+		var yu: int = (y + 1) % h
+		for x in w:
+			var xl: int = (x - 1 + w) % w
+			var xr: int = (x + 1) % w
+			var hl: float = heights[y * w + xl]
+			var hr: float = heights[y * w + xr]
+			var hu: float = heights[yu * w + x]
+			var hd: float = heights[yd * w + x]
+			var n: = Vector3((hl - hr) * strength, (hu - hd) * strength, 1.0).normalized()
+			nimg.set_pixel(x, y, Color(n.x * 0.5 + 0.5, n.y * 0.5 + 0.5, n.z * 0.5 + 0.5))
+			var rough: float = clampf(rough_base + (heights[y * w + x] - 0.5) * 0.16, 0.05, 1.0)
+			rimg.set_pixel(x, y, Color(rough, rough, rough))
+	nimg.generate_mipmaps()
+	rimg.generate_mipmaps()
+	return [ImageTexture.create_from_image(nimg), ImageTexture.create_from_image(rimg)]
 
 static func _hash2(x: int, y: int) -> float:
 	var n: int = x * 374761393 + y * 668265263
@@ -180,18 +255,26 @@ static func _vnoise(x: float, y: float) -> float:
 
 static func ground_texture(surface: String, night: bool = false) -> ImageTexture:
 	var T: Dictionary = NIGHT_THEMES[surface] if night and NIGHT_THEMES.has(surface) else THEMES[surface]
-	var w: = 512
-	var h: = 512
-	var img: = Image.create(w, h, false, Image.FORMAT_RGBA8)
-	for y in h:
-		var t: = float(y) / h
-		img.fill_rect(Rect2i(0, y, w, 1), T.out2.lerp(T.out, t))
+	var s: = 256
+	var small: = Image.create(s, s, false, Image.FORMAT_RGBA8)
+	for y in s:
+		var t: = float(y) / s
+		var base: Color = T.out2.lerp(T.out, t)
+		for x in s:
+			var gx: float = float(x) / s * 12.0
+			var gy: float = float(y) / s * 12.0
+			var grain: float = 0.62 * _vnoise(gx * 2.0, gy * 2.0) + 0.38 * _vnoise(gx * 9.0 + 3.0, gy * 9.0)
+			var col: Color = base.lerp(base.lightened(0.14), maxf(0.0, grain - 0.5) * 0.55)
+			col = col.lerp(base.darkened(0.14), maxf(0.0, 0.5 - grain) * 0.55)
+			small.set_pixel(x, y, col)
+	var img: = small.duplicate()
+	img.resize(512, 512, Image.INTERPOLATE_BILINEAR)
 	var rng: = RandomNumberGenerator.new()
 	rng.seed = 3
-	for n in 1400:
-		var x: = rng.randi() % w
-		var y: = rng.randi() % h
-		var c: = Color(1, 1, 1, rng.randf_range(0.02, 0.05)) if rng.randf() < 0.5 else Color(0, 0, 0, rng.randf_range(0.02, 0.06))
+	for n in 3200:
+		var x: = rng.randi() % 512
+		var y: = rng.randi() % 512
+		var c: = Color(1, 1, 1, rng.randf_range(0.015, 0.04)) if rng.randf() < 0.5 else Color(0, 0, 0, rng.randf_range(0.015, 0.045))
 		img.set_pixel(x, y, img.get_pixel(x, y).blend(c))
 	img.generate_mipmaps()
 	return ImageTexture.create_from_image(img)

@@ -6,7 +6,6 @@ extends RefCounted
 
 static func spec(nz: float) -> Array:
 	return [
-		[Vector3(0.0, 0.055, nz + 0.3), Vector2(13.4, 0.9), 0.16],
 		[Vector3(-7.0, 0.055, nz), Vector2(1.5, 1.4), 0.3],
 		[Vector3(10.8, 0.055, nz), Vector2(2.6, 1.4), 0.3],
 		[Vector3(-10.8, 0.055, nz), Vector2(2.6, 1.4), 0.3],

@@ -15,8 +15,12 @@ const SHORTS_MODEL: = "res://models/Casual_Hoodie.glb"
 const LOOKS: = [
 	{"shirt": "#2b7cd3", "shorts": "#1c2833", "skin": "#b07850", "hair": "#3a2a18"}, 
 	{"shirt": "#f2f2f2", "shorts": "#3d5a80", "skin": "#a06b42", "hair": "#141414"}, 
-	{"shirt": "#c93a32", "shorts": "#f2f2f2", "skin": "#b07850", "hair": "#1a1a1a"},
+	{"shirt": "#d94f8a", "shorts": "#f2f2f2", "skin": "#c98d62", "hair": "#2a1d12"},
 	{"shirt": "#f2a13c", "shorts": "#22303c", "skin": "#c98d62", "hair": "#7a4a1e"}, 
+	{"shirt": "#2f8f5b", "shorts": "#132a20", "skin": "#8a5a35", "hair": "#141414"},
+	{"shirt": "#7b4fc2", "shorts": "#f2f2f2", "skin": "#f0c9a0", "hair": "#7a4a1e"},
+	{"shirt": "#f2d23c", "shorts": "#1c2833", "skin": "#a06b42", "hair": "#2a1d12"},
+	{"shirt": "#1fb0c9", "shorts": "#1c2833", "skin": "#c98d62", "hair": "#3a2a18"},
 ]
 const P0: = {"shirt": "#c93a32", "shorts": "#f2f2f2", "skin": "#b07850", "hair": "#2a1d12"}
 const CHAR_SCALE: = 1.083
@@ -145,7 +149,7 @@ func _init(look: int, is_player0: bool) -> void :
 	_apply_look(pal)
 	_build_racket()
 	_build_closed_hand(Color(pal.skin))
-	_build_accessories()
+	_build_accessories(pal)
 	_cache_foot_geometry()
 	_cache_head_clearance()
 
@@ -280,10 +284,12 @@ static func _shorts_tapered(mesh_src: Mesh) -> ArrayMesh:
 		dup.surface_set_material(si, am.surface_get_material(si))
 	return dup
 
-func _build_accessories() -> void :
+func _build_accessories(pal: Dictionary) -> void :
 
 	var white: = _mat(Color("#f4f4f6"))
 	white.roughness = 0.95
+	var accent: = _mat(Color(pal.shirt).lightened(0.06))
+	accent.roughness = 0.9
 
 	var ba_h: = BoneAttachment3D.new()
 	ba_h.bone_name = "Head"
@@ -295,13 +301,12 @@ func _build_accessories() -> void :
 	tor.ring_segments = 20
 	tor.rings = 8
 	band.mesh = tor
-	band.material_override = white
+	band.material_override = accent
 	band.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	band.scale = Vector3.ONE * (1.0 / CHAR_SCALE)
 	band.position = Vector3(0, 0.15, 0)
 	ba_h.add_child(band)
-
-	for side in ["L"]:
+	for side in ["L", "R"]:
 		var ba: = BoneAttachment3D.new()
 		ba.bone_name = _bone_name(skel, "Wrist." + side)
 		skel.add_child(ba)
@@ -318,6 +323,44 @@ func _build_accessories() -> void :
 
 		wb.position = Vector3(0, 0.055, 0)
 		ba.add_child(wb)
+
+	# Calcetines: cilindro pegado a la espinilla y banda del color del kit.
+	for side in ["L", "R"]:
+		var ll: int = skel.find_bone(_bone_name(skel, "LowerLeg." + side))
+		var ft: int = skel.find_bone(_bone_name(skel, "Foot." + side))
+		if ll < 0 or ft < 0:
+			continue
+		var lr: Transform3D = skel.get_bone_global_rest(ll)
+		var fr: Transform3D = skel.get_bone_global_rest(ft)
+		var down: Vector3 = (lr.basis.inverse() * (fr.origin - lr.origin)).normalized()
+		var axis: Basis = Basis(Quaternion(Vector3.UP, down))
+		var ba_s: = BoneAttachment3D.new()
+		ba_s.bone_name = skel.get_bone_name(ll)
+		skel.add_child(ba_s)
+		var sock: = MeshInstance3D.new()
+		var cm: = CylinderMesh.new()
+		cm.top_radius = 0.075
+		cm.bottom_radius = 0.055
+		cm.height = 0.24
+		cm.radial_segments = 16
+		cm.rings = 1
+		sock.mesh = cm
+		sock.material_override = white
+		sock.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		sock.transform = Transform3D(axis, down * 0.38)
+		ba_s.add_child(sock)
+		var stripe: = MeshInstance3D.new()
+		var sm: = CylinderMesh.new()
+		sm.top_radius = 0.077
+		sm.bottom_radius = 0.077
+		sm.height = 0.025
+		sm.radial_segments = 16
+		sm.rings = 1
+		stripe.mesh = sm
+		stripe.material_override = accent
+		stripe.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		stripe.transform = Transform3D(axis, down * 0.265)
+		ba_s.add_child(stripe)
 
 var shoe_mats: Array = []
 var foot_bones: Array = []
@@ -1683,15 +1726,16 @@ func _update_pose(e, dt: float) -> void:
 		_feet_follow_legs = true
 		_ready_stance()
 		position.y -= 0.045
-		# Vida continua en espera: traslado de peso y bote sutil de rodillas.
-		# Amplitudes pequenas para no romper apoyos ni metricas de suela.
-		_idle_t += dt
-		var sway: float = sin(_idle_t * 1.7)
-		var bounce: float = sin(_idle_t * 3.4)
-		rotation.z += 0.028 * sway
-		_serve_knees(0.05 * (0.5 + 0.5 * bounce))
-		position.y += 0.006 * bounce
-		_bend_torso(0.02 * sway)
+		if not point_finished_visual:
+			# Vida continua en espera: traslado de peso y bote sutil de rodillas.
+			# Amplitudes pequenas para no romper apoyos ni metricas de suela.
+			_idle_t += dt
+			var sway: float = sin(_idle_t * 1.7)
+			var bounce: float = sin(_idle_t * 3.4)
+			rotation.z += 0.028 * sway
+			_serve_knees(0.05 * (0.5 + 0.5 * bounce))
+			position.y += 0.006 * bounce
+			_bend_torso(0.02 * sway)
 	# Espera de saque: brazo de raqueta relajado al costado (referencia Jose),
 	# fundido con carry_k para que suba con el inicio del saque sin salto.
 	if e.wait_serve and e.swing <= 0.0 and carry_k > 0.01:

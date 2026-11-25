@@ -36,10 +36,39 @@ func _init(p_sfx: SoundKit) -> void :
 
 func _ready() -> void :
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	var bg: = ColorRect.new()
-	bg.color = Color("#070a14")
+	var bg: = TextureRect.new()
+	var grad: = Gradient.new()
+	grad.offsets = PackedFloat32Array([0.0, 0.52, 1.0])
+	grad.colors = PackedColorArray([Color("#15265a"), Color("#080d1e"), Color("#03050c")])
+	var gt: = GradientTexture2D.new()
+	gt.gradient = grad
+	gt.fill_from = Vector2(0.5, 0.0)
+	gt.fill_to = Vector2(0.5, 1.0)
+	gt.width = 4
+	gt.height = 256
+	bg.texture = gt
+	bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	bg.stretch_mode = TextureRect.STRETCH_SCALE
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(bg)
+	var vg: = TextureRect.new()
+	var vgrad: = Gradient.new()
+	vgrad.offsets = PackedFloat32Array([0.0, 0.58, 1.0])
+	vgrad.colors = PackedColorArray([Color(0, 0, 0, 0), Color(0, 0, 0, 0.06), Color(0, 0, 0, 0.62)])
+	var vt: = GradientTexture2D.new()
+	vt.gradient = vgrad
+	vt.fill = GradientTexture2D.FILL_RADIAL
+	vt.fill_from = Vector2(0.5, 0.46)
+	vt.fill_to = Vector2(0.94, 0.46)
+	vt.width = 256
+	vt.height = 256
+	vg.texture = vt
+	vg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	vg.stretch_mode = TextureRect.STRETCH_SCALE
+	vg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	vg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(vg)
 	var scroll: = ScrollContainer.new()
 	scroll.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(scroll)
