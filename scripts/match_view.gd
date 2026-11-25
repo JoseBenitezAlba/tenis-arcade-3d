@@ -1157,10 +1157,13 @@ func _physics_process(dt: float) -> void :
 		if push > 0.0 and cam_mode != 1:
 			goal_pos = goal_pos.lerp(Vector3(goal_pos.x, goal_pos.y - 0.18, NZ), 0.06 * push)
 			goal_fov -= 2.5 * push
-	# Al cambiar de lado la cámara cruza la red en un barrido alto, no un corte.
+	# Al cambiar de lado, corte directo al nuevo extremo: el barrido interpolado
+	# atravesaba la grada y dejaba segundos de pantalla vacia (video de Jose 25-nov).
 	if _cam_near != sim.pl[0].near:
 		_cam_near = sim.pl[0].near
-		_sweep_t = 2.6
+		cam.position = goal_pos
+		cam.fov = goal_fov
+		cam_look = goal_look
 	# Cut directly to the established celebration shot, never sweep through the court.
 	if closeup and not _was_closeup:
 		cam.position = goal_pos
@@ -1173,11 +1176,6 @@ func _physics_process(dt: float) -> void :
 		cam_look = goal_look
 	_was_closeup = closeup
 	var cam_k: float = 3.2 if closeup else 2.2
-	if _sweep_t > 0.0:
-		_sweep_t = maxf(0.0, _sweep_t - dt)
-		cam_k = 1.35
-		goal_pos.y += 4.5 * clampf(_sweep_t / 2.6, 0.0, 1.0)
-		goal_fov += 5.0
 	cam.position = cam.position.lerp(goal_pos, minf(1.0, dt * cam_k))
 	cam.fov = lerpf(cam.fov, goal_fov, minf(1.0, dt * cam_k))
 	cam_look = cam_look.lerp(goal_look, minf(1.0, dt * cam_k))
